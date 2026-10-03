@@ -54,7 +54,10 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
 
       <footer class="compose-foot">
         <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <button type="button" class="btn btn-cta copy-btn" data-action="copy-mail">${ICON.copy}<span>복사하기</span></button>
+        <div class="foot-actions">
+          <button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.fix}자료 상태 변경</button>
+          <button type="button" class="btn btn-cta copy-btn" data-action="copy-mail">${ICON.copy}<span>복사하기</span></button>
+        </div>
       </footer>
 
       ${toast ? `

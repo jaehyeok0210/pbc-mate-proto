@@ -3,7 +3,7 @@
 
 import { formatMD, formatMDW, daysBetween } from '../lib/dates.js';
 import { riskOf, leftText } from '../lib/priority.js';
-import { STATUS_OPTIONS, parsePaste, rowErrorText, leftOf, normalizeDate } from '../lib/add.js';
+import { parsePaste, rowErrorText, leftOf, normalizeDate } from '../lib/add.js';
 import { esc, ICON, RISK_LABEL } from './html.js';
 
 export const PASTE_EXAMPLE = [
@@ -63,9 +63,6 @@ function singleForm(state, today, form, errors) {
     <button type="button" class="owner-chip" data-action="pick-owner" data-owner="${esc(o)}" data-dept="${esc(state.people[o].dept || '')}">${esc(o)}</button>`).join('');
   const procedures = [...new Set(state.items.map((x) => x.procedure).filter(Boolean))];
 
-  const statusOptions = STATUS_OPTIONS.map((o) =>
-    `<option value="${o.key}" ${(form.status || 'none') === o.key ? 'selected' : ''}>${o.label}</option>`).join('');
-
   return `
     <form id="add-form" class="add-single" data-action-submit="add-single" novalidate>
       <div class="add-col">
@@ -80,10 +77,7 @@ function singleForm(state, today, form, errors) {
           ${owners.length ? `<div class="recent-owners"><span>최근 담당자</span>${chips}</div>` : ''}
         </div>
         ${field('요청일', 'requestedOn', form.requestedOn ?? today, { type: 'date', error: errors.requestedOn })}
-        <label class="f">
-          <span class="f-label">상태</span>
-          <select name="status">${statusOptions}</select>
-        </label>
+        <div class="need-note">새 자료는 ‘미회신’으로 시작해요. 받은 뒤에는 자료 화면에서 상태를 바꿔요.</div>
       </div>
 
       <div class="add-col need-panel">
@@ -120,7 +114,7 @@ function pasteForm(state, today, pasteText) {
         <textarea name="paste" rows="5" data-action-input="paste" placeholder="${esc(PASTE_EXAMPLE)}" spellcheck="false">${esc(pasteText)}</textarea>
       </label>
       <div class="paste-preview">${pastePreview(parsePaste(pasteText, today), today)}</div>
-      <div class="need-note">담당자는 기존 목록과 이름이 같으면 자동으로 묶여요 · 상태는 모두 ‘미회신’으로 들어가요</div>
+      <div class="need-note">담당자는 기존 목록과 이름이 같으면 자동으로 묶여요 · 모두 ‘미회신’으로 시작해요</div>
     </div>`;
 }
 

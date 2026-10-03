@@ -16,6 +16,7 @@
 
 import { addDays } from './lib/dates.js';
 import { fixSummary } from './lib/fix.js';
+import { transitionItem } from './lib/status.js';
 
 const KEY = 'pbc-mate:v1';
 
@@ -162,4 +163,27 @@ export function addItems(state, values) {
       : { dept: person.dept || '', nudges: 0, lastNudgedOn: null };
   }
   return { ...state, people, items };
+}
+
+/**
+ * 예시 자료 없이 직접 시작할 때의 빈 state. demoDate가 없어 실제 오늘(또는 ?today=) 기준으로 계산된다.
+ */
+export function createEmptyState({ clientName, engagement }) {
+  return {
+    client: { name: String(clientName).trim(), engagement: String(engagement).trim() },
+    team: { manager: null },
+    people: {},
+    items: [],
+  };
+}
+
+/**
+ * 자료 상태를 바꾼다 (transitionItem 규칙). 원래 state는 바꾸지 않는다.
+ * change: { status, reason?, basisDate?, requiredBasisDate? }
+ */
+export function updateItemStatus(state, itemId, change, on) {
+  return {
+    ...state,
+    items: state.items.map((x) => (x.id === itemId ? transitionItem(x, change, on) : x)),
+  };
 }

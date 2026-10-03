@@ -49,11 +49,12 @@ test('필수값 누락·형식 오류는 저장 불가', () => {
   assert.match(badDate.errors.neededOn, /형식/);
 });
 
-test('상태 기본값은 미회신, 감사 절차는 선택', () => {
+test('새 자료는 항상 미회신으로 시작, 감사 절차는 선택', () => {
   const { value } = validateItem({ ...good, status: undefined, procedure: '' }, BASE);
   assert.equal(value.item.status, 'none');
   assert.equal('procedure' in value.item, false);
-  assert.equal(validateItem({ ...good, status: 'part' }, BASE).value.item.status, 'part');
+  // 상태를 넘겨도 무시한다 (상태는 이후 상태 변경 기능으로)
+  assert.equal(validateItem({ ...good, status: 'done' }, BASE).value.item.status, 'none');
 });
 
 test('감사 절차가 없으면 메일 근거 문장에 기본 문구를 쓴다', () => {

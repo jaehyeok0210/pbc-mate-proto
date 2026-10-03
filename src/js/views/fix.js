@@ -94,7 +94,10 @@ export function renderFix(state, { today, itemId, reason, copied, toast }) {
 
       <footer class="compose-foot">
         <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <button type="button" class="btn btn-cta copy-btn" data-action="copy-fix">${ICON.copy}<span>재요청 메일 복사</span></button>
+        <div class="foot-actions">
+          <button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.done}수령 처리</button>
+          <button type="button" class="btn btn-cta copy-btn" data-action="copy-fix">${ICON.copy}<span>재요청 메일 복사</span></button>
+        </div>
       </footer>
 
       ${toast ? `

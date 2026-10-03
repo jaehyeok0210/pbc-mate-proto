@@ -3,13 +3,6 @@
 
 import { daysBetween } from './dates.js';
 
-export const STATUS_OPTIONS = [
-  { key: 'none', label: '미회신' },
-  { key: 'part', label: '일부 수령' },
-  { key: 'fix', label: '보완 요청' },
-  { key: 'done', label: '완료' },
-];
-
 /**
  * 날짜 문자열 → 'YYYY-MM-DD'. 못 읽으면 null.
  * 허용: 2026-09-30 · 2026.9.30 · 2026. 9. 30. · 2026/9/30 · 9/30 (연도는 baseDate 기준)
@@ -39,7 +32,8 @@ export function ownerName(name, title) {
 
 /**
  * 한 건 입력값 검증.
- * fields: { name, ownerName, ownerTitle?, dept?, requestedOn, neededOn, procedure?, status? }
+ * fields: { name, ownerName, ownerTitle?, dept?, requestedOn, neededOn, procedure? }
+ * 새 요청 자료는 항상 '미회신'으로 시작한다. 이후 상태는 상태 변경 기능으로 바꾼다.
  * @returns {{ errors: Record<string,string>, value: object | null }}
  */
 export function validateItem(fields, baseDate) {
@@ -56,7 +50,6 @@ export function validateItem(fields, baseDate) {
   if (!String(fields.neededOn ?? '').trim()) errors.neededOn = '필요일을 입력해 주세요.';
   else if (!neededOn) errors.neededOn = '날짜 형식을 확인해 주세요. 예: 2026-10-07';
 
-  const status = STATUS_OPTIONS.some((o) => o.key === fields.status) ? fields.status : 'none';
   if (Object.keys(errors).length) return { errors, value: null };
 
   const procedure = String(fields.procedure ?? '').trim();
@@ -64,7 +57,7 @@ export function validateItem(fields, baseDate) {
   return {
     errors,
     value: {
-      item: { name, owner, requestedOn, neededOn, status, ...(procedure && { procedure }), nudges: [] },
+      item: { name, owner, requestedOn, neededOn, status: 'none', ...(procedure && { procedure }), nudges: [] },
       person: { owner, dept },
     },
   };

@@ -1,6 +1,12 @@
 // 8. 빈 상태 · 첫 실행 — 레퍼런스 8
+// 예시 자료로 시작하거나, 클라이언트명·감사명을 넣고 직접 시작한다.
 
-export function renderEmpty() {
+import { esc } from './html.js';
+
+/**
+ * @param form { clientName, engagement, errors }
+ */
+export function renderEmpty({ clientName = '', engagement = '', errors = {} } = {}) {
   return `
     <div class="page empty">
       <header class="topbar">
@@ -20,11 +26,25 @@ export function renderEmpty() {
         </div>
         <h1>요청한 자료를 필요일 기준으로 챙겨드려요</h1>
         <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 재촉 메일 초안까지 만들어요.</p>
+
+        <form class="empty-form" id="engagement-form" novalidate>
+          <label class="f ${errors.clientName ? 'has-error' : ''}">
+            <span class="f-label">클라이언트명</span>
+            <input type="text" name="clientName" value="${esc(clientName)}" placeholder="예: ㈜한빛전자" autocomplete="organization">
+            ${errors.clientName ? `<span class="f-error">${esc(errors.clientName)}</span>` : ''}
+          </label>
+          <label class="f ${errors.engagement ? 'has-error' : ''}">
+            <span class="f-label">감사명</span>
+            <input type="text" name="engagement" value="${esc(engagement)}" placeholder="예: 2026 기말감사" autocomplete="off">
+            ${errors.engagement ? `<span class="f-error">${esc(errors.engagement)}</span>` : ''}
+          </label>
+        </form>
+
         <div class="empty-actions">
           <button type="button" class="btn btn-cta" data-action="load-sample">예시 자료로 시작</button>
-          <button type="button" class="btn btn-sub" data-action="todo" data-what="자료 추가">직접 추가</button>
+          <button type="button" class="btn btn-sub" data-action="start-blank" data-target="add">직접 추가</button>
         </div>
-        <button type="button" class="link" data-action="todo" data-what="엑셀 붙여넣기">엑셀에서 요청 목록 붙여넣기</button>
+        <button type="button" class="link" data-action="start-blank" data-target="paste">엑셀에서 요청 목록 붙여넣기</button>
       </main>
 
       <section class="steps">

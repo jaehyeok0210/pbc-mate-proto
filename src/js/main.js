@@ -12,7 +12,9 @@ import { parseNow, clockOf } from './lib/timing.js';
 import { validateItem, parsePaste } from './lib/add.js';
 import { josa } from './lib/korean.js';
 import { buildReport, reportToText, reportToCsv, csvFileName } from './lib/report.js';
-import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems } from './store.js';
+import { validateTransition } from './lib/status.js';
+import { validateEngagement } from './lib/engagement.js';
+import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
 import { renderCompose } from './views/compose.js';
@@ -20,6 +22,7 @@ import { renderBundle } from './views/bundle.js';
 import { renderFix } from './views/fix.js';
 import { renderAdd, pastePreview, pasteSubmit } from './views/add.js';
 import { renderReport } from './views/report.js';
+import { renderStatusSheet } from './views/status.js';
 
 // ?today=2026-10-01 처럼 기준일을 직접 지정해 확인할 수 있다.
 // ?now=2026-10-02T17:20 은 날짜와 시각을 함께 지정한다 (발송 시점 안내 확인용).
@@ -34,6 +37,8 @@ let compose = null; // 단건 독촉 화면 상태: { itemId, tone, copied, toas
 let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast }
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
+let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
+let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 화면 입력값
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -58,13 +63,13 @@ function currentBundle(today) {
 }
 
 function render() {
-  if (!state) { app.innerHTML = renderEmpty(); return; }
+  if (!state) { app.innerHTML = renderEmpty(emptyForm); return; }
   const today = currentToday();
   const isDemo = !todayParam && Boolean(state.demoDate);
 
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
-    compose = bundle = fix = add = null;
+    compose = bundle = fix = add = sheet = null;
     app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo });
     document.body.classList.remove('has-drawer');
     return;
@@ -111,6 +116,14 @@ function render() {
     html += renderAdd(state, { today, ...add });
   } else {
     add = null;
+  }
+
+  // 상태 변경 시트는 단건 독촉·보완 요청 패널이 열려 있을 때만 그 위에 뜬다.
+  const sheetItem = sheet && (item || fixItem) && state.items.find((x) => x.id === sheet.itemId);
+  if (sheetItem && sheetItem.status !== 'done') {
+    html += renderStatusSheet(sheetItem, sheet, today);
+  } else {
+    sheet = null;
   }
 
   const focusedTone = document.activeElement?.dataset?.tone;
@@ -179,7 +192,62 @@ async function copyForDrawer(view, { itemIds, text }, record) {
 const actions = {
   'set-mode': (el) => { mode = el.dataset.mode; render(); },
   'load-sample': () => { state = sampleState(); save(state); render(); },
-  todo: (el) => toast(`‘${el.dataset.what}’ 화면은 다음 단계에서 만들어요.`),
+
+  // 첫 실행: 클라이언트명·감사명을 넣고 빈 state로 시작 → 자료 추가 화면으로
+  'start-blank': (el) => {
+    const form = document.getElementById('engagement-form');
+    emptyForm = { clientName: form.clientName.value, engagement: form.engagement.value, errors: {} };
+    emptyForm.errors = validateEngagement(emptyForm);
+    if (Object.keys(emptyForm.errors).length) {
+      render();
+      app.querySelector('.empty-form .has-error input')?.focus();
+      return;
+    }
+    state = createEmptyState(emptyForm);
+    save(state);
+    emptyForm = { clientName: '', engagement: '', errors: {} };
+    location.hash = el.dataset.target === 'paste' ? '#/add/paste' : '#/add';
+    render();
+  },
+
+  // 자료 상태 변경 시트
+  'open-status': (el) => {
+    sheet = { itemId: el.dataset.item, status: null, reason: null, basisDate: '', requiredBasisDate: '', errors: {} };
+    render();
+  },
+  'close-status': () => { sheet = null; render(); },
+  'pick-status': (el) => {
+    readSheetDates();
+    sheet.status = el.dataset.status;
+    sheet.errors = {};
+    if (sheet.status === 'fix' && !sheet.reason) sheet.reason = 'date';
+    render();
+  },
+  'pick-fix-reason': (el) => { readSheetDates(); sheet.reason = el.dataset.reason; sheet.errors = {}; render(); },
+  'save-status': () => {
+    readSheetDates();
+    const item = state.items.find((x) => x.id === sheet.itemId);
+    const change = { status: sheet.status, reason: sheet.reason, basisDate: sheet.basisDate, requiredBasisDate: sheet.requiredBasisDate };
+    sheet.errors = validateTransition(item, change);
+    if (Object.keys(sheet.errors).length) { render(); return; }
+
+    state = updateItemStatus(state, item.id, change, currentToday());
+    save(state);
+    sheet = null;
+    const name = `‘${item.name}’${josa(item.name, '을', '를')}`;
+    if (change.status === 'done') {
+      closeDrawer();
+      toast(`${name} 완료로 처리했어요.`);
+    } else if (change.status === 'fix') {
+      location.hash = `#/fix/${encodeURIComponent(item.id)}`;
+      render();
+      toast(`${name} 보완 요청으로 바꿨어요. 사유에 맞는 재요청 메일을 준비했어요.`);
+    } else {
+      location.hash = `#/compose/${encodeURIComponent(item.id)}`;
+      render();
+      toast(`${name} 일부 수령으로 바꿨어요. 나머지는 계속 독촉할 수 있어요.`);
+    }
+  },
 
   'set-tone': (el) => { compose.tone = el.dataset.tone; compose.copied = false; render(); },
   'close-compose': closeDrawer,
@@ -254,10 +322,18 @@ const actions = {
   },
 };
 
+// 시트의 기준일 입력값을 상태에 옮겨 둔다 (다시 그려도 입력이 남도록)
+function readSheetDates() {
+  const root = document.querySelector('.sheet');
+  if (!root || !sheet) return;
+  sheet.basisDate = root.querySelector('[name="basisDate"]')?.value ?? sheet.basisDate;
+  sheet.requiredBasisDate = root.querySelector('[name="requiredBasisDate"]')?.value ?? sheet.requiredBasisDate;
+}
+
 function readAddForm() {
   const form = document.getElementById('add-form');
   if (!form) return add?.form || {};
-  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure', 'status']
+  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure']
     .map((k) => [k, form[k]?.value ?? '']));
 }
 
@@ -306,10 +382,12 @@ app.addEventListener('click', (e) => {
 window.addEventListener('hashchange', render);
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && (compose || bundle || fix || add)) closeDrawer();
+  if (e.key !== 'Escape') return;
+  if (sheet) { sheet = null; render(); return; }
+  if (compose || bundle || fix || add) closeDrawer();
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = null; bundle = null; fix = null; add = null; render(); } };
+window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = null; render(); } };
 
 render();
