@@ -1,6 +1,6 @@
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
 // 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
-//           #/fix/<자료id> 보완 요청
+//           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭)
 
 import { todayISO } from './lib/dates.js';
 import { withDays } from './lib/priority.js';
@@ -9,12 +9,15 @@ import { buildMail, mailToText } from './lib/mail.js';
 import { bundleItems, bundleTone, buildBundleMail, bundleMailToText } from './lib/bundle.js';
 import { canOpenFix, currentFixReason, buildFixMail, fixMailToText } from './lib/fix.js';
 import { parseNow, clockOf } from './lib/timing.js';
-import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix } from './store.js';
+import { validateItem, parsePaste } from './lib/add.js';
+import { josa } from './lib/korean.js';
+import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
 import { renderCompose } from './views/compose.js';
 import { renderBundle } from './views/bundle.js';
 import { renderFix } from './views/fix.js';
+import { renderAdd, pastePreview, pasteSubmit } from './views/add.js';
 
 // ?today=2026-10-01 처럼 기준일을 직접 지정해 확인할 수 있다.
 // ?now=2026-10-02T17:20 은 날짜와 시각을 함께 지정한다 (발송 시점 안내 확인용).
@@ -28,6 +31,7 @@ let mode = 'need';
 let compose = null; // 단건 독촉 화면 상태: { itemId, tone, copied, toast }
 let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast }
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
+let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -90,10 +94,18 @@ function render() {
     fix = null;
   }
 
+  const addRoute = location.hash === '#/add' || location.hash === '#/add/paste';
+  if (addRoute) {
+    if (!add) add = { tab: location.hash.endsWith('/paste') ? 'paste' : 'single', form: {}, errors: {}, pasteText: '' };
+    html += renderAdd(state, { today, ...add });
+  } else {
+    add = null;
+  }
+
   const focusedTone = document.activeElement?.dataset?.tone;
   const focusedReason = document.activeElement?.dataset?.reason;
   app.innerHTML = html;
-  document.body.classList.toggle('has-drawer', Boolean(item || b || fix));
+  document.body.classList.toggle('has-drawer', Boolean(item || b || fix || add));
   // 톤·사유를 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
   if (focusedTone) {
     [...app.querySelectorAll(`[data-tone="${focusedTone}"]`)].find((b) => b.offsetParent)?.focus();
@@ -171,6 +183,32 @@ const actions = {
     return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
   },
   'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; render(); },
+
+  // 자료 추가
+  'add-tab': (el) => {
+    if (add.tab === 'single') add.form = readAddForm();
+    add.tab = el.dataset.tab;
+    add.errors = {};
+    render();
+  },
+  'pick-owner': (el) => {
+    const [name, ...title] = el.dataset.owner.split(' ');
+    const form = document.getElementById('add-form');
+    form.ownerName.value = name;
+    form.ownerTitle.value = title.join(' ');
+    if (!form.dept.value) form.dept.value = el.dataset.dept;
+    form.ownerName.focus();
+  },
+  'add-paste': () => {
+    const today = currentToday();
+    const parsed = parsePaste(add.pasteText, today);
+    if (!parsed.rows.length || parsed.errorCount) return;
+    state = addItems(state, parsed.rows.map((r) => r.value));
+    save(state);
+    add = null;
+    closeDrawer();
+    toast(`${parsed.rows.length}건 추가했어요.`);
+  },
   'copy-fix': () => {
     const today = currentToday();
     const item = withDays(state.items.find((x) => x.id === fix.itemId), today);
@@ -189,6 +227,48 @@ const actions = {
   },
 };
 
+function readAddForm() {
+  const form = document.getElementById('add-form');
+  if (!form) return add?.form || {};
+  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure', 'status']
+    .map((k) => [k, form[k]?.value ?? '']));
+}
+
+// 한 건 저장: 검증에 걸리면 입력값을 유지한 채 오류를 보여준다.
+app.addEventListener('submit', (e) => {
+  if (e.target.dataset.actionSubmit !== 'add-single') return;
+  e.preventDefault();
+  const today = currentToday();
+  add.form = readAddForm();
+  const { errors, value } = validateItem(add.form, today);
+  add.errors = errors;
+  if (!value) {
+    render();
+    app.querySelector('.f.has-error input')?.focus();
+    return;
+  }
+  state = addItems(state, [value]);
+  save(state);
+  add = null;
+  closeDrawer();
+  toast(`‘${value.item.name}’${josa(value.item.name, '을', '를')} 추가했어요.`);
+});
+
+// 붙여넣기: 입력할 때마다 미리보기와 저장 버튼만 갱신한다 (textarea 포커스 유지).
+app.addEventListener('input', (e) => {
+  if (e.target.dataset.actionInput === 'paste') {
+    add.pasteText = e.target.value;
+    const parsed = parsePaste(add.pasteText, currentToday());
+    app.querySelector('.paste-preview').innerHTML = pastePreview(parsed, currentToday());
+    app.querySelector('.modal-foot .btn-cta').outerHTML = pasteSubmit(parsed);
+  } else if (e.target.name === 'neededOn' && e.target.form?.id === 'add-form') {
+    add.form = readAddForm();
+    add.errors = {};
+    render();
+    app.querySelector('[name="neededOn"]')?.focus();
+  }
+});
+
 app.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
@@ -199,10 +279,10 @@ app.addEventListener('click', (e) => {
 window.addEventListener('hashchange', render);
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && (compose || bundle || fix)) closeDrawer();
+  if (e.key === 'Escape' && (compose || bundle || fix || add)) closeDrawer();
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = null; bundle = null; fix = null; render(); } };
+window.pbc = { reset() { clear(); state = null; compose = null; bundle = null; fix = null; add = null; render(); } };
 
 render();

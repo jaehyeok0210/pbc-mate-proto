@@ -140,3 +140,26 @@ export function copyAndRecord(state, { itemIds, tone, on, text }, copy) {
 export function copyAndRecordFix(state, { itemId, reason, on, text }, copy) {
   return copyThenApply(state, text, copy, (s) => recordFix(s, itemId, reason, on));
 }
+
+/**
+ * 자료를 추가한다. values: validateItem()의 value 배열 [{ item, person }].
+ * 담당자 이름이 기존과 같으면 같은 담당자로 묶이고(people 항목 재사용),
+ * 새 담당자면 people에 추가한다. 부서는 기존 값이 없을 때만 채운다.
+ */
+export function addItems(state, values) {
+  const people = { ...state.people };
+  const items = [...state.items];
+  const used = new Set(items.map((x) => x.id));
+  let n = items.length + 1;
+  for (const { item, person } of values) {
+    while (used.has(`i${n}`)) n += 1;
+    const id = `i${n}`;
+    used.add(id);
+    items.push({ id, ...item });
+    const existing = people[person.owner];
+    people[person.owner] = existing
+      ? { ...existing, dept: existing.dept || person.dept || '' }
+      : { dept: person.dept || '', nudges: 0, lastNudgedOn: null };
+  }
+  return { ...state, people, items };
+}

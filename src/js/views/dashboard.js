@@ -51,9 +51,9 @@ function header(client, today, isDemo) {
       ${isDemo ? `<span class="demo-date">시연 기준일 ${today.replaceAll('-', '.')}</span>` : ''}
       <div class="topbar-end">
         <span class="today">${formatKoreanDay(today)}</span>
-        <button type="button" class="btn btn-sub" data-action="todo" data-what="자료 추가" aria-label="자료 추가">
+        <a class="btn btn-sub" href="#/add" aria-label="자료 추가">
           <span class="desktop-only">+ 자료 추가</span><span class="mobile-only">${ICON.plus}</span>
-        </button>
+        </a>
       </div>
     </header>`;
 }
