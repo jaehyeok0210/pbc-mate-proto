@@ -5,6 +5,8 @@ import { formatMD, formatMDW } from '../lib/dates.js';
 import { withDays, leftText } from '../lib/priority.js';
 import { FIX_REASONS, fixReasonLabel, fixDetail, buildFixMail } from '../lib/fix.js';
 import { esc, ICON, STATUS_LABEL } from './html.js';
+import { mailDates } from '../lib/calendar.js';
+import { mailField, mailDateDock } from './calendar.js';
 
 /**
  * @param state 앱 상태
@@ -14,6 +16,7 @@ export function renderFix(state, { today, itemId, reason, copied, toast }) {
   const item = withDays(state.items.find((x) => x.id === itemId), today);
   const person = state.people[item.owner] || {};
   const mail = buildFixMail({ item, person, client: state.client, today, reason });
+  const dates = mailDates([item], today, { replyBy: false });
   const label = fixReasonLabel(reason);
   const lastFix = (item.fixes || [])[item.fixes?.length - 1];
   const nudges = (item.nudges || []).length;
@@ -34,7 +37,7 @@ export function renderFix(state, { today, itemId, reason, copied, toast }) {
     <span class="status-seg-item ${s === 'fix' ? 'is-current' : ''}">${ICON[s]}${STATUS_LABEL[s]}</span>`).join('');
 
   const body = mail.segments.map((s) => {
-    if (s.kind === 'field') return `<span class="m-field">${esc(s.text)}</span>`;
+    if (s.kind === 'field') return mailField(s.text, dates);
     if (s.kind === 'reason') return `<span class="m-reason">${esc(s.text)}</span>`;
     return esc(s.text);
   }).join('');
@@ -90,6 +93,7 @@ export function renderFix(state, { today, itemId, reason, copied, toast }) {
             <div class="mail-body">${body}</div>
           </div>
         </section>
+        ${mailDateDock(dates, state)}
       </div>
 
       <footer class="compose-foot">

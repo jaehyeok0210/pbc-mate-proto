@@ -7,6 +7,8 @@ import { TONES, toneIndex, toneName, recommendTone, recommendBasis } from '../li
 import { buildMail } from '../lib/mail.js';
 import { sendTiming } from '../lib/timing.js';
 import { timingChip, timingBanner } from './timing.js';
+import { mailDates } from '../lib/calendar.js';
+import { mailField, mailDateDock } from './calendar.js';
 import { esc, ICON, RISK_LABEL, STATUS_LABEL } from './html.js';
 
 /**
@@ -21,6 +23,7 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
   const recommended = recommendTone(item);
   const mail = buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone });
   const timing = sendTiming(clock, item.neededOn);
+  const dates = mailDates([item], today);
 
   const footNote = copied && last
     ? `${ICON.done}독촉 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
@@ -49,7 +52,8 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
         ${facts(item, history, last)}
         ${mobileChips(item, history, last)}
         ${toneSlider(tone, recommended, item)}
-        ${preview(mail)}
+        ${preview(mail, dates)}
+        ${mailDateDock(dates, state)}
       </div>
 
       <footer class="compose-foot">
@@ -138,9 +142,9 @@ function toneSlider(tone, recommended, item) {
     </section>`;
 }
 
-function preview(mail) {
+function preview(mail, dates) {
   const body = mail.segments.map((s) => {
-    if (s.kind === 'field') return `<span class="m-field">${esc(s.text)}</span>`;
+    if (s.kind === 'field') return mailField(s.text, dates);
     if (s.kind === 'reason') return `<span class="m-reason">${esc(s.text)}</span>`;
     return esc(s.text);
   }).join('');

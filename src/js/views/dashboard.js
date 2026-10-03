@@ -43,14 +43,17 @@ export function renderDashboard(state, { today, mode, isDemo }) {
 export function topbar(client, today, isDemo, active) {
   return `
     <header class="topbar">
-      <div class="brand">PBC Mate</div>
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
       <span class="chip">${esc(client.name)} · ${esc(client.engagement)}</span>
       <nav class="tabs">
-        <a class="tab ${active === 'dashboard' ? 'is-active' : ''}" href="#">요청 자료</a>
+        <a class="tab ${active === 'dashboard' ? 'is-active' : ''}" href="#">대시보드</a>
+        <a class="tab" href="#/add">자료 요청</a>
+        <a class="tab ${active === 'calendar' ? 'is-active' : ''}" href="#/calendar">일정</a>
         <a class="tab ${active === 'report' ? 'is-active' : ''}" href="#/report">주간 보고</a>
       </nav>
       ${isDemo ? `<span class="demo-date">시연 기준일 ${today.replaceAll('-', '.')}</span>` : ''}
       <div class="topbar-end">
+        <span class="org-label desktop-only">삼일회계법인</span>
         <span class="today">${formatKoreanDay(today)}</span>
         <a class="btn btn-sub" href="#/add" aria-label="자료 추가">
           <span class="desktop-only">+ 자료 추가</span><span class="mobile-only">${ICON.plus}</span>
@@ -60,14 +63,19 @@ export function topbar(client, today, isDemo, active) {
 }
 
 function insightSection(ins, sum) {
+  const headline = sum.urgent
+    ? `오늘 먼저 챙길 자료가 ${sum.urgent}건 있어요`
+    : '오늘 당장 급한 자료는 없어요';
   return `
-    <section class="insight">
-      <div class="insight-text">
-        <div class="eyebrow">${ins.eyebrow}</div>
-        <h1>${esc(ins.title)}</h1>
-        <div class="insight-sub">${ins.sub}</div>
+    <section class="hero">
+      <div class="hero-text">
+        <h1>${headline}</h1>
+        <p class="hero-sub">감사 일정에 맞춰 급한 자료부터 정리했어요.</p>
+        <div class="hero-insight"><span class="eyebrow">${ins.eyebrow}</span><b>${esc(ins.title)}</b><span>${ins.sub}</span></div>
       </div>
-      <dl class="summary">
+      <div class="hero-deco" aria-hidden="true"><span></span><span></span></div>
+    </section>
+    <dl class="summary">
         <div class="${sum.urgent ? 'is-alert' : ''}">
           <dt>${sum.urgent ? ICON.high : ''}긴급 자료</dt><dd>${sum.urgent}건</dd>
           <span class="kpi-note desktop-only">지연 · 2일 이내</span>
@@ -75,8 +83,7 @@ function insightSection(ins, sum) {
         <div><dt>7일 이내<span class="desktop-only">&nbsp;필요</span></dt><dd>${sum.dueWeek}건</dd></div>
         <div><dt>보완 요청</dt><dd>${sum.needsFix}건</dd></div>
         <div><dt>미완료</dt><dd>${sum.open}건 <small>/ ${sum.total}</small></dd></div>
-      </dl>
-    </section>`;
+    </dl>`;
 }
 
 function modeToggle(mode, hint) {

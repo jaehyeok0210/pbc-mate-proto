@@ -7,6 +7,8 @@ import { TONES, toneIndex } from '../lib/tone.js';
 import { buildBundleMail } from '../lib/bundle.js';
 import { sendTiming } from '../lib/timing.js';
 import { timingChip, timingBanner } from './timing.js';
+import { mailDates } from '../lib/calendar.js';
+import { mailField, mailDateDock } from './calendar.js';
 import { esc, ICON, RISK_LABEL, STATUS_LABEL } from './html.js';
 
 /**
@@ -21,6 +23,7 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
   const t = TONES[toneIndex(tone)];
   const mail = buildBundleMail({ sorted, person, client: state.client, manager: state.team?.manager, tone });
   const timing = sendTiming(clock, top.neededOn);
+  const dates = mailDates(sorted, clock.date);
   const nudged = person.nudges
     ? `마지막 독촉 ${formatMD(person.lastNudgedOn)} · 독촉 ${person.nudges}회`
     : '아직 독촉하지 않았어요';
@@ -42,7 +45,7 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
     </div>`).join('');
 
   const seg = (segments) => segments.map((s) => {
-    if (s.kind === 'field') return `<span class="m-field">${esc(s.text)}</span>`;
+    if (s.kind === 'field') return mailField(s.text, dates);
     if (s.kind === 'reason') return `<span class="m-reason">${esc(s.text)}</span>`;
     return esc(s.text);
   }).join('');
@@ -52,7 +55,7 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
       <td class="t-no">${r.no}</td>
       <td><span class="m-field">${esc(r.name)}</span></td>
       <td>${esc(r.status)}${r.isTop ? ' <b class="t-top">(가장 급함)</b>' : ''}</td>
-      <td><span class="m-field">${esc(r.need)}</span></td>
+      <td>${mailField(r.need, dates)}</td>
     </tr>`).join('');
 
   const cc = mail.cc
@@ -114,6 +117,7 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
             </div>
           </div>
         </section>
+        ${mailDateDock(dates, state)}
       </div>
 
       <footer class="compose-foot">

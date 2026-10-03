@@ -10,7 +10,7 @@ export function renderEmpty({ clientName = '', engagement = '', errors = {} } = 
   return `
     <div class="page empty">
       <header class="topbar">
-        <div class="brand">PBC Mate</div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
         <span class="chip">클라이언트 이름을 정해주세요</span>
       </header>
 

@@ -1,6 +1,7 @@
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
 // 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
 //           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭) · #/report 주간 현황
+//           #/calendar 일정
 
 import { todayISO } from './lib/dates.js';
 import { withDays } from './lib/priority.js';
@@ -12,6 +13,8 @@ import { parseNow, clockOf } from './lib/timing.js';
 import { validateItem, parsePaste } from './lib/add.js';
 import { josa } from './lib/korean.js';
 import { buildReport, reportToText, reportToCsv, csvFileName } from './lib/report.js';
+import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
+import { formatMD } from './lib/dates.js';
 import { validateTransition } from './lib/status.js';
 import { validateEngagement } from './lib/engagement.js';
 import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
@@ -23,6 +26,7 @@ import { renderFix } from './views/fix.js';
 import { renderAdd, pastePreview, pasteSubmit } from './views/add.js';
 import { renderReport } from './views/report.js';
 import { renderStatusSheet } from './views/status.js';
+import { renderCalendar } from './views/calendar.js';
 
 // ?today=2026-10-01 처럼 기준일을 직접 지정해 확인할 수 있다.
 // ?now=2026-10-02T17:20 은 날짜와 시각을 함께 지정한다 (발송 시점 안내 확인용).
@@ -39,6 +43,7 @@ let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, to
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
 let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 화면 입력값
+let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -66,6 +71,15 @@ function render() {
   if (!state) { app.innerHTML = renderEmpty(emptyForm); return; }
   const today = currentToday();
   const isDemo = !todayParam && Boolean(state.demoDate);
+
+  // 일정 탭: 대시보드 대신 그리는 전체 화면
+  if (location.hash === '#/calendar') {
+    compose = bundle = fix = add = sheet = null;
+    if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
+    app.innerHTML = renderCalendar(state, { today, isDemo, ...cal });
+    document.body.classList.remove('has-drawer');
+    return;
+  }
 
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
@@ -294,6 +308,28 @@ const actions = {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast(`${csvFileName(report)} 파일을 내려받았어요.`);
   },
+  // 일정 탭
+  'cal-month': (el) => { cal.month = shiftMonth(cal.month, Number(el.dataset.delta)); render(); },
+  'cal-today': () => { const t = currentToday(); cal.month = monthOf(t); cal.selected = t; render(); },
+  'cal-select': (el) => { cal.selected = el.dataset.date; cal.form.errors = {}; render(); },
+  'cal-filter': (el) => { cal.filter = el.dataset.filter; render(); },
+  'cal-progress': (el) => {
+    state = setEventProgress(state, el.dataset.event, el.dataset.progress);
+    save(state);
+    render();
+    toast(`일정을 ‘${progressLabel(el.dataset.progress)}’으로 표시했어요.`);
+  },
+  'cal-remove-event': (el) => {
+    state = removeEvent(state, el.dataset.event);
+    save(state);
+    render();
+    toast('일정을 삭제했어요.');
+  },
+  // 메일 패널의 날짜 칩 '+' (드래그 대신 탭으로 추가)
+  'add-mail-date': (el) => {
+    const chip = el.closest('[data-drag-date]');
+    addMailDate({ title: chip.dataset.title, date: chip.dataset.date, itemId: chip.dataset.item || null });
+  },
   'add-paste': () => {
     const today = currentToday();
     const parsed = parsePaste(add.pasteText, today);
@@ -330,12 +366,97 @@ function readSheetDates() {
   sheet.requiredBasisDate = root.querySelector('[name="requiredBasisDate"]')?.value ?? sheet.requiredBasisDate;
 }
 
+// 메일 속 날짜를 캘린더 일정으로 추가 (드롭·탭 공통)
+function addMailDate({ title, date, itemId }) {
+  const result = addEvent(state, { title, date, itemId: itemId || null });
+  if (!result.added) { toast('이미 캘린더에 있는 일정이에요.'); return; }
+  state = result.state;
+  save(state);
+  render();
+  toast(`‘${title}’ ${formatMD(date)} 일정을 캘린더에 추가했어요.`);
+}
+
+// 달력 항목을 다른 날로 (드래그·날짜 입력 공통). 필요일이면 자료의 필요일 자체가 바뀐다.
+function moveCalendarEntry(entryId, date) {
+  if (!date) return;
+  const before = state;
+  state = moveEntry(state, entryId, date);
+  if (state === before) return;
+  save(state);
+  if (cal) cal.selected = date;
+  render();
+  const [kind, id] = entryId.split(':');
+  if (kind === 'need') {
+    const item = state.items.find((x) => x.id === id);
+    toast(`‘${item.name}’ 필요일을 ${formatMD(date)}로 옮겼어요. 우선순위와 메일 문구에 반영돼요.`);
+  } else {
+    toast(`일정을 ${formatMD(date)}로 옮겼어요.`);
+  }
+}
+
+// 드래그앤드롭: 달력 항목(data-drag-entry) 또는 메일 날짜 칩(data-drag-date)을 날짜 칸/일정 패널/독에 놓는다.
+app.addEventListener('dragstart', (e) => {
+  const el = e.target.closest?.('[data-drag-entry], [data-drag-date]');
+  if (!el) return;
+  const payload = el.dataset.dragEntry
+    ? { type: 'entry', id: el.dataset.dragEntry }
+    : { type: 'date', title: el.dataset.title, date: el.dataset.date, itemId: el.dataset.item || null };
+  e.dataTransfer.setData('text/plain', JSON.stringify(payload));
+  e.dataTransfer.effectAllowed = 'move';
+  el.classList.add('is-dragging');
+});
+app.addEventListener('dragend', (e) => e.target.classList?.remove('is-dragging'));
+app.addEventListener('dragover', (e) => {
+  const zone = e.target.closest?.('[data-drop]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.classList.add('is-over');
+});
+app.addEventListener('dragleave', (e) => e.target.closest?.('[data-drop]')?.classList.remove('is-over'));
+app.addEventListener('drop', (e) => {
+  const zone = e.target.closest?.('[data-drop]');
+  if (!zone) return;
+  e.preventDefault();
+  zone.classList.remove('is-over');
+  let payload;
+  try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  const target = zone.dataset.drop;
+  if (payload.type === 'date') {
+    addMailDate({ ...payload, date: target === 'dock' ? payload.date : target });
+  } else if (payload.type === 'entry' && target !== 'dock') {
+    moveCalendarEntry(payload.id, target);
+  }
+});
+
+// 일정 패널의 날짜 입력으로 이동 (모바일·키보드)
+app.addEventListener('change', (e) => {
+  if (e.target.dataset.actionChange === 'cal-move') moveCalendarEntry(e.target.dataset.entry, e.target.value);
+});
+
 function readAddForm() {
   const form = document.getElementById('add-form');
   if (!form) return add?.form || {};
   return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure']
     .map((k) => [k, form[k]?.value ?? '']));
 }
+
+// 일정 추가 (일정 탭 오른쪽 패널)
+app.addEventListener('submit', (e) => {
+  if (e.target.dataset.actionSubmit !== 'cal-add-event') return;
+  e.preventDefault();
+  const title = e.target.title.value.trim();
+  if (!title) {
+    cal.form = { title: '', errors: { title: '일정 이름을 입력해 주세요.' } };
+    render();
+    app.querySelector('.cal-add input')?.focus();
+    return;
+  }
+  const result = addEvent(state, { title, date: cal.selected });
+  if (result.added) { state = result.state; save(state); }
+  cal.form = { title: '', errors: {} };
+  render();
+  toast(result.added ? `‘${title}’ 일정을 ${formatMD(cal.selected)}에 추가했어요.` : '같은 일정이 이미 있어요.');
+});
 
 // 한 건 저장: 검증에 걸리면 입력값을 유지한 채 오류를 보여준다.
 app.addEventListener('submit', (e) => {
@@ -388,6 +509,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = null; render(); } };
+window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = cal = null; render(); } };
 
 render();
