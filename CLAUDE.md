@@ -18,7 +18,7 @@
 
 ```bash
 python3 -m http.server 8000 --directory src   # 실행
-node --test tests/                            # 테스트
+node --test                                   # 테스트
 ```
 
 ## 커밋

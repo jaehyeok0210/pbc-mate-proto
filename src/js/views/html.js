@@ -1,0 +1,30 @@
+// 템플릿 문자열로 화면을 그릴 때 쓰는 도구
+
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+/** 사용자 입력이 들어가는 값은 반드시 esc()를 거친다. */
+export function esc(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ESC[c]);
+}
+
+const svg = (body, sw = 2.4) =>
+  `<svg width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+
+// 위험도·상태 아이콘 (레퍼런스와 같은 모양)
+export const ICON = {
+  high: svg('<path d="M8 2.5l6 10.5H2z"/>'),
+  mid: svg('<circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/>'),
+  low: svg('<rect x="2.5" y="3.5" width="11" height="10" rx="2"/>'),
+  late: svg('<circle cx="8" cy="8" r="6.2"/>'),
+  none: svg('<circle cx="8" cy="8" r="6" stroke-dasharray="3 2.2"/>', 2),
+  part: svg('<circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/>', 1.8),
+  fix: svg('<path d="M3 8a5 5 0 1 0 1.5-3.6"/><path d="M3 2.5V5h2.5"/>', 2),
+  done: svg('<path d="M3.5 8.5l3 3 6-7"/>', 2.2),
+  help: svg('<circle cx="8" cy="8" r="6.2"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.7c0 1.1-1.6 1.4-1.6 2.4M8 11.3v.01"/>', 1.8),
+  plus: svg('<path d="M8 3v10M3 8h10"/>', 2),
+  chevron: svg('<path d="M6 3.5L10.5 8 6 12.5"/>', 2),
+};
+
+export const RISK_LABEL = { late: '지연', high: '2일 이내', mid: '3~7일', low: '8일 이상' };
+export const RISK_SHORT = { late: '지연', high: '2일 내', mid: '7일 내', low: '여유' };
+export const STATUS_LABEL = { none: '미회신', part: '일부 수령', fix: '보완 요청', done: '완료' };
