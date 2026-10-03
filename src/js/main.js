@@ -1,16 +1,19 @@
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
 // 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
+//           #/fix/<자료id> 보완 요청
 
 import { todayISO } from './lib/dates.js';
 import { withDays } from './lib/priority.js';
 import { recommendTone } from './lib/tone.js';
 import { buildMail, mailToText } from './lib/mail.js';
 import { bundleItems, bundleTone, buildBundleMail, bundleMailToText } from './lib/bundle.js';
-import { load, save, clear, sampleState, baseDateOf, copyAndRecord } from './store.js';
+import { canOpenFix, currentFixReason, buildFixMail, fixMailToText } from './lib/fix.js';
+import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
 import { renderCompose } from './views/compose.js';
 import { renderBundle } from './views/bundle.js';
+import { renderFix } from './views/fix.js';
 
 // ?today=2026-10-01 처럼 기준일을 직접 지정해 확인할 수 있다.
 const todayParam = new URLSearchParams(location.search).get('today');
@@ -20,6 +23,7 @@ let state = load();
 let mode = 'need';
 let compose = null; // 단건 독촉 화면 상태: { itemId, tone, copied, toast }
 let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast }
+let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -66,13 +70,26 @@ function render() {
     bundle = null;
   }
 
+  const fixId = routeParam('fix');
+  const fixItem = fixId && state.items.find((x) => x.id === fixId);
+  if (canOpenFix(fixItem)) {
+    if (fix?.itemId !== fixId) {
+      fix = { itemId: fixId, reason: currentFixReason(fixItem), copied: false, toast: false };
+    }
+    html += renderFix(state, { today, ...fix });
+  } else {
+    fix = null;
+  }
+
   const focusedTone = document.activeElement?.dataset?.tone;
+  const focusedReason = document.activeElement?.dataset?.reason;
   app.innerHTML = html;
-  document.body.classList.toggle('has-drawer', Boolean(item || b));
-  // 톤을 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
+  document.body.classList.toggle('has-drawer', Boolean(item || b || fix));
+  // 톤·사유를 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
   if (focusedTone) {
     [...app.querySelectorAll(`[data-tone="${focusedTone}"]`)].find((b) => b.offsetParent)?.focus();
   }
+  if (focusedReason) app.querySelector(`[data-reason="${focusedReason}"]`)?.focus();
 }
 
 let toastTimer;
@@ -108,9 +125,12 @@ function closeDrawer() {
 }
 
 // 복사 성공 시에만 이력을 남기고, 화면 상태(copied·toast)를 갱신한다.
+// record: 기본은 독촉 이력. 보완 요청은 copyAndRecordFix를 넘긴다.
 let drawerToastTimer;
-async function copyForDrawer(view, { itemIds, text }) {
-  const result = await copyAndRecord(state, { itemIds, tone: view.tone, on: currentToday(), text }, copyText);
+async function copyForDrawer(view, { itemIds, text }, record) {
+  const result = record
+    ? await record(state, currentToday(), text, copyText)
+    : await copyAndRecord(state, { itemIds, tone: view.tone, on: currentToday(), text }, copyText);
   if (!result.ok) {
     toast('복사하지 못했어요. 미리보기에서 직접 선택해 복사해 주세요.');
     return;
@@ -141,6 +161,15 @@ const actions = {
     });
     return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
   },
+  'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; render(); },
+  'copy-fix': () => {
+    const today = currentToday();
+    const item = withDays(state.items.find((x) => x.id === fix.itemId), today);
+    const mail = buildFixMail({ item, person: state.people[item.owner], client: state.client, today, reason: fix.reason });
+    const reason = fix.reason;
+    return copyForDrawer(fix, { text: fixMailToText(mail) },
+      (s, on, text, copy) => copyAndRecordFix(s, { itemId: item.id, reason, on, text }, copy));
+  },
   'copy-bundle': () => {
     const sorted = bundleItems(state.items, bundle.owner, currentToday());
     const mail = buildBundleMail({
@@ -161,10 +190,10 @@ app.addEventListener('click', (e) => {
 window.addEventListener('hashchange', render);
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && (compose || bundle)) closeDrawer();
+  if (e.key === 'Escape' && (compose || bundle || fix)) closeDrawer();
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = null; bundle = null; render(); } };
+window.pbc = { reset() { clear(); state = null; compose = null; bundle = null; fix = null; render(); } };
 
 render();

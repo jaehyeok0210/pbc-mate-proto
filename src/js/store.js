@@ -7,11 +7,15 @@
 //   people: { [이름]: { dept, nudges, lastNudgedOn } },
 //   items:  [{ id, name, owner, requestedOn, neededOn, status, reason?,
 //              procedure?,                           // 이 자료를 쓰는 감사 절차
-//              nudges?: [{ on, tone }] }]             // 독촉 이력
+//              nudges?: [{ on, tone }],               // 독촉 이력
+//              received?: { on, basisDate? },         // 받은 자료 (보완 요청 자료)
+//              fix?: { reason, requiredBasisDate?, details? },  // 현재 보완 사유
+//              fixes?: [{ on, reason }] }]            // 보완 요청 이력
 // }
 // status: 'none'(미회신) | 'part'(일부 수령) | 'fix'(보완 요청) | 'done'(완료)
 
 import { addDays } from './lib/dates.js';
+import { fixSummary } from './lib/fix.js';
 
 const KEY = 'pbc-mate:v1';
 
@@ -65,7 +69,11 @@ export function sampleState() {
       { id: 'i1', name: '은행조회서 회신', owner: '박준호 과장', requestedOn: d(-3), neededOn: d(1), status: 'none',
         procedure: '은행 조회', nudges: [{ on: d(-1), tone: 'angel' }] },
       { id: 'i2', name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-1), neededOn: d(7), status: 'fix', reason: '기준일 상이 · 12/31 기준 재요청 필요',
-        procedure: '유형자산 실증', nudges: [] },
+        procedure: '유형자산 실증', nudges: [],
+        received: { on: d(-1), basisDate: '2026-06-30' },
+        fix: { reason: 'date', requiredBasisDate: '2026-12-31',
+               details: { sign: '담당 임원 확인란', missing: '건설중인자산 대체 내역' } },
+        fixes: [{ on: d(-1), reason: 'date' }] },
       { id: 'i3', name: '재고실사 결과표', owner: '김민지 대리', requestedOn: d(-5), neededOn: d(5), status: 'none',
         procedure: '재고 실사 검토', nudges: [{ on: d(-2), tone: 'polite' }] },
       { id: 'i4', name: '특수관계자 거래내역', owner: '김민지 대리', requestedOn: d(-9), neededOn: d(9), status: 'part',
@@ -103,10 +111,32 @@ export function recordNudge(state, itemId, tone, on) {
 }
 
 /**
- * 메일 텍스트를 복사하고, 성공했을 때만 이력을 남긴다.
- * copy: (text) => Promise<boolean>. 실패하면 원래 state를 그대로 돌려준다.
+ * 보완 재요청 메일을 복사했을 때: 보완 이력 { on, reason }을 남기고 현재 사유를 갱신한다.
+ * 상태는 바꾸지 않는다 (자료를 다시 받아 확인한 뒤 따로 완료 처리).
  */
-export async function copyAndRecord(state, { itemIds, tone, on, text }, copy) {
+export function recordFix(state, itemId, reason, on) {
+  return {
+    ...state,
+    items: state.items.map((x) => (x.id !== itemId ? x : {
+      ...x,
+      fixes: [...(x.fixes || []), { on, reason }],
+      fix: { ...x.fix, reason },
+      reason: fixSummary(x, reason),
+    })),
+  };
+}
+
+// 메일 텍스트를 복사하고, 성공했을 때만 apply(state)로 이력을 남긴다.
+// copy: (text) => Promise<boolean>. 실패하면 원래 state를 그대로 돌려준다.
+async function copyThenApply(state, text, copy, apply) {
   const ok = await copy(text);
-  return { ok, state: ok ? recordNudges(state, itemIds, tone, on) : state };
+  return { ok, state: ok ? apply(state) : state };
+}
+
+export function copyAndRecord(state, { itemIds, tone, on, text }, copy) {
+  return copyThenApply(state, text, copy, (s) => recordNudges(s, itemIds, tone, on));
+}
+
+export function copyAndRecordFix(state, { itemId, reason, on, text }, copy) {
+  return copyThenApply(state, text, copy, (s) => recordFix(s, itemId, reason, on));
 }

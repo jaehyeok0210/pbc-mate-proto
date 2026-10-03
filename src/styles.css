@@ -457,6 +457,62 @@ a.m-bundle { text-decoration: none; }
 .b-table .t-no { width: 44px; font-weight: 700; }
 .t-top { font-size: 12px; }
 
+/* ---------- 보완 요청 (레퍼런스 4 / 4-1) ---------- */
+.drawer.fix { width: 720px; }
+.drawer.fix .drawer-body { gap: 16px; }
+.fix-sub { font-size: 13.5px; color: var(--ink-3); }
+.flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12.5px; color: var(--ink-3); }
+.flow-chip { height: 26px; padding: 0 10px; border-radius: 999px; background: var(--fill); display: inline-flex; align-items: center; white-space: nowrap; }
+.flow-chip.is-fix { background: var(--fix-bg); color: var(--fix-fg); font-weight: 700; }
+.flow-arrow { display: inline-flex; color: #9CA3AF; }
+.flow-arrow svg { width: 10px; height: 10px; }
+
+.fix-alert {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px;
+  background: #FDF2FA; border: 1px solid #F9D2EC;
+}
+.fix-alert-icon {
+  width: 32px; height: 32px; flex-shrink: 0; border-radius: 10px; background: var(--fix-bg); color: var(--fix-fg);
+  display: flex; align-items: center; justify-content: center;
+}
+.fix-alert-icon svg { width: 16px; height: 16px; }
+.fix-alert > div { display: flex; flex-direction: column; gap: 2px; }
+.fix-alert b { font-size: 14.5px; font-weight: 800; color: #6B0F43; }
+.fix-alert small { font-size: 12.5px; color: #851651; }
+
+.section-label { font-size: 15px; font-weight: 800; }
+.fix-status, .fix-reason { display: flex; flex-direction: column; gap: 8px; }
+.status-seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 4px; border-radius: 14px; background: var(--fill); }
+.status-seg-item {
+  height: 40px; border-radius: 10px; color: #9CA3AF; font-size: 13.5px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.status-seg-item svg { width: 12px; height: 12px; }
+.status-seg-item.is-current { background: #fff; color: var(--fix-fg); font-weight: 800; box-shadow: 0 1px 3px rgba(17, 24, 39, .14); }
+
+.reason-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.reason-btn {
+  min-height: 64px; border-radius: 14px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+  text-align: left; padding: 11px 13px; display: flex; flex-direction: column; gap: 3px;
+}
+.reason-btn b { font-size: 14px; font-weight: 600; }
+.reason-btn small { font-size: 11.5px; color: var(--ink-3); }
+.reason-btn[aria-pressed="true"] { border: 2px solid var(--ink); padding: 10px 12px; }
+.reason-btn[aria-pressed="true"] b { font-weight: 800; }
+
+.fix-detail { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.fix-detail small { color: var(--ink-3); font-size: 12.5px; }
+.fix-detail b { font-weight: 700; }
+.basis-box {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px;
+  border-radius: 8px; border: 1px solid #D1D5DB;
+}
+.basis-box.is-wrong b { color: var(--high-fg); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+.basis-box.is-right { border-color: var(--ink); }
+.basis-arrow { display: inline-flex; color: var(--ink-3); }
+.basis-arrow svg { width: 14px; height: 14px; }
+.foot-note b { color: var(--fix-fg); }
+
 /* ---------- 토스트 ---------- */
 .toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50;
@@ -587,6 +643,27 @@ a.m-bundle { text-decoration: none; }
   .b-table .t-no { width: 24px; }
   .b-table td { word-break: keep-all; }
   .b-table td:last-child { white-space: nowrap; }
+
+  /* 보완 요청 (모바일): 문제점과 사유 선택을 먼저, 상태는 아래로 */
+  .drawer.fix { width: 100%; }
+  .drawer.fix .drawer-body { gap: 12px; }
+  .fix-sub { font-size: 12.5px; }
+  .flow { gap: 4px; font-size: 11.5px; }
+  .flow-chip { height: 22px; padding: 0 8px; }
+  .fix-alert { padding: 10px 12px; }
+  .fix-alert b { font-size: 13.5px; }
+  .fix-alert small { font-size: 12px; }
+  .fix-reason { order: 1; }
+  .drawer.fix .preview { order: 2; }
+  .fix-status { order: 3; }
+  .section-label { font-size: 14px; }
+  .reason-grid { grid-template-columns: 1fr 1fr; }
+  .reason-btn { min-height: 52px; padding: 9px 11px; }
+  .reason-btn[aria-pressed="true"] { padding: 8px 10px; }
+  .fix-detail { flex-wrap: wrap; }
+  .fix-detail.basis { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); flex-wrap: nowrap; }
+  .basis-box { height: auto; padding: 6px 10px; flex-direction: column; align-items: flex-start; gap: 0; }
+  .basis-box small { font-size: 11.5px; }
 
   .empty-art { width: 100%; }
   .empty-main h1 { font-size: 20px; }

@@ -162,10 +162,17 @@ function bundleHref(owner) {
   return `#/bundle/${encodeURIComponent(owner)}`;
 }
 
-// 자료명: 보완 요청 자료가 아니면 단건 독촉 화면으로 가는 링크
+function fixHref(item) {
+  return `#/fix/${encodeURIComponent(item.id)}`;
+}
+
+// 자료를 눌렀을 때: 보완 요청 자료는 보완 요청 화면, 나머지는 단건 독촉
+function itemHref(x) {
+  return x.status === 'fix' ? fixHref(x) : composeHref(x);
+}
+
 function nameLink(x) {
-  if (x.status === 'fix') return `<span class="row-name">${esc(x.name)}</span>`;
-  return `<a class="row-name" href="${composeHref(x)}">${esc(x.name)}</a>`;
+  return `<a class="row-name" href="${itemHref(x)}">${esc(x.name)}</a>`;
 }
 
 function statusBadge(status) {
@@ -224,7 +231,7 @@ function ownerCards(groups, people, done, text) {
     } else if (bundlable.length === 1) {
       cta = `<a class="btn btn-sub" href="${composeHref(bundlable[0])}">${esc(bundlable[0].name)} 독촉하기</a>`;
     } else {
-      cta = `<button type="button" class="btn btn-sub" data-action="todo" data-what="보완 요청">보완 재요청 메일 쓰기</button>`;
+      cta = `<a class="btn btn-sub" href="${fixHref(g.items[0])}">보완 재요청 메일 쓰기</a>`;
     }
 
     return `
@@ -255,9 +262,9 @@ function ownerCards(groups, people, done, text) {
 
 // 모바일(레퍼런스 1-M): 담당자 묶음 대신 한 줄 목록 + 가장 많이 밀린 담당자 묶음 버튼
 function mobileList(sorted, topLabel) {
-  // 보완 요청 자료는 4번 화면에서 다루므로 단건 독촉으로 연결하지 않는다.
+  // 보완 요청 자료는 단건 독촉 대신 보완 요청 화면으로 연결한다.
   const rows = sorted.map((x, i) => `
-    <${x.status === 'fix' ? 'div' : `a href="${composeHref(x)}"`} class="m-row ${i === 0 ? 'is-top' : ''}">
+    <a href="${itemHref(x)}" class="m-row ${i === 0 ? 'is-top' : ''}">
       <span class="m-left">
         <span class="m-days">${x.left === 0 ? '오늘' : `${Math.abs(x.left)}<small>일${x.left < 0 ? ' 지남' : ''}</small>`}</span>
         ${riskBadge(x.risk, true)}
@@ -266,7 +273,7 @@ function mobileList(sorted, topLabel) {
         <span class="row-title"><span class="row-name">${esc(x.name)}</span>${i === 0 ? `<span class="top-badge">${topLabel}</span>` : ''}</span>
         <span class="row-meta">${statusBadge(x.status)}<span class="ellipsis">${esc(x.status === 'fix' ? (x.reason || '보완 요청') : `${x.owner} · D+${x.elapsed}`)}</span></span>
       </span>
-    </${x.status === 'fix' ? 'div' : 'a'}>`).join('');
+    </a>`).join('');
 
   const biggest = groupByOwner(sorted.filter(isBundleEligible))
     .reduce((a, b) => (b.items.length > a.items.length ? b : a), { items: [] });
