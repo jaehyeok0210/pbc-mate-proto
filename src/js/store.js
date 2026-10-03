@@ -79,19 +79,34 @@ export function sampleState() {
 }
 
 /**
- * 메일을 복사했을 때 독촉 이력을 남긴다. 원래 state는 바꾸지 않고 새 state를 돌려준다.
- * 자료의 이력에 { on, tone }을 추가하고, 담당자의 독촉 횟수·마지막 독촉일도 갱신한다.
+ * 메일 한 통을 복사했을 때 독촉 이력을 남긴다. 원래 state는 바꾸지 않고 새 state를 돌려준다.
+ * 메일에 담긴 자료마다 이력에 { on, tone }을 추가하고,
+ * 담당자의 독촉 횟수는 메일 1통이므로 1만 올린다. (같은 담당자의 자료만 묶는다고 가정)
  */
-export function recordNudge(state, itemId, tone, on) {
-  const item = state.items.find((x) => x.id === itemId);
-  const person = state.people[item.owner] || {};
+export function recordNudges(state, itemIds, tone, on) {
+  const ids = new Set(itemIds);
+  const owner = state.items.find((x) => ids.has(x.id)).owner;
+  const person = state.people[owner] || {};
   return {
     ...state,
     items: state.items.map((x) =>
-      x.id === itemId ? { ...x, nudges: [...(x.nudges || []), { on, tone }] } : x),
+      ids.has(x.id) ? { ...x, nudges: [...(x.nudges || []), { on, tone }] } : x),
     people: {
       ...state.people,
-      [item.owner]: { ...person, nudges: (person.nudges || 0) + 1, lastNudgedOn: on },
+      [owner]: { ...person, nudges: (person.nudges || 0) + 1, lastNudgedOn: on },
     },
   };
+}
+
+export function recordNudge(state, itemId, tone, on) {
+  return recordNudges(state, [itemId], tone, on);
+}
+
+/**
+ * 메일 텍스트를 복사하고, 성공했을 때만 이력을 남긴다.
+ * copy: (text) => Promise<boolean>. 실패하면 원래 state를 그대로 돌려준다.
+ */
+export async function copyAndRecord(state, { itemIds, tone, on, text }, copy) {
+  const ok = await copy(text);
+  return { ok, state: ok ? recordNudges(state, itemIds, tone, on) : state };
 }

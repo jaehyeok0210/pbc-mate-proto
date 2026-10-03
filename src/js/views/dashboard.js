@@ -4,6 +4,7 @@ import { addDays, formatMD, formatKoreanDay } from '../lib/dates.js';
 import {
   withDays, isOpen, sortItems, groupByOwner, summarize, insight, leftText,
 } from '../lib/priority.js';
+import { isBundleEligible } from '../lib/bundle.js';
 import { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL } from './html.js';
 
 const MODE_TEXT = {
@@ -157,6 +158,10 @@ function composeHref(item) {
   return `#/compose/${encodeURIComponent(item.id)}`;
 }
 
+function bundleHref(owner) {
+  return `#/bundle/${encodeURIComponent(owner)}`;
+}
+
 // 자료명: 보완 요청 자료가 아니면 단건 독촉 화면으로 가는 링크
 function nameLink(x) {
   if (x.status === 'fix') return `<span class="row-name">${esc(x.name)}</span>`;
@@ -210,14 +215,16 @@ function ownerCards(groups, people, done, text) {
       ? `<div class="done-line">${ICON.done}완료 ${doneHere.length}건 · ${doneHere.map((x) => esc(x.name)).join(', ')}</div>`
       : '';
 
+    // 버튼 건수는 묶음 독촉 화면과 같은 기준(보완 요청 제외)으로 센다.
+    const bundlable = g.items.filter(isBundleEligible);
     let cta;
-    if (g.items.length > 1) {
-      cta = `<button type="button" class="btn btn-cta" data-action="todo" data-what="묶음 독촉">
-        ${g.items.length}건 묶어서 독촉 <span class="cta-sub">· 메일 1통</span></button>`;
-    } else if (g.items[0].status === 'fix') {
-      cta = `<button type="button" class="btn btn-sub" data-action="todo" data-what="보완 요청">보완 재요청 메일 쓰기</button>`;
+    if (bundlable.length > 1) {
+      cta = `<a class="btn btn-cta" href="${bundleHref(g.owner)}">
+        ${bundlable.length}건 묶어서 독촉 <span class="cta-sub">· 메일 1통</span></a>`;
+    } else if (bundlable.length === 1) {
+      cta = `<a class="btn btn-sub" href="${composeHref(bundlable[0])}">${esc(bundlable[0].name)} 독촉하기</a>`;
     } else {
-      cta = `<a class="btn btn-sub" href="${composeHref(g.items[0])}">${esc(g.items[0].name)} 독촉하기</a>`;
+      cta = `<button type="button" class="btn btn-sub" data-action="todo" data-what="보완 요청">보완 재요청 메일 쓰기</button>`;
     }
 
     return `
@@ -261,12 +268,13 @@ function mobileList(sorted, topLabel) {
       </span>
     </${x.status === 'fix' ? 'div' : 'a'}>`).join('');
 
-  const biggest = groupByOwner(sorted).reduce((a, b) => (b.items.length > a.items.length ? b : a));
+  const biggest = groupByOwner(sorted.filter(isBundleEligible))
+    .reduce((a, b) => (b.items.length > a.items.length ? b : a), { items: [] });
   const bundle = biggest.items.length > 1 ? `
-    <button type="button" class="m-bundle" data-action="todo" data-what="묶음 독촉">
+    <a class="m-bundle" href="${bundleHref(biggest.owner)}">
       <span><b>${esc(biggest.owner)} ${biggest.items.length}건 묶어서 독촉</b><small>개별 메일 ${biggest.items.length}통 대신 1통</small></span>
       ${ICON.chevron}
-    </button>` : '';
+    </a>` : '';
 
   return `<section class="m-list mobile-only">${rows}</section>${bundle ? `<div class="mobile-only">${bundle}</div>` : ''}`;
 }

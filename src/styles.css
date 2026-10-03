@@ -407,6 +407,56 @@ body.has-drawer { overflow: hidden; }
 .compose-toast b { font-size: 15px; }
 .compose-toast small { font-size: 12.5px; color: #D1D5DB; }
 
+/* ---------- 묶음 독촉 (레퍼런스 3) ---------- */
+a.m-bundle { text-decoration: none; }
+.drawer.bundle { width: 720px; }
+.drawer.bundle .drawer-body { gap: 16px; }
+@media (min-width: 721px) {
+  .drawer.bundle .compose-foot { padding-top: 12px; padding-bottom: 16px; }
+}
+.bundle-head { display: flex; align-items: flex-start; gap: 16px; }
+.bundle-head .compose-who { flex-grow: 1; min-width: 0; }
+.bundle-head h2 span { font-size: 15px; font-weight: 500; color: var(--ink-3); }
+.bundle-sub { font-size: 13px; color: var(--ink-3); }
+.value-chip {
+  flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 14px; border: 1px solid var(--line);
+}
+.value-icons { display: flex; align-items: center; gap: 6px; color: var(--ink-3); }
+.value-icons > span { display: flex; gap: 2px; }
+.value-icons svg { width: 14px; height: 14px; }
+.value-icons > svg:last-child { width: 18px; height: 18px; color: var(--ink); }
+.value-chip > span:last-child { display: flex; flex-direction: column; gap: 1px; }
+.value-chip b { font-size: 15px; font-weight: 800; }
+.value-chip small { font-size: 12px; color: var(--ink-3); }
+
+.b-list { border-radius: 16px; background: var(--fill-2); padding: 6px 14px; }
+.b-row {
+  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 2px 10px; margin: 0 -10px;
+  border-bottom: 1px solid #EEF0F3; border-radius: 10px;
+}
+.b-row.is-top { background: #fff; box-shadow: inset 3px 0 0 var(--ink); }
+.b-no { width: 22px; flex-shrink: 0; font-size: 13px; font-weight: 800; color: var(--ink-3); }
+.b-main { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.b-left { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.b-days { font-size: 20px; font-weight: 800; min-width: 44px; text-align: right; }
+.b-days small { font-size: 12px; font-weight: 600; }
+.b-why {
+  margin: 0; display: grid; grid-template-columns: 40px minmax(0, 1fr); row-gap: 3px;
+  padding: 10px 0 6px; font-size: 12.5px; color: var(--ink-2);
+}
+.b-why dt { font-weight: 700; color: var(--ink-3); }
+.b-why dd { margin: 0; }
+.b-why b { color: var(--ink); }
+
+.bundle-body { white-space: normal; display: flex; flex-direction: column; gap: 12px; line-height: 1.65; }
+.bundle-body > div { white-space: pre-line; }
+.b-table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.b-table th { text-align: left; padding: 8px 10px; font-weight: 700; background: var(--fill); white-space: nowrap; }
+.b-table td { padding: 7px 10px; border-bottom: 1px solid #EEF0F3; vertical-align: top; }
+.b-table .t-no { width: 44px; font-weight: 700; }
+.t-top { font-size: 12px; }
+
 /* ---------- 토스트 ---------- */
 .toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50;
@@ -520,6 +570,23 @@ body.has-drawer { overflow: hidden; }
   .compose-toast { left: 20px; right: 20px; bottom: 112px; padding: 14px 16px; gap: 10px; }
   .compose-toast b { font-size: 14px; }
   .compose-toast small { font-size: 12px; }
+
+  /* 묶음 독촉 (모바일): 자료는 카드 스택, 복사 버튼은 하단 고정 */
+  .drawer.bundle { width: 100%; }
+  .bundle-head { flex-direction: column; gap: 10px; }
+  .bundle-head h2 { font-size: 20px; }
+  .value-chip { align-self: stretch; padding: 10px 12px; }
+  .b-list { padding: 4px 10px; }
+  .b-row { align-items: flex-start; flex-wrap: wrap; row-gap: 6px; padding: 10px; }
+  .b-no { padding-top: 2px; }
+  .b-main { flex-basis: calc(100% - 34px); }
+  .b-left { margin-left: 34px; flex-basis: calc(100% - 34px); justify-content: space-between; flex-direction: row-reverse; }
+  .b-days { text-align: left; min-width: 0; font-size: 18px; }
+  .b-table { font-size: 12.5px; }
+  .b-table th, .b-table td { padding: 6px 6px; }
+  .b-table .t-no { width: 24px; }
+  .b-table td { word-break: keep-all; }
+  .b-table td:last-child { white-space: nowrap; }
 
   .empty-art { width: 100%; }
   .empty-main h1 { font-size: 20px; }

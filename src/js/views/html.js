@@ -25,6 +25,8 @@ export const ICON = {
   chevron: svg('<path d="M6 3.5L10.5 8 6 12.5"/>', 2),
   back: svg('<path d="M10 3.5L5.5 8l4.5 4.5"/>', 2),
   close: svg('<path d="M4 4l8 8M12 4l-8 8"/>', 2),
+  mail: svg('<rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5L8 9l5.5-4.5"/>', 1.6),
+  arrow: svg('<path d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"/>', 1.8),
   copy: svg('<rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>', 1.8),
 };
 

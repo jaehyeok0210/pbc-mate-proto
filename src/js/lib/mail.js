@@ -31,14 +31,14 @@ function relativeNeed(left, neededOn) {
 }
 
 /** 회신 기한: 필요일이 3일 이내(또는 지남)면 오늘, 아니면 필요일 2일 전까지 */
-function replyBy(left, neededOn) {
+export function replyBy(left, neededOn) {
   if (left <= 3) return { soft: '오늘 중', firm: '오늘 18시까지' };
   const by = `${formatMD(addDays(neededOn, -2))}까지`;
   return { soft: by, firm: by };
 }
 
 /** 일정 근거 문장. 필요일 전이면 '시작해야 해서', 지났으면 '늦어지고 있어서' */
-function scheduleReason(tone, left, neededOn, proc) {
+export function scheduleReason(tone, left, neededOn, proc) {
   const late = left < 0;
   const when = late || tone === 'angel' ? longDate(neededOn) : relativeNeed(left, neededOn);
   const ending = { polite: '해서', firm: '하므로', cc: '하는데' }[tone];
