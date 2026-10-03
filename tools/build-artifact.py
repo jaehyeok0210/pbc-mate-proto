@@ -89,10 +89,14 @@ html, body {{ font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', -a
     OUT.write_text(fragment, encoding='utf-8')
     print(f'wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size // 1024} KB) from {len(order)} modules')
 
+    # 로컬·GitHub Pages에는 CDN 제한이 없으므로 src/index.html과 같은 Pretendard를 써서 글씨 굵기를 맞춘다.
+    # (Artifact 조각은 허용된 폰트 호스트가 Google Fonts뿐이라 Noto Sans KR로 대신한다.)
+    pretendard = ('<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/'
+                  'dist/web/variable/pretendardvariable-dynamic-subset.min.css">')
     standalone = (
         '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f'{fragment}\n</head>\n<body></body>\n</html>\n')
+        f'{pretendard}\n{fragment}\n</head>\n<body></body>\n</html>\n')
     if '--standalone' in sys.argv:
         OUT_STANDALONE.write_text(standalone, encoding='utf-8')
         print(f'wrote {OUT_STANDALONE.relative_to(ROOT)} (로컬 확인용)')
