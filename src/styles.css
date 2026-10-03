@@ -898,7 +898,12 @@ a.m-bundle { text-decoration: none; }
   }
   .dashboard .topbar .brand, .report .topbar .brand, .calendar .topbar .brand { flex-basis: 100%; font-size: 17px; }
   .dashboard .topbar .chip, .report .topbar .chip, .calendar .topbar .chip { height: auto; padding: 0; border: 0; font-size: 12.5px; font-weight: 500; color: var(--ink-3); flex-basis: 100%; }
-  .dashboard .topbar .tabs, .report .topbar .tabs, .calendar .topbar .tabs { display: none; }
+  /* 모바일에서도 탭은 보인다: 상단바 아래 줄, 가로 스크롤 가능 */
+  .dashboard .topbar .tabs, .report .topbar .tabs, .calendar .topbar .tabs {
+    display: flex; flex-basis: 100%; order: 3; margin: 4px 0 0; height: 36px; gap: 0; overflow-x: auto; scrollbar-width: none;
+  }
+  .dashboard .topbar .tab, .report .topbar .tab, .calendar .topbar .tab { height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+  .dashboard .topbar .tab.is-active::after, .report .topbar .tab.is-active::after, .calendar .topbar .tab.is-active::after { left: 10px; right: 10px; bottom: 0; }
   .dashboard .topbar .demo-date, .report .topbar .demo-date, .calendar .topbar .demo-date { margin: 6px 0 0; }
   .dashboard .topbar-end, .report .topbar-end, .calendar .topbar-end { position: absolute; right: 16px; top: 10px; }
   .dashboard .topbar .today, .report .topbar .today, .calendar .topbar .today { font-size: 12.5px; }
@@ -1059,9 +1064,6 @@ a.m-bundle { text-decoration: none; }
   .pp-left { grid-column: 1 / -1; justify-content: space-between; }
 
   /* 주간 현황: 숫자 2열, 담당자·자료는 카드 */
-  .report .topbar .tabs { display: flex; flex-basis: 100%; order: 3; margin: 4px 0 0; height: 36px; }
-  .report .topbar .tab { height: 36px; padding: 0 10px; font-size: 13px; }
-  .report .topbar .tab.is-active::after { left: 10px; right: 10px; bottom: 0; }
   .report-head { flex-direction: column; align-items: stretch; padding-top: 4px; }
   .report-head h1 { font-size: 24px; }
   .report-head h1 span { display: block; margin-top: 2px; }
@@ -1096,9 +1098,6 @@ a.m-bundle { text-decoration: none; }
   .empty-form { grid-template-columns: 1fr; }
 
   /* 일정 탭 (모바일): 달력은 점으로, 선택한 날 목록은 아래로 */
-  .calendar .topbar .tabs { display: flex; flex-basis: 100%; order: 3; margin: 4px 0 0; height: 36px; }
-  .calendar .topbar .tab { height: 36px; padding: 0 10px; font-size: 13px; }
-  .calendar .topbar .tab.is-active::after { left: 10px; right: 10px; bottom: 0; }
   .cal-head { flex-direction: column; align-items: stretch; padding-top: 4px; }
   .cal-head h1 { font-size: 24px; }
   .cal-nav .btn { flex-grow: 1; }
