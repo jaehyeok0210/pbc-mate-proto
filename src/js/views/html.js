@@ -29,6 +29,7 @@ export const ICON = {
   clock: svg('<circle cx="8" cy="8" r="6.2"/><path d="M8 4.8V8l2.2 1.5"/>', 1.8),
   moon: svg('<path d="M13 9.5A5.5 5.5 0 0 1 6.5 3a5.5 5.5 0 1 0 6.5 6.5z"/>', 1.8),
   arrow: svg('<path d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"/>', 1.8),
+  download: svg('<path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13h10"/>', 1.8),
   copy: svg('<rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>', 1.8),
 };
 

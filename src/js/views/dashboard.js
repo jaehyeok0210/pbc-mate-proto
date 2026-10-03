@@ -28,7 +28,7 @@ export function renderDashboard(state, { today, mode, isDemo }) {
 
   return `
     <div class="page dashboard">
-      ${header(state.client, today, isDemo)}
+      ${topbar(state.client, today, isDemo, 'dashboard')}
       ${sorted.length ? `
         ${insightSection(insight(sorted[0], mode), summarize(all))}
         ${modeToggle(mode, text.hint)}
@@ -39,14 +39,15 @@ export function renderDashboard(state, { today, mode, isDemo }) {
     </div>`;
 }
 
-function header(client, today, isDemo) {
+/** 상단바. active: 'dashboard' | 'report' — 주간 보고 화면도 같은 상단바를 쓴다. */
+export function topbar(client, today, isDemo, active) {
   return `
     <header class="topbar">
       <div class="brand">PBC Mate</div>
       <span class="chip">${esc(client.name)} · ${esc(client.engagement)}</span>
       <nav class="tabs">
-        <a class="tab is-active" href="#">요청 자료</a>
-        <button type="button" class="tab" data-action="todo" data-what="주간 보고">주간 보고</button>
+        <a class="tab ${active === 'dashboard' ? 'is-active' : ''}" href="#">요청 자료</a>
+        <a class="tab ${active === 'report' ? 'is-active' : ''}" href="#/report">주간 보고</a>
       </nav>
       ${isDemo ? `<span class="demo-date">시연 기준일 ${today.replaceAll('-', '.')}</span>` : ''}
       <div class="topbar-end">

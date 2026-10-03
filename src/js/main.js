@@ -1,6 +1,6 @@
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
 // 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
-//           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭)
+//           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭) · #/report 주간 현황
 
 import { todayISO } from './lib/dates.js';
 import { withDays } from './lib/priority.js';
@@ -11,6 +11,7 @@ import { canOpenFix, currentFixReason, buildFixMail, fixMailToText } from './lib
 import { parseNow, clockOf } from './lib/timing.js';
 import { validateItem, parsePaste } from './lib/add.js';
 import { josa } from './lib/korean.js';
+import { buildReport, reportToText, reportToCsv, csvFileName } from './lib/report.js';
 import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
@@ -18,6 +19,7 @@ import { renderCompose } from './views/compose.js';
 import { renderBundle } from './views/bundle.js';
 import { renderFix } from './views/fix.js';
 import { renderAdd, pastePreview, pasteSubmit } from './views/add.js';
+import { renderReport } from './views/report.js';
 
 // ?today=2026-10-01 처럼 기준일을 직접 지정해 확인할 수 있다.
 // ?now=2026-10-02T17:20 은 날짜와 시각을 함께 지정한다 (발송 시점 안내 확인용).
@@ -59,6 +61,15 @@ function render() {
   if (!state) { app.innerHTML = renderEmpty(); return; }
   const today = currentToday();
   const isDemo = !todayParam && Boolean(state.demoDate);
+
+  // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
+  if (location.hash === '#/report') {
+    compose = bundle = fix = add = null;
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo });
+    document.body.classList.remove('has-drawer');
+    return;
+  }
+
   let html = renderDashboard(state, { today, mode, isDemo });
 
   const id = routeParam('compose');
@@ -198,6 +209,22 @@ const actions = {
     form.ownerTitle.value = title.join(' ');
     if (!form.dept.value) form.dept.value = el.dataset.dept;
     form.ownerName.focus();
+  },
+  // 주간 현황: 복사와 CSV 내려받기. 메일·메신저로 보내지는 않는다.
+  'copy-report': async () => {
+    const ok = await copyText(reportToText(buildReport(state, currentToday())));
+    toast(ok ? '현황을 복사했어요. 아웃룩이나 메신저에 붙여넣으세요.' : '복사하지 못했어요. 화면 내용을 직접 선택해 복사해 주세요.');
+  },
+  'download-csv': () => {
+    const report = buildReport(state, currentToday());
+    const blob = new Blob([reportToCsv(report)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: csvFileName(report) });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(`${csvFileName(report)} 파일을 내려받았어요.`);
   },
   'add-paste': () => {
     const today = currentToday();
