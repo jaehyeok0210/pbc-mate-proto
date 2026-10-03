@@ -179,7 +179,9 @@ async function copyText(text) {
 }
 
 function closeDrawer() {
-  history.pushState(null, '', location.pathname + location.search);
+  // 샌드박스(iframe)에서는 pushState가 막힐 수 있어 해시를 비우는 방식으로 대신한다.
+  try { history.pushState(null, '', location.pathname + location.search); }
+  catch { location.hash = ''; }
   render();
 }
 
