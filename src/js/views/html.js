@@ -23,6 +23,9 @@ export const ICON = {
   help: svg('<circle cx="8" cy="8" r="6.2"/><path d="M6.4 6.3a1.7 1.7 0 0 1 3.2.7c0 1.1-1.6 1.4-1.6 2.4M8 11.3v.01"/>', 1.8),
   plus: svg('<path d="M8 3v10M3 8h10"/>', 2),
   chevron: svg('<path d="M6 3.5L10.5 8 6 12.5"/>', 2),
+  back: svg('<path d="M10 3.5L5.5 8l4.5 4.5"/>', 2),
+  close: svg('<path d="M4 4l8 8M12 4l-8 8"/>', 2),
+  copy: svg('<rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>', 1.8),
 };
 
 export const RISK_LABEL = { late: '지연', high: '2일 이내', mid: '3~7일', low: '8일 이상' };

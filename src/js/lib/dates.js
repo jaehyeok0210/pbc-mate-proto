@@ -33,6 +33,11 @@ export function formatKoreanDay(iso) {
   return `${m}월 ${d}일 (${WEEKDAYS[new Date(toUTC(iso)).getUTCDay()]})`;
 }
 
+/** '2026-10-02' → '10/2 (금)' */
+export function formatMDW(iso) {
+  return `${formatMD(iso)} (${WEEKDAYS[new Date(toUTC(iso)).getUTCDay()]})`;
+}
+
 /** 기기 시간 기준 오늘 날짜 */
 export function todayISO(now = new Date()) {
   const p = (n) => String(n).padStart(2, '0');

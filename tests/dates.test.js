@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { daysBetween, addDays, formatMD, formatKoreanDay, todayISO } from '../src/js/lib/dates.js';
+import { daysBetween, addDays, formatMD, formatMDW, formatKoreanDay, todayISO } from '../src/js/lib/dates.js';
 
 test('daysBetween: 앞뒤 방향과 월 경계', () => {
   assert.equal(daysBetween('2026-10-01', '2026-10-02'), 1);
@@ -18,6 +18,7 @@ test('formatMD / formatKoreanDay', () => {
   assert.equal(formatMD('2026-10-02'), '10/2');
   assert.equal(formatKoreanDay('2026-10-01'), '10월 1일 (목)');
   assert.equal(formatKoreanDay('2026-10-04'), '10월 4일 (일)');
+  assert.equal(formatMDW('2026-10-02'), '10/2 (금)');
 });
 
 test('todayISO: 기기 시간 기준 날짜', () => {
