@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Local / scratch
+*.log
+tmp/
+.env
+.env.*
+
+# Claude Code 개인 설정 (프로젝트 공용 지침은 CLAUDE.md)
+.claude/settings.local*.json
