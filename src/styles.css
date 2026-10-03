@@ -312,7 +312,7 @@ body.has-drawer { overflow: hidden; }
 }
 .drawer-body {
   flex-grow: 1; min-height: 0; overflow-y: auto;
-  padding: 24px 28px 0; display: flex; flex-direction: column; gap: 18px;
+  padding: 24px 28px 0; display: flex; flex-direction: column; gap: 16px;
 }
 .icon-btn {
   width: 44px; height: 44px; flex-shrink: 0; border: 0; border-radius: 12px; background: none;
@@ -513,6 +513,33 @@ a.m-bundle { text-decoration: none; }
 .basis-arrow svg { width: 14px; height: 14px; }
 .foot-note b { color: var(--fix-fg); }
 
+/* ---------- 발송 시점 안내 (레퍼런스 5) ---------- */
+.eyebrow .clock-chip { margin-left: 6px; height: 18px; vertical-align: 1px; font-size: 11.5px; }
+.clock-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 999px;
+  background: var(--fill); color: var(--ink-2); font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.clock-chip svg { width: 11px; height: 11px; }
+.timing-banner {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 12px; row-gap: 6px;
+  padding: 10px 16px; border-radius: 18px; border: 1px solid;
+}
+.timing-banner.is-wait { background: #FFFAEB; border-color: #FEDF89; color: #7A2E0E; --tb-icon-bg: #FEF0C7; --tb-icon-fg: #93370D; }
+.timing-banner.is-urgent { background: var(--high-bg); border-color: var(--high-border); color: var(--late-fg); --tb-icon-bg: var(--late-bg); --tb-icon-fg: var(--high-fg); }
+.tb-icon {
+  width: 36px; height: 36px; border-radius: 10px; background: var(--tb-icon-bg); color: var(--tb-icon-fg);
+  display: flex; align-items: center; justify-content: center;
+}
+.tb-icon svg { width: 18px; height: 18px; }
+.tb-text { display: flex; flex-direction: column; gap: 2px; }
+.tb-text b { font-size: 16px; font-weight: 800; }
+.tb-recommend { font-size: 14.5px; font-weight: 700; }
+.tb-text small { font-size: 13px; line-height: 1.5; }
+.tb-chips { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; }
+.tb-chips > span { padding: 5px 10px; border-radius: 10px; background: #fff; border: 1px solid; border-color: inherit; }
+.timing-banner.is-wait .tb-chips > span { border-color: #FEDF89; }
+.timing-banner.is-urgent .tb-chips > span { border-color: var(--high-border); }
+
 /* ---------- 토스트 ---------- */
 .toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50;
@@ -664,6 +691,15 @@ a.m-bundle { text-decoration: none; }
   .fix-detail.basis { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); flex-wrap: nowrap; }
   .basis-box { height: auto; padding: 6px 10px; flex-direction: column; align-items: flex-start; gap: 0; }
   .basis-box small { font-size: 11.5px; }
+
+  /* 발송 시점 안내 (모바일): 시각 칩은 상단 바 오른쪽 */
+  .m-header .clock-chip { margin-left: auto; margin-right: 8px; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+  .timing-banner { grid-template-columns: 32px minmax(0, 1fr); padding: 12px 14px; column-gap: 10px; row-gap: 8px; }
+  .tb-icon { width: 32px; height: 32px; }
+  .tb-text b { font-size: 15px; }
+  .tb-recommend { font-size: 13.5px; }
+  .tb-text small { font-size: 12.5px; }
+  .tb-chips { grid-column: 1 / -1; gap: 6px; font-size: 12px; }
 
   .empty-art { width: 100%; }
   .empty-main h1 { font-size: 20px; }

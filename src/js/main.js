@@ -8,6 +8,7 @@ import { recommendTone } from './lib/tone.js';
 import { buildMail, mailToText } from './lib/mail.js';
 import { bundleItems, bundleTone, buildBundleMail, bundleMailToText } from './lib/bundle.js';
 import { canOpenFix, currentFixReason, buildFixMail, fixMailToText } from './lib/fix.js';
+import { parseNow, clockOf } from './lib/timing.js';
 import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
@@ -16,7 +17,10 @@ import { renderBundle } from './views/bundle.js';
 import { renderFix } from './views/fix.js';
 
 // ?today=2026-10-01 처럼 기준일을 직접 지정해 확인할 수 있다.
-const todayParam = new URLSearchParams(location.search).get('today');
+// ?now=2026-10-02T17:20 은 날짜와 시각을 함께 지정한다 (발송 시점 안내 확인용).
+const params = new URLSearchParams(location.search);
+const nowParam = parseNow(params.get('now'));
+const todayParam = params.get('today') || nowParam?.date || null;
 
 const app = document.getElementById('app');
 let state = load();
@@ -27,6 +31,11 @@ let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, to
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
+}
+
+// 발송 시점 안내에 쓰는 현재 시각: 날짜는 기준일, 시각은 ?now 또는 기기 시각
+function currentClock() {
+  return { date: currentToday(), time: nowParam?.time || clockOf().time };
 }
 
 function routeParam(name) {
@@ -55,7 +64,7 @@ function render() {
     if (compose?.itemId !== id) {
       compose = { itemId: id, tone: recommendTone(withDays(item, today)), copied: false, toast: false };
     }
-    html += renderCompose(state, { today, ...compose });
+    html += renderCompose(state, { today, clock: currentClock(), ...compose });
   } else {
     compose = null;
   }
@@ -65,7 +74,7 @@ function render() {
     if (bundle?.owner !== b.owner) {
       bundle = { owner: b.owner, tone: bundleTone(b.sorted), copied: false, toast: false };
     }
-    html += renderBundle(state, { sorted: b.sorted, ...bundle });
+    html += renderBundle(state, { sorted: b.sorted, clock: currentClock(), ...bundle });
   } else {
     bundle = null;
   }

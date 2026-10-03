@@ -5,19 +5,22 @@ import { formatMD } from '../lib/dates.js';
 import { leftText } from '../lib/priority.js';
 import { TONES, toneIndex } from '../lib/tone.js';
 import { buildBundleMail } from '../lib/bundle.js';
+import { sendTiming } from '../lib/timing.js';
+import { timingChip, timingBanner } from './timing.js';
 import { esc, ICON, RISK_LABEL, STATUS_LABEL } from './html.js';
 
 /**
  * @param state 앱 상태
- * @param opts  { sorted: bundleItems() 결과, tone, copied, toast }
+ * @param opts  { sorted: bundleItems() 결과, clock, tone, copied, toast }
  */
-export function renderBundle(state, { sorted, tone, copied, toast }) {
+export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
   const top = sorted[0];
   const owner = top.owner;
   const person = state.people[owner] || {};
   const count = sorted.length;
   const t = TONES[toneIndex(tone)];
   const mail = buildBundleMail({ sorted, person, client: state.client, manager: state.team?.manager, tone });
+  const timing = sendTiming(clock, top.neededOn);
   const nudged = person.nudges
     ? `마지막 독촉 ${formatMD(person.lastNudgedOn)} · 독촉 ${person.nudges}회`
     : '아직 독촉하지 않았어요';
@@ -66,12 +69,13 @@ export function renderBundle(state, { sorted, tone, copied, toast }) {
       <header class="m-header mobile-only">
         <button type="button" class="icon-btn" data-action="close-drawer" aria-label="뒤로">${ICON.back}</button>
         <div class="m-header-title">묶음 독촉</div>
+        ${timingChip(timing)}
       </header>
 
       <div class="drawer-body">
         <div class="bundle-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">묶음 독촉</div>
+            <div class="eyebrow desktop-only">묶음 독촉 ${timingChip(timing)}</div>
             <h2 id="bundle-title">${esc(owner)} <span>${esc(person.dept || '')}</span></h2>
             <div class="bundle-sub">미완료 ${count}건 · ${nudged}</div>
           </div>
@@ -81,6 +85,8 @@ export function renderBundle(state, { sorted, tone, copied, toast }) {
           </div>
           <button type="button" class="icon-btn btn-sub desktop-only" data-action="close-drawer" aria-label="닫기">${ICON.close}</button>
         </div>
+
+        ${timingBanner(timing)}
 
         <section class="b-list">
           ${rows}

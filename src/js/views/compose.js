@@ -5,19 +5,22 @@ import { formatMD, formatMDW } from '../lib/dates.js';
 import { withDays, leftText } from '../lib/priority.js';
 import { TONES, toneIndex, toneName, recommendTone, recommendBasis } from '../lib/tone.js';
 import { buildMail } from '../lib/mail.js';
+import { sendTiming } from '../lib/timing.js';
+import { timingChip, timingBanner } from './timing.js';
 import { esc, ICON, RISK_LABEL, STATUS_LABEL } from './html.js';
 
 /**
  * @param state 앱 상태
- * @param opts  { today, itemId, tone, copied, toast }
+ * @param opts  { today, clock, itemId, tone, copied, toast }
  */
-export function renderCompose(state, { today, itemId, tone, copied, toast }) {
+export function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
   const item = withDays(state.items.find((x) => x.id === itemId), today);
   const person = state.people[item.owner] || {};
   const history = item.nudges || [];
   const last = history[history.length - 1];
   const recommended = recommendTone(item);
   const mail = buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone });
+  const timing = sendTiming(clock, item.neededOn);
 
   const footNote = copied && last
     ? `${ICON.done}독촉 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
@@ -29,18 +32,20 @@ export function renderCompose(state, { today, itemId, tone, copied, toast }) {
       <header class="m-header mobile-only">
         <button type="button" class="icon-btn" data-action="close-compose" aria-label="뒤로">${ICON.back}</button>
         <div class="m-header-title">독촉 메일</div>
+        ${timingChip(timing)}
       </header>
 
       <div class="drawer-body">
         <div class="compose-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">단건 독촉</div>
+            <div class="eyebrow desktop-only">단건 독촉 ${timingChip(timing)}</div>
             <h2 id="compose-title">${esc(item.name)}</h2>
             <div class="compose-owner desktop-only">${esc(item.owner)}${person.dept ? ` · ${esc(person.dept)}` : ''}</div>
           </div>
           <button type="button" class="icon-btn btn-sub desktop-only" data-action="close-compose" aria-label="닫기">${ICON.close}</button>
         </div>
 
+        ${timingBanner(timing)}
         ${facts(item, history, last)}
         ${mobileChips(item, history, last)}
         ${toneSlider(tone, recommended, item)}
