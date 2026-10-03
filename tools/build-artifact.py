@@ -5,6 +5,7 @@
 - 각 모듈을 IIFE로 감싸고 export 이름을 객체로 돌려준다. import는 그 객체에서 꺼내 쓴다.
 - Artifact는 publish 때 <!doctype>·<head>·<body>를 씌우므로 본문 조각만 쓴다 (title·style·#app·script).
 - --standalone 을 주면 로컬 확인용으로 doctype·head·body까지 갖춘 dist/pbc-mate-standalone.html 도 만든다.
+- --pages 를 주면 같은 내용을 docs/index.html 로 써서 GitHub Pages(main 브랜치 /docs)로 공개한다.
 """
 import re
 import sys
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / 'src' / 'js'
 OUT = ROOT / 'dist' / 'pbc-mate-artifact.html'
 OUT_STANDALONE = ROOT / 'dist' / 'pbc-mate-standalone.html'
+OUT_PAGES = ROOT / 'docs' / 'index.html'
 
 IMPORT_RE = re.compile(r"import\s*\{([^}]*)\}\s*from\s*'([^']+)';\n?", re.S)
 EXPORT_DECL_RE = re.compile(r"^export (?:(?:async )?function|const|let|class) (\w+)", re.M)
@@ -87,12 +89,17 @@ html, body {{ font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', -a
     OUT.write_text(fragment, encoding='utf-8')
     print(f'wrote {OUT.relative_to(ROOT)} ({OUT.stat().st_size // 1024} KB) from {len(order)} modules')
 
+    standalone = (
+        '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f'{fragment}\n</head>\n<body></body>\n</html>\n')
     if '--standalone' in sys.argv:
-        OUT_STANDALONE.write_text(
-            '<!doctype html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n'
-            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-            f'{fragment}\n</head>\n<body></body>\n</html>\n', encoding='utf-8')
+        OUT_STANDALONE.write_text(standalone, encoding='utf-8')
         print(f'wrote {OUT_STANDALONE.relative_to(ROOT)} (로컬 확인용)')
+    if '--pages' in sys.argv:
+        OUT_PAGES.parent.mkdir(exist_ok=True)
+        OUT_PAGES.write_text(standalone, encoding='utf-8')
+        print(f'wrote {OUT_PAGES.relative_to(ROOT)} (GitHub Pages)')
 
 
 if __name__ == '__main__':
