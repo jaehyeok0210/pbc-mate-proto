@@ -6,6 +6,8 @@ import { leftText } from '../lib/priority.js';
 import { weekLabel, summaryLines } from '../lib/report.js';
 import { esc, ICON, STATUS_LABEL } from './html.js';
 import { topbar } from './dashboard.js';
+import { confirmOverview } from './overview.js';
+import { trackOverview } from '../lib/followup.js';
 
 /**
  * @param state  앱 상태
@@ -32,11 +34,11 @@ export function renderReport(state, report, { today, isDemo }) {
           </div>` : ''}
       </section>
 
-      ${counts.total ? body(report, lines) : empty()}
+      ${counts.total ? body(report, lines, state) : empty()}
     </div>`;
 }
 
-function body(report, lines) {
+function body(report, lines, state) {
   const { counts, received, owners, rows } = report;
   return `
     <div class="report-grid">
@@ -61,6 +63,8 @@ function body(report, lines) {
       </aside>
 
       <section class="report-main">
+        ${confirmOverview(trackOverview(state.items, state.materiality?.performance), state.materiality)}
+
         <div class="report-block">
           <h2>담당자별 현황</h2>
           <div class="owner-table">
