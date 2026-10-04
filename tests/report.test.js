@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   weekRange, weekLabel, buildReport, summaryLines, reportToText, reportToCsv, csvFileName,
 } from '../src/js/lib/report.js';
-import { sampleState, baseDateOf, DEMO_DATE } from '../src/js/store.js';
+import { baseDateOf, DEMO_DATE } from '../src/js/store.js';
+import { sampleState } from './fixtures.js';
 import { summarize, withDays } from '../src/js/lib/priority.js';
 
 const state = sampleState();

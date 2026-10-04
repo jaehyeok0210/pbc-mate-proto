@@ -54,7 +54,10 @@ export function baseDateOf(state, override, realToday) {
   return override || state?.demoDate || realToday;
 }
 
-/** 예시 자료. 시연 기준일(DEMO_DATE) 기준 상대 날짜로 만든다. */
+/**
+ * 예시 자료. 시연 기준일(DEMO_DATE) 기준 상대 날짜로 만든다.
+ * 은행조회서는 PBC 자료가 아니라 외부조회라서 예시에서 뺐다. 외부조회서 탭에서 만들어 등록한다.
+ */
 export function sampleState() {
   const d = (n) => addDays(DEMO_DATE, n);
   return {
@@ -62,13 +65,11 @@ export function sampleState() {
     client: { name: '㈜한빛전자', engagement: '2026 기말감사' },
     team: { manager: { name: '이서연 매니저', dept: '감사팀' } },
     people: {
-      '박준호 과장': { dept: '재무팀', nudges: 1, lastNudgedOn: d(-1) },
+      '박준호 과장': { dept: '재무팀', nudges: 0, lastNudgedOn: null },
       '김민지 대리': { dept: '재무팀', nudges: 2, lastNudgedOn: d(-2) },
       '최도윤 차장': { dept: '관리팀', nudges: 2, lastNudgedOn: d(-5) },
     },
     items: [
-      { id: 'i1', name: '은행조회서 회신', owner: '박준호 과장', requestedOn: d(-3), neededOn: d(1), status: 'none',
-        procedure: '은행 조회', nudges: [{ on: d(-1), tone: 'angel' }] },
       { id: 'i2', name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-1), neededOn: d(7), status: 'fix', reason: '기준일 상이 · 12/31 기준 재요청 필요',
         procedure: '유형자산 실증', nudges: [],
         received: { on: d(-1), basisDate: '2026-06-30' },

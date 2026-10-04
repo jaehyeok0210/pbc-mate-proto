@@ -4,7 +4,8 @@ import {
   CONF_TYPES, TYPE_ORDER, defaultSetup, validateSetup, parseAmount, formatAmount,
   parseConfirmations, buildLetters, toRegistryValues, nextDocNo, isConfirmation, longKoreanDate,
 } from '../src/js/lib/confirmation.js';
-import { sampleState, addItems } from '../src/js/store.js';
+import { addItems } from '../src/js/store.js';
+import { sampleState } from './fixtures.js';
 import { withDays, groupByOwner, sortItems } from '../src/js/lib/priority.js';
 import { buildMail } from '../src/js/lib/mail.js';
 
