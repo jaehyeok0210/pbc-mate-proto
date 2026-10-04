@@ -48,7 +48,8 @@ let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteTe
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
 let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 화면 입력값
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
-let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank }
+let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
+let confResetTimer;
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -393,6 +394,24 @@ const actions = {
   'conf-example': () => { readConfSetup(); conf.pasteText = CONF_TYPES[conf.type].example; render(); },
   'conf-clear': () => { readConfSetup(); conf.pasteText = ''; render(); },
   'conf-print': () => window.print(),
+  // 초기화: 첫 클릭은 확인 대기, 4초 안에 한 번 더 누르면 입력값·종류·기억해 둔 회사/감사인 정보까지 지운다.
+  // 이미 조회 목록에 등록한 조회서는 지우지 않는다.
+  'conf-reset': () => {
+    clearTimeout(confResetTimer);
+    if (!conf.resetArmed) {
+      readConfSetup();
+      conf.resetArmed = true;
+      render();
+      confResetTimer = setTimeout(() => { if (conf) { conf.resetArmed = false; render(); } }, 4000);
+      return;
+    }
+    const { confirmSetup, ...rest } = state;
+    state = rest;
+    save(state);
+    conf = null;
+    render();
+    toast('외부조회서 작성 화면을 처음 상태로 되돌렸어요. 등록한 조회서는 그대로예요.');
+  },
   'conf-register': () => {
     readConfSetup();
     const today = currentToday();

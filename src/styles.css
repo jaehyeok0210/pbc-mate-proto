@@ -1215,3 +1215,7 @@ a.m-bundle { text-decoration: none; }
   .letter:last-child { break-after: auto; page-break-after: auto; }
   .toast { display: none; }
 }
+
+.btn-danger { background: var(--high-bg); border-color: var(--high-line); color: var(--high-fg); font-weight: 700; }
+.btn-danger:hover { background: #FBE2DF; }
+.confirm-head .report-actions svg { width: 14px; height: 14px; }

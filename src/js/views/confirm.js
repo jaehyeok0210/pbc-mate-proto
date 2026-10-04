@@ -9,9 +9,10 @@ import { topbar } from './dashboard.js';
 
 /**
  * @param state 앱 상태
- * @param opts  { today, isDemo, type, setup, setupErrors, pasteText, bankBlank }
+ * @param opts  { today, isDemo, type, setup, setupErrors, pasteText, bankBlank, resetArmed }
+ *   resetArmed: 초기화를 한 번 눌러 확인을 기다리는 중 (브라우저 확인창 대신 버튼을 두 번 누르게 한다)
  */
-export function renderConfirm(state, { today, isDemo, type, setup, setupErrors, pasteText, bankBlank }) {
+export function renderConfirm(state, { today, isDemo, type, setup, setupErrors, pasteText, bankBlank, resetArmed }) {
   const t = CONF_TYPES[type];
   return `
     <div class="page confirm">
@@ -20,6 +21,11 @@ export function renderConfirm(state, { today, isDemo, type, setup, setupErrors, 
       <section class="report-head confirm-head">
         <div>
           <h1>외부조회서 작성 <span>· 선정된 조회처 목록으로 표준 조회서를 만들고 조회 목록에 등록해요</span></h1>
+        </div>
+        <div class="report-actions">
+          <button type="button" class="btn ${resetArmed ? 'btn-danger' : 'btn-sub'}" data-action="conf-reset">${resetArmed
+            ? '한 번 더 누르면 모두 지워져요'
+            : `${ICON.fix}초기화`}</button>
         </div>
       </section>
 
