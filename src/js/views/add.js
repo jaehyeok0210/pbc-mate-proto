@@ -3,7 +3,7 @@
 
 import { formatMD, formatMDW, daysBetween } from '../lib/dates.js';
 import { riskOf, leftText } from '../lib/priority.js';
-import { parsePaste, rowErrorText, leftOf, normalizeDate } from '../lib/add.js';
+import { parsePaste, markDuplicates, rowErrorText, leftOf, normalizeDate } from '../lib/add.js';
 import { esc, ICON, RISK_LABEL } from './html.js';
 
 export const PASTE_EXAMPLE = [
@@ -14,9 +14,11 @@ export const PASTE_EXAMPLE = [
 
 /**
  * @param state 앱 상태
- * @param opts  { today, tab: 'single'|'paste', form, errors, pasteText }
+ * @param opts  { today, tab: 'single'|'paste', form, errors, pasteText, source }
+ *   source: 외부조회 후속 절차에서 연 경우 { itemId, key, counterparty } — 값이 미리 채워져 있다
  */
-export function renderAdd(state, { today, tab, form, errors, pasteText }) {
+export function renderAdd(state, { today, tab, form, errors, pasteText, source }) {
+  const parsed = markDuplicates(parsePaste(pasteText, today), state.items);
   return `
     <div class="drawer-dim" data-action="close-drawer"></div>
     <div class="modal add" role="dialog" aria-modal="true" aria-labelledby="add-title">
@@ -36,14 +38,16 @@ export function renderAdd(state, { today, tab, form, errors, pasteText }) {
           <button type="button" role="tab" data-action="add-tab" data-tab="paste" aria-pressed="${tab === 'paste'}">여러 건 붙여넣기 (엑셀)</button>
         </div>
 
-        ${tab === 'single' ? singleForm(state, today, form, errors) : pasteForm(state, today, pasteText)}
+        ${source ? `<div class="add-source">${ICON.follow}<span><b>외부조회 후속 절차에서 요청하는 증빙이에요</b>
+          <small>${esc(source.counterparty)} · 값이 미리 채워져 있어요. 확인하고 필요한 곳만 고쳐 주세요.</small></span></div>` : ''}
+        ${tab === 'single' ? singleForm(state, today, form, errors) : pasteForm(state, today, pasteText, parsed)}
       </div>
 
       <footer class="modal-foot">
         <button type="button" class="btn btn-sub" data-action="close-drawer">취소</button>
         ${tab === 'single'
           ? `<button type="submit" form="add-form" class="btn btn-cta">추가하기</button>`
-          : pasteSubmit(parsePaste(pasteText, today))}
+          : pasteSubmit(parsed)}
       </footer>
     </div>`;
 }
@@ -58,7 +62,9 @@ function field(label, name, value, { type = 'text', placeholder = '', error = ''
 }
 
 function singleForm(state, today, form, errors) {
-  const owners = Object.keys(state.people);
+  // 자료 요청은 회사 담당자에게 한다. 외부조회의 조회처(은행·거래처 등)는 최근 담당자에서 뺀다.
+  const counterparties = new Set(state.items.filter((x) => x.kind === 'confirmation').map((x) => x.owner));
+  const owners = Object.keys(state.people).filter((o) => !counterparties.has(o));
   const chips = owners.map((o) => `
     <button type="button" class="owner-chip" data-action="pick-owner" data-owner="${esc(o)}" data-dept="${esc(state.people[o].dept || '')}">${esc(o)}</button>`).join('');
   const procedures = [...new Set(state.items.map((x) => x.procedure).filter(Boolean))];
@@ -105,7 +111,7 @@ function needPreview(neededOn, today) {
     </div>`;
 }
 
-function pasteForm(state, today, pasteText) {
+function pasteForm(state, today, pasteText, parsed) {
   return `
     <div class="add-paste">
       <label class="f">
@@ -113,7 +119,7 @@ function pasteForm(state, today, pasteText) {
           <small>열 순서: 자료명 · 담당자 · 요청일 · 필요일 · 감사절차(선택) — 첫 줄이 제목이면 자동으로 빼요</small></span>
         <textarea name="paste" rows="5" data-action-input="paste" placeholder="${esc(PASTE_EXAMPLE)}" spellcheck="false">${esc(pasteText)}</textarea>
       </label>
-      <div class="paste-preview">${pastePreview(parsePaste(pasteText, today), today)}</div>
+      <div class="paste-preview">${pastePreview(parsed, today)}</div>
       <div class="need-note">담당자는 기존 목록과 이름이 같으면 자동으로 묶여요 · 모두 ‘미회신’으로 시작해요</div>
     </div>`;
 }

@@ -1369,3 +1369,9 @@ a.m-bundle { text-decoration: none; }
 /* 주간 보고: 후속 절차 칸이 생기면 지연 칸을 한 줄 전체로 */
 .stat.is-follow .stat-value { color: var(--follow-fg); }
 .stat.stat-span { grid-column: 1 / -1; }
+
+.add-source { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: var(--follow-bg); color: var(--follow-fg); border-radius: var(--radius); }
+.add-source svg { width: 16px; height: 16px; margin-top: 2px; }
+.add-source span { display: flex; flex-direction: column; gap: 2px; }
+.add-source b { font-size: 13.5px; }
+.add-source small { font-size: 12.5px; }

@@ -10,7 +10,7 @@ import { buildMail, mailToText } from './lib/mail.js';
 import { bundleItems, bundleTone, buildBundleMail, bundleMailToText } from './lib/bundle.js';
 import { canOpenFix, currentFixReason, buildFixMail, fixMailToText } from './lib/fix.js';
 import { parseNow, clockOf } from './lib/timing.js';
-import { validateItem, parsePaste } from './lib/add.js';
+import { validateItem, parsePaste, markDuplicates, duplicateMessage } from './lib/add.js';
 import { josa } from './lib/korean.js';
 import { buildReport, reportToText, reportToCsv, csvFileName } from './lib/report.js';
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
@@ -349,7 +349,11 @@ const actions = {
 
   'set-tone': (el) => { compose.tone = el.dataset.tone; compose.copied = false; render(); },
   'close-compose': closeDrawer,
-  'close-drawer': closeDrawer,
+  'close-drawer': () => {
+    // 후속 절차에서 연 자료 추가 창을 닫으면 후속 절차 화면으로 돌아간다
+    if (add?.source) { const id = add.source.itemId; add = null; location.hash = `#/follow/${encodeURIComponent(id)}`; render(); return; }
+    closeDrawer();
+  },
   'copy-mail': () => {
     const today = currentToday();
     const item = withDays(state.items.find((x) => x.id === compose.itemId), today);
@@ -416,7 +420,7 @@ const actions = {
   },
   'add-paste': () => {
     const today = currentToday();
-    const parsed = parsePaste(add.pasteText, today);
+    const parsed = markDuplicates(parsePaste(add.pasteText, today), state.items);
     if (!parsed.rows.length || parsed.errorCount) return;
     state = addItems(state, parsed.rows.map((r) => r.value));
     save(state);
@@ -498,20 +502,25 @@ const actions = {
     setFollow((f) => ({ ...f, recon: { ...f.recon, lines: f.recon.lines.filter((_, j) => j !== i) } }));
     render();
   },
+  // 후속 절차의 증빙 → 기존 자료 추가 창을 미리 채워서 연다 (사용자가 확인·수정 후 저장)
   'follow-request': (el) => {
-    const owner = fu.owner.trim();
-    if (!owner) {
-      toast('증빙을 요청할 회사 담당자를 입력해 주세요.');
-      app.querySelector('[data-action-input="follow-owner"]')?.focus();
-      return;
-    }
     const item = state.items.find((x) => x.id === fu.itemId);
-    const reqs = evidenceRequests(item, { stepKeys: [el.dataset.key], owner, dept: state.people[owner]?.dept || '', today: currentToday() });
-    if (!reqs.length) return;
-    state = addItems(state, reqs.map((r) => r.value));
-    setFollow((f) => ({ ...f, requested: [...(f.requested || []), ...reqs.map((r) => r.key)] }));
+    const owner = fu.owner.trim();
+    const [req] = evidenceRequests(item, { stepKeys: [el.dataset.key], owner, dept: state.people[owner]?.dept || '', today: currentToday() });
+    if (!req) return;
+    const v = req.value.item;
+    const [ownerName = '', ...title] = owner.split(' ');
+    add = {
+      tab: 'single', errors: {}, pasteText: '',
+      source: { itemId: item.id, key: req.key, counterparty: item.counterparty },
+      form: {
+        name: v.name, ownerName, ownerTitle: title.join(' '), dept: req.value.person.dept,
+        requestedOn: v.requestedOn, neededOn: v.neededOn, procedure: v.procedure,
+      },
+    };
+    location.hash = '#/add';
     render();
-    toast(`‘${reqs[0].value.item.name}’을(를) ${owner}에게 자료 요청으로 추가했어요.`);
+    app.querySelector('#add-form [name="name"]')?.focus();
   },
   'complete-follow': () => {
     const item = state.items.find((x) => x.id === fu.itemId);
@@ -694,16 +703,28 @@ app.addEventListener('submit', (e) => {
   const today = currentToday();
   add.form = readAddForm();
   const { errors, value } = validateItem(add.form, today);
+  const dup = value && duplicateMessage(state.items, value.item.name);
+  if (dup) errors.name = dup;
   add.errors = errors;
-  if (!value) {
+  if (!value || dup) {
     render();
     app.querySelector('.f.has-error input')?.focus();
     return;
   }
+  const source = add.source;
+  if (source) value.item.sourceId = source.itemId; // 어느 외부조회 건의 증빙인지
   state = addItems(state, [value]);
+  if (source) {
+    setItem(source.itemId, (x) => ({ ...x, follow: { ...x.follow, requested: [...(x.follow?.requested || []), source.key] } }));
+  }
   save(state);
   add = null;
-  closeDrawer();
+  if (source) {
+    location.hash = `#/follow/${encodeURIComponent(source.itemId)}`;
+    render();
+  } else {
+    closeDrawer();
+  }
   toast(`‘${value.item.name}’${josa(value.item.name, '을', '를')} 추가했어요.`);
 });
 
@@ -729,7 +750,7 @@ app.addEventListener('input', (e) => {
   }
   if (e.target.dataset.actionInput === 'paste') {
     add.pasteText = e.target.value;
-    const parsed = parsePaste(add.pasteText, currentToday());
+    const parsed = markDuplicates(parsePaste(add.pasteText, currentToday()), state.items);
     app.querySelector('.paste-preview').innerHTML = pastePreview(parsed, currentToday());
     app.querySelector('.modal-foot .btn-cta').outerHTML = pasteSubmit(parsed);
   } else if (e.target.name === 'neededOn' && e.target.form?.id === 'add-form') {
@@ -752,7 +773,7 @@ window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (sheet) { sheet = null; render(); return; }
-  if (compose || bundle || fix || add || fu) closeDrawer();
+  if (compose || bundle || fix || add || fu) actions['close-drawer']();
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
