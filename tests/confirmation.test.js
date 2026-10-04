@@ -202,3 +202,33 @@ test('등록 후 기존 기능과 함께 동작: 문서번호 이어서, 대시�
 test('longKoreanDate', () => {
   assert.equal(longKoreanDate('2027-01-05'), '2027년 1월 5일');
 });
+
+test('재고: 보관처+창고로 묶어 1장, 수량을 확인받고 금액은 적지 않는다', () => {
+  const parsed = parseConfirmations('inventory', CONF_TYPES.inventory.example);
+  assert.equal(parsed.errorCount, 0);
+  assert.equal(parsed.parties.length, 2);
+  const [hk] = parsed.parties;
+  assert.equal(hk.branch, '평택센터');
+  assert.deepEqual(hk.goods.map((g) => g.quantity), [12400, 85000]);
+
+  const [letter] = buildLetters('inventory', parsed.parties, valid());
+  assert.equal(letter.docNo, 'IV-001');
+  assert.equal(letter.to.name, '㈜한결물류 평택센터');
+  assert.deepEqual(letter.table.columns, ['품목', '단위', '당사 장부수량', '귀사 확인수량']);
+  assert.ok(letter.table.rows.flat().includes('12,400'));
+  assert.ok(!JSON.stringify(letter).includes('1,488,000,000'), '보관처에는 금액을 보내지 않는다');
+  assert.ok(letter.reply.statements.some((s) => s.includes('제3자의 권리')));
+
+  const [reg] = toRegistryValues([letter], valid());
+  assert.equal(reg.item.track, 'coverage');
+  assert.equal(reg.item.bookAmount, 1913000000);
+  assert.equal(reg.person.dept, '보관처');
+});
+
+test('재고: 품목·수량 누락과 형식 오류', () => {
+  const parsed = parseConfirmations('inventory', '가물류\t\t서울\t\t\n나물류\t\t부산\t부품\t열개\n다물류\t\t대구\t부품\t10\tEA\t1억');
+  assert.equal(parsed.rows[0].errors.category, '품목 없음');
+  assert.equal(parsed.rows[0].errors.amount, '수량 없음');
+  assert.equal(parsed.rows[1].errors.amount, '수량 형식 오류');
+  assert.equal(parsed.rows[2].errors.amount, '금액 형식 오류');
+});

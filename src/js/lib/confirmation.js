@@ -7,6 +7,7 @@
 //   bank  : 은행조회서 (금융거래 조회서) — 금융기관 1곳당 1장, 행을 금융기관+지점으로 묶는다
 //   arap  : 채권채무조회서 — 거래처 1곳당 1장
 //   legal : 변호사조회서 — 법무법인 1곳당 1장, 사건 행을 묶는다
+//   inventory : 제3자보관재고자산조회서 — 보관처(창고)별 1장, 품목 행을 묶는다. 수량을 확인받는다
 //
 // track: 'required'(금액과 무관하게 전수 회수) | 'coverage'(수행중요성 대비 금액 커버리지로 관리)
 
@@ -48,14 +49,25 @@ export const CONF_TYPES = {
       '법무법인 바른길\t\t서울특별시 강남구 테헤란로 92\t',
     ].join('\n'),
   },
+  inventory: {
+    key: 'inventory', label: '제3자보관재고자산조회서', title: '제3자 보관 재고자산 조회서', prefix: 'IV', track: 'coverage',
+    unit: '보관처',
+    columns: ['보관처', '창고(선택)', '주소', '품목', '수량', '단위(선택)', '장부금액(선택)'],
+    example: [
+      '보관처\t창고\t주소\t품목\t수량\t단위\t장부금액',
+      '㈜한결물류\t평택센터\t경기도 평택시 포승읍 평택항로 156\tOLED 패널 A-15\t12,400\tEA\t1,488,000,000',
+      '㈜한결물류\t평택센터\t경기도 평택시 포승읍 평택항로 156\t구동칩 DX-7\t85,000\tEA\t425,000,000',
+      '대성냉장㈜\t부산 감천창고\t부산광역시 사하구 원양로 177\t접착 소재 B-2\t3,200\tkg\t96,000,000',
+    ].join('\n'),
+  },
 };
 
-export const TYPE_ORDER = ['bank', 'arap', 'legal'];
+export const TYPE_ORDER = ['bank', 'arap', 'legal', 'inventory'];
 
 /** 은행조회서 '구분'으로 받는 항목. 이 단어가 들어가면 인정한다 (보통예금 → 예금). */
 export const BANK_CATEGORIES = ['예금', '적금', '차입금', '대출', '보증', '담보', '약정', '파생', '기타'];
 
-const HEADER_WORDS = ['금융기관', '은행', '거래처', '거래처명', '법무법인', '구분', '주소', '채권', '채무', '사건명'];
+const HEADER_WORDS = ['금융기관', '은행', '거래처', '거래처명', '법무법인', '구분', '주소', '채권', '채무', '사건명', '보관처', '품목', '수량'];
 
 // ---------- 공통 정보 ----------
 
@@ -183,7 +195,20 @@ function parseLegalRow(cells) {
   return { errors, value: { name, lawyer, address, matter } };
 }
 
-const ROW_PARSERS = { bank: parseBankRow, arap: parseArapRow, legal: parseLegalRow };
+function parseInventoryRow(cells) {
+  const [name = '', branch = '', address = '', item = '', qty = '', unit = '', amount = ''] = cells;
+  const errors = {};
+  if (!name) errors.name = '보관처명 없음';
+  if (!item) errors.category = '품목 없음';
+  const quantity = parseAmount(qty);
+  if (quantity === null) errors.amount = '수량 없음';
+  else if (Number.isNaN(quantity)) errors.amount = '수량 형식 오류';
+  const bookAmount = parseAmount(amount);
+  if (Number.isNaN(bookAmount)) errors.amount = '금액 형식 오류';
+  return { errors, value: { name, branch, address, item, quantity, unit, bookAmount } };
+}
+
+const ROW_PARSERS = { bank: parseBankRow, arap: parseArapRow, legal: parseLegalRow, inventory: parseInventoryRow };
 
 /**
  * 붙여넣은 목록을 조회처 단위로 묶는다.
@@ -214,12 +239,12 @@ function arapParties(rows) {
   });
 }
 
-/** 은행(금융기관+지점)·변호사(법무법인)는 여러 행을 한 조회처로 묶는다. */
+/** 은행(금융기관+지점)·재고(보관처+창고)·변호사(법무법인)는 여러 행을 한 조회처로 묶는다. */
 function groupedParties(type, rows) {
   const groups = new Map();
   for (const r of rows) {
     if (!r.value.name) continue;
-    const key = type === 'bank' ? `${r.value.name}|${r.value.branch}` : r.value.name;
+    const key = type === 'legal' ? r.value.name : `${r.value.name}|${r.value.branch}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
   }
@@ -233,6 +258,9 @@ function groupedParties(type, rows) {
     if (type === 'bank') {
       party.branch = first.branch;
       party.entries = rs.map((r) => ({ category: r.value.category, desc: r.value.desc, bookAmount: r.value.bookAmount }));
+    } else if (type === 'inventory') {
+      party.branch = first.branch;
+      party.goods = rs.map((r) => ({ item: r.value.item, quantity: r.value.quantity, unit: r.value.unit, bookAmount: r.value.bookAmount }));
     } else {
       party.lawyer = rs.map((r) => r.value.lawyer).find(Boolean) || '';
       party.matters = rs.map((r) => r.value.matter).filter(Boolean);
@@ -254,7 +282,7 @@ function docNo(type, n) {
 }
 
 function recipientName(type, p) {
-  if (type === 'bank') return `${p.name}${p.branch ? ` ${p.branch}` : ''}`;
+  if (type === 'bank' || type === 'inventory') return `${p.name}${p.branch ? ` ${p.branch}` : ''}`;
   return p.name;
 }
 
@@ -387,6 +415,35 @@ const LETTER_BODY = {
       },
     };
   },
+
+  // 보관처에는 금액이 아니라 수량과 소유권·권리 제한 여부를 확인받는다.
+  inventory(p, setup, base, by) {
+    return {
+      blank: false,
+      paragraphs: [
+        `당사의 외부감사인인 ${setup.auditorName}의 감사 목적으로, ${base} 현재 귀사가 보관하고 있는 당사 소유 재고자산의 내역을 조회합니다.`,
+        `아래 품목과 수량을 귀사의 보관 기록과 대조하시어, ${by}까지 아래 회신처(당사 감사인)로 직접 회신하여 주시기 바랍니다.`,
+      ],
+      table: {
+        columns: ['품목', '단위', '당사 장부수량', '귀사 확인수량'],
+        rows: p.goods.map((g) => [g.item, g.unit || '', formatAmount(g.quantity), '']),
+        amountCols: [2, 3],
+      },
+      notes: [
+        '위 재고에 대하여 질권·담보 설정, 압류 등 제3자의 권리가 있거나 당사 외 다른 회사의 재고와 함께 보관 중인 경우 그 내용을 기재하여 주시기 바랍니다.',
+        '위에 기재되지 않은 당사 재고를 보관하고 있는 경우 함께 기재하여 주시기 바랍니다.',
+      ],
+      reply: {
+        heading: '회신 (귀사 작성란)',
+        statements: [
+          `위 품목과 수량이 ${base} 현재 당사의 보관 기록과 일치합니다.`,
+          '위 내용과 다르며, 차이 내역은 별지에 기재합니다.',
+          '위 재고에 대한 질권·담보 설정 등 제3자의 권리가 없습니다.',
+        ],
+        signer: '보관처명 · 확인자 직위·성명',
+      },
+    };
+  },
 };
 
 // ---------- 조회 목록 등록 ----------
@@ -422,6 +479,8 @@ export function toRegistryValues(letters, setup) {
     };
     if (l.type === 'bank') {
       item.bookAmount = p.entries.reduce((s, e) => s + (e.bookAmount || 0), 0);
+    } else if (l.type === 'inventory') {
+      item.bookAmount = p.goods.reduce((s, g) => s + (g.bookAmount || 0), 0);
     } else if (l.type === 'arap') {
       item.receivable = p.receivable;
       item.payable = p.payable;

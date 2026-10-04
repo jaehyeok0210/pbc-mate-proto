@@ -46,9 +46,18 @@ const LEGAL_STEPS = [
   { key: 'report', role: 'escalate', label: '담당 매니저에게 보고', detail: '회신 없이 중요한 소송 여부를 판단하기 어려우면 함께 검토해요.' },
 ];
 
+const INVENTORY_STEPS = [
+  { key: 'resend', role: 'escalate', label: '조회서 재발송·보관처 직접 연락', detail: '보관처 담당자에게 감사인이 직접 회신을 요청해요.' },
+  { key: 'inspect', role: 'alt', label: '보관처 방문 실사', detail: '보관 장소에서 직접 수량을 세고 당사 재고로 구분 보관되는지 확인해요.' },
+  { key: 'receipts', role: 'alt', label: '창고증권·보관증 확인', detail: '보관처가 발행한 창고증권이나 보관증으로 품목·수량을 대조해요.', evidence: '창고증권·보관증 사본' },
+  { key: 'movement', role: 'alt', label: '기준일 전후 입출고 대조', detail: '기준일 전후 입출고 기록과 운송 증빙으로 기말 수량을 역산해요.', evidence: '기준일 전후 입출고 내역' },
+  { key: 'report', role: 'escalate', label: '담당 매니저에게 보고', detail: '중요한 재고를 확인하지 못하면 함께 검토해요.' },
+];
+
 /** 조회 건에 맞는 미회수 절차 목록. 채권채무는 채권·채무 중 금액이 있는 쪽만. */
 export function noReplySteps(item) {
   if (item.confType === 'bank') return BANK_STEPS;
+  if (item.confType === 'inventory') return INVENTORY_STEPS;
   if (item.confType === 'legal') return LEGAL_STEPS;
   const steps = [];
   if ((item.receivable ?? item.bookAmount ?? 0) > 0) steps.push(...AR_STEPS);

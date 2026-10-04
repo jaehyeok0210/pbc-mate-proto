@@ -138,3 +138,11 @@ test('커버리지: 회신 완료 + 대체적 절차 + 차이 건의 회신금�
   assert.equal(Math.round(c.ratio * 1000), 904); // 1,332,000,000 / 1,473,800,000
   assert.equal(coverageSummary([]).ratio, 0);
 });
+
+test('미회수 절차: 재고 조회는 실사·창고증권·입출고 대조', () => {
+  const inv = { id: 'c8', kind: 'confirmation', confType: 'inventory', track: 'coverage', counterparty: '㈜한결물류 평택센터', bookAmount: 1913000000, status: 'none' };
+  assert.deepEqual(noReplySteps(inv).map((s) => s.key), ['resend', 'inspect', 'receipts', 'movement', 'report']);
+  const f = startFollow(inv, 'noreply', ON);
+  const reqs = evidenceRequests(f, { stepKeys: ['receipts', 'inspect'], owner: '김민지 대리', today: ON });
+  assert.deepEqual(reqs.map((r) => r.value.item.name), ['창고증권·보관증 사본 (㈜한결물류 평택센터)']);
+});

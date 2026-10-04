@@ -147,12 +147,15 @@ function partyRow(type, p) {
   if (type === 'bank') {
     const total = p.entries.reduce((s, e) => s + (e.bookAmount || 0), 0);
     content = `${p.entries.map((e) => esc(e.category)).join(' · ')}<small>${p.entries.length}개 항목 · 장부 ${formatAmount(total)}원</small>`;
+  } else if (type === 'inventory') {
+    const total = p.goods.reduce((s, g) => s + (g.bookAmount || 0), 0);
+    content = `${p.goods.map((g) => esc(g.item)).join(' · ')}<small>${p.goods.length}개 품목${total ? ` · 장부 ${formatAmount(total)}원` : ''}</small>`;
   } else if (type === 'arap') {
     content = `채권 ${formatAmount(p.receivable)} · 채무 ${formatAmount(p.payable)}<small>${p.blank ? '공란형 (금액 미기재)' : '금액 기재형'}</small>`;
   } else {
     content = p.matters.length ? `${p.matters.length}건<small>${esc(p.matters[0])}${p.matters.length > 1 ? ' 외' : ''}</small>` : '사건 미기재<small>전체 조회</small>';
   }
-  const name = type === 'bank' && p.branch ? `${p.name} ${p.branch}` : p.name;
+  const name = (type === 'bank' || type === 'inventory') && p.branch ? `${p.name} ${p.branch}` : p.name;
   return `
     <div class="pp-row ${bad ? 'is-error' : ''}">
       <div class="pp-name">${esc(name)}${type === 'legal' && p.lawyer ? `<small>${esc(p.lawyer)}</small>` : ''}</div>
