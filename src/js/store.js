@@ -56,7 +56,7 @@ export function baseDateOf(state, override, realToday) {
 
 /**
  * 예시 자료. 시연 기준일(DEMO_DATE) 기준 상대 날짜로 만든다.
- * PBC 자료 5건 + 외부조회 7건(kind: 'confirmation'). 외부조회는 조회처가 담당자(owner)이고,
+ * PBC 자료 5건(4건은 표준 양식으로 요청, template·basisDate) + 외부조회 7건(kind: 'confirmation'). 외부조회는 조회처가 담당자(owner)이고,
  * 미회신·독촉 중·회신 기한 지남·회신 완료·후속 절차(미회수 확정, 금액 차이)가 고루 보이게 넣었다.
  * confirmSetup은 외부조회서 작성 화면의 공통 정보 기본값이다 (결산일 12/31 기준).
  */
@@ -88,17 +88,17 @@ export function sampleState() {
     },
     items: [
       { id: 'i2', name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-1), neededOn: d(7), status: 'fix', reason: '기준일 상이 · 12/31 기준 재요청 필요',
-        procedure: '유형자산 실증', nudges: [],
+        procedure: '유형자산 실증', nudges: [], template: 'ppe', basisDate: '2026-12-31',
         received: { on: d(-1), basisDate: '2026-06-30' },
         fix: { reason: 'date', requiredBasisDate: '2026-12-31',
                details: { sign: '담당 임원 확인란', missing: '건설중인자산 대체 내역' } },
         fixes: [{ on: d(-1), reason: 'date' }] },
       { id: 'i3', name: '재고실사 결과표', owner: '김민지 대리', requestedOn: d(-5), neededOn: d(5), status: 'none',
-        procedure: '재고 실사 검토', nudges: [{ on: d(-2), tone: 'polite' }] },
+        procedure: '재고 실사 검토', nudges: [{ on: d(-2), tone: 'polite' }], template: 'inventory', basisDate: '2026-12-31' },
       { id: 'i4', name: '특수관계자 거래내역', owner: '김민지 대리', requestedOn: d(-9), neededOn: d(9), status: 'part',
-        procedure: '특수관계자 검토', nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }] },
+        procedure: '특수관계자 검토', nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }], template: 'related', basisDate: '2026-12-31' },
       { id: 'i5', name: '매출채권 연령분석표', owner: '김민지 대리', requestedOn: d(-11), neededOn: d(19), status: 'none',
-        procedure: '채권 평가', nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }] },
+        procedure: '채권 평가', nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }], template: 'aging', basisDate: '2026-12-31' },
       { id: 'i6', name: '법인세 신고서 사본', owner: '박준호 과장', requestedOn: d(-6), neededOn: d(3), status: 'done',
         procedure: '법인세 검토', nudges: [] },
       ...sampleConfirmations(d),

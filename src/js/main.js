@@ -10,12 +10,13 @@ import { buildMail, mailToText } from './lib/mail.js';
 import { bundleItems, bundleTone, buildBundleMail, bundleMailToText } from './lib/bundle.js';
 import { canOpenFix, currentFixReason, buildFixMail, fixMailToText } from './lib/fix.js';
 import { parseNow, clockOf } from './lib/timing.js';
-import { validateItem, parsePaste, markDuplicates, duplicateMessage } from './lib/add.js';
+import { validateItem, parsePaste, markDuplicates, duplicateMessage, normalizeDate } from './lib/add.js';
+import { PBC_TEMPLATES, templateForName, templateOf, defaultBasisDate, requestSheetTsv, receiptSuggestion } from './lib/pbcTemplate.js';
 import { josa } from './lib/korean.js';
 import { buildReport, reportToText, reportToCsv, csvFileName } from './lib/report.js';
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
 import { formatMD } from './lib/dates.js';
-import { validateTransition } from './lib/status.js';
+import { validateTransition, canTransition } from './lib/status.js';
 import { validateEngagement } from './lib/engagement.js';
 import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -310,10 +311,50 @@ const actions = {
 
   // 자료 상태 변경 시트
   'open-status': (el) => {
-    sheet = { itemId: el.dataset.item, status: null, reason: null, basisDate: '', requiredBasisDate: '', errors: {} };
+    sheet = { itemId: el.dataset.item, status: null, reason: null, basisDate: '', requiredBasisDate: '', errors: {},
+      check: { basisOk: null, missing: [], signOk: null } }; // 받은 자료 점검 (표준 양식 자료만 화면에 보임)
     render();
   },
   'close-status': () => { sheet = null; render(); },
+  // 받은 자료 점검 → 점검 결과에 맞춰 상태·보완 사유를 골라 둔다 (지금 상태에서 바꿀 수 있을 때만)
+  'check-basis': (el) => { readSheetDates(); sheet.check.basisOk = el.dataset.ok === '1'; applyReceiptCheck(); },
+  'check-sign': (el) => { readSheetDates(); sheet.check.signOk = el.dataset.ok === '1'; applyReceiptCheck(); },
+  'check-col': (el) => {
+    readSheetDates();
+    const col = el.dataset.col;
+    const m = sheet.check.missing;
+    sheet.check.missing = m.includes(col) ? m.filter((c) => c !== col) : [...m, col];
+    applyReceiptCheck();
+  },
+  // 표준 양식 고르기 (자료 추가)
+  'pick-template': (el) => {
+    const prev = PBC_TEMPLATES[add.form.template] || templateForName(add.form.name);
+    add.form = readAddForm();
+    const t = PBC_TEMPLATES[el.dataset.template];
+    add.form.template = t.key;
+    // 비어 있거나 다른 양식 값이 들어 있으면 이 양식 값으로 바꾼다 (직접 고친 값은 둔다)
+    if (!add.form.name || add.form.name === prev?.name) add.form.name = t.name;
+    if (!add.form.procedure || add.form.procedure === prev?.procedure) add.form.procedure = t.procedure;
+    if (!add.form.basisDate) add.form.basisDate = defaultBasisDate(state, currentToday());
+    add.errors = {};
+    render();
+  },
+  // 엑셀용 요청 양식 복사: 자료 추가 창이면 입력 중인 값, 독촉 패널이면 그 자료 기준
+  'copy-template': async (el) => {
+    let t; let basis;
+    if (el.dataset.item) {
+      const item = state.items.find((x) => x.id === el.dataset.item);
+      t = templateOf(item);
+      basis = item.basisDate || defaultBasisDate(state, currentToday());
+    } else {
+      add.form = readAddForm();
+      t = PBC_TEMPLATES[add.form.template] || templateForName(add.form.name);
+      basis = normalizeDate(add.form.basisDate, currentToday()) || defaultBasisDate(state, currentToday());
+    }
+    if (!t) return;
+    const ok = await copyText(requestSheetTsv(t, basis));
+    toast(ok ? `${t.name} 요청 양식을 복사했어요. 엑셀에 붙여넣으면 기준일과 항목이 들어가요.` : '복사하지 못했어요.');
+  },
   'pick-status': (el) => {
     readSheetDates();
     sheet.status = el.dataset.status;
@@ -330,6 +371,9 @@ const actions = {
     if (Object.keys(sheet.errors).length) { render(); return; }
 
     state = updateItemStatus(state, item.id, change, currentToday());
+    if (change.status === 'fix' && sheet.detail && (change.reason === 'missing' || change.reason === 'sign')) {
+      setItem(item.id, (x) => ({ ...x, fix: { ...x.fix, details: { ...(x.fix?.details || {}), [change.reason]: sheet.detail } } }));
+    }
     save(state);
     sheet = null;
     const name = `‘${item.name}’${josa(item.name, '을', '를')}`;
@@ -549,6 +593,22 @@ const actions = {
   },
 };
 
+function applyReceiptCheck() {
+  const item = state.items.find((x) => x.id === sheet.itemId);
+  const t = templateOf(item);
+  const s = receiptSuggestion(t, sheet.check, item.basisDate || defaultBasisDate(state, currentToday()));
+  if (s.status && canTransition(item, s.status)) {
+    sheet.status = s.status;
+    sheet.errors = {};
+    if (s.status === 'fix') {
+      sheet.reason = s.reason;
+      if (s.requiredBasisDate) sheet.requiredBasisDate = s.requiredBasisDate;
+    }
+  }
+  sheet.detail = s.status === 'fix' ? s.detail : null;
+  render();
+}
+
 // 시트의 기준일 입력값을 상태에 옮겨 둔다 (다시 그려도 입력이 남도록)
 function readSheetDates() {
   const root = document.querySelector('.sheet');
@@ -674,7 +734,7 @@ app.addEventListener('change', (e) => {
 function readAddForm() {
   const form = document.getElementById('add-form');
   if (!form) return add?.form || {};
-  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure']
+  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure', 'basisDate', 'template']
     .map((k) => [k, form[k]?.value ?? '']));
 }
 
@@ -713,6 +773,11 @@ app.addEventListener('submit', (e) => {
   }
   const source = add.source;
   if (source) value.item.sourceId = source.itemId; // 어느 외부조회 건의 증빙인지
+  const tpl = PBC_TEMPLATES[add.form.template] || templateForName(value.item.name);
+  if (tpl) {
+    value.item.template = tpl.key;
+    value.item.basisDate = normalizeDate(add.form.basisDate, today) || defaultBasisDate(state, today);
+  }
   state = addItems(state, [value]);
   if (source) {
     setItem(source.itemId, (x) => ({ ...x, follow: { ...x.follow, requested: [...(x.follow?.requested || []), source.key] } }));

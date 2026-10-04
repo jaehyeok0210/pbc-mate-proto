@@ -4,6 +4,7 @@
 import { formatMD, formatMDW, daysBetween } from '../lib/dates.js';
 import { riskOf, leftText } from '../lib/priority.js';
 import { parsePaste, markDuplicates, rowErrorText, leftOf, normalizeDate } from '../lib/add.js';
+import { PBC_TEMPLATES, TEMPLATE_ORDER, templateForName, defaultBasisDate } from '../lib/pbcTemplate.js';
 import { esc, ICON, RISK_LABEL } from './html.js';
 
 export const PASTE_EXAMPLE = [
@@ -72,7 +73,9 @@ function singleForm(state, today, form, errors) {
   return `
     <form id="add-form" class="add-single" data-action-submit="add-single" novalidate>
       <div class="add-col">
+        ${templatePicker(form)}
         ${field('자료명', 'name', form.name, { placeholder: '예: 차입금 약정서 사본', error: errors.name })}
+        ${templatePreview(state, today, form, errors)}
         <div class="f-group">
           <span class="f-label">담당자</span>
           <div class="owner-grid">
@@ -94,6 +97,39 @@ function singleForm(state, today, form, errors) {
         <div class="need-note">필요일을 기준으로 남은 날·위험도·우선순위가 대시보드에서 자동으로 계산돼요.</div>
       </div>
     </form>`;
+}
+
+// ---------- 표준 양식 ----------
+// 고르면 자료명·감사 절차가 채워지고, 기준일과 필수 컬럼이 박힌 요청 양식을 복사할 수 있다.
+
+function currentTemplate(form) {
+  return PBC_TEMPLATES[form.template] || templateForName(form.name);
+}
+
+function templatePicker(form) {
+  const picked = currentTemplate(form)?.key;
+  return `
+    <div class="tpl-picker">
+      <span class="f-label">표준 양식 <small>선택 · 기준일과 필수 항목을 정해서 요청해요</small></span>
+      <div class="tpl-chips">
+        ${TEMPLATE_ORDER.map((k) => `<button type="button" class="owner-chip" data-action="pick-template" data-template="${k}" aria-pressed="${picked === k}">${PBC_TEMPLATES[k].name}</button>`).join('')}
+      </div>
+      <input type="hidden" name="template" value="${esc(picked || '')}">
+    </div>`;
+}
+
+function templatePreview(state, today, form, errors) {
+  const t = currentTemplate(form);
+  if (!t) return '';
+  const basis = form.basisDate || defaultBasisDate(state, today);
+  return `
+    <div class="tpl-preview">
+      ${field('자료 기준일', 'basisDate', basis, { type: 'date', error: errors.basisDate, hint: '받은 자료를 이 기준일로 점검해요' })}
+      <div class="tpl-cols"><span>필수 항목</span>${t.columns.map((c) => `<i>${esc(c)}</i>`).join('')}</div>
+      ${t.sign ? `<div class="tpl-line"><span>서명</span>${esc(t.sign)}</div>` : ''}
+      <div class="tpl-line"><span>확인 포인트</span>${t.checks.map(esc).join(' · ')}</div>
+      <button type="button" class="btn btn-sub tpl-copy" data-action="copy-template">${ICON.copy}엑셀용 요청 양식 복사</button>
+    </div>`;
 }
 
 // 필요일을 고르면 남은 날과 위험도를 미리 보여준다.
