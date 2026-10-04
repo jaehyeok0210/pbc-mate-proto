@@ -6,7 +6,7 @@ import { withDays, isOpen, sortItems, groupByOwner, leftText } from './priority.
 import { clientShortName } from './mail.js';
 import { fixReasonLabel } from './fix.js';
 
-const STATUS = { none: '미회신', part: '일부 수령', fix: '보완 요청', done: '완료' };
+const STATUS = { none: '미회신', part: '일부 수령', fix: '보완 요청', follow: '후속 절차', done: '완료' };
 const RISK = { late: '지연', high: '2일 이내', mid: '3~7일', low: '8일 이상' };
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 

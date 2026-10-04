@@ -53,6 +53,7 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
         ${mobileChips(item, history, last)}
         ${toneSlider(tone, recommended, item)}
         ${preview(mail, dates)}
+        ${item.kind === 'confirmation' ? followEntry(item) : ''}
         ${mailDateDock(dates, state)}
       </div>
 
@@ -71,6 +72,20 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
             <small>독촉 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
         </div>` : ''}
     </aside>`;
+}
+
+// 외부조회 건: 독촉을 마치고도 회신이 없거나, 회신 금액이 다르면 후속 절차로 넘어간다.
+function followEntry(item) {
+  return `
+    <section class="follow-entry">
+      <div class="section-label">회신 결과가 나왔나요?</div>
+      <div class="follow-entry-btns">
+        <button type="button" class="btn btn-sub" data-action="start-follow" data-type="noreply" data-item="${esc(item.id)}">
+          ${ICON.follow}<span><b>미회수로 확정</b><small>대체적 절차 가이드로</small></span></button>
+        <button type="button" class="btn btn-sub" data-action="start-follow" data-type="diff" data-item="${esc(item.id)}">
+          ${ICON.follow}<span><b>회신 받음 · 금액 차이</b><small>차이 조정표로</small></span></button>
+      </div>
+    </section>`;
 }
 
 // 데스크톱 상단 4칸: 필요일 / 남은 날 / 요청 후 / 독촉 이력

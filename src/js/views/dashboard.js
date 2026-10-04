@@ -176,7 +176,12 @@ function fixHref(item) {
 }
 
 // 자료를 눌렀을 때: 보완 요청 자료는 보완 요청 화면, 나머지는 단건 독촉
+function followHref(item) {
+  return `#/follow/${encodeURIComponent(item.id)}`;
+}
+
 function itemHref(x) {
+  if (x.status === 'follow') return followHref(x);
   return x.status === 'fix' ? fixHref(x) : composeHref(x);
 }
 
@@ -194,6 +199,7 @@ function riskBadge(risk, short = false) {
 
 function itemMeta(x) {
   if (x.status === 'fix') return x.reason || '보완 요청';
+  if (x.status === 'follow') return x.follow?.type === 'diff' ? '회신 금액 차이 · 조정 중' : '미회수 확정 · 대체적 절차 진행 중';
   return `${formatMD(x.neededOn)} 필요 · 요청 ${formatMD(x.requestedOn)} · D+${x.elapsed}`;
 }
 
@@ -240,7 +246,9 @@ function ownerCards(groups, people, done, text) {
     } else if (bundlable.length === 1) {
       cta = `<a class="btn btn-sub" href="${composeHref(bundlable[0])}">${esc(bundlable[0].name)} 독촉하기</a>`;
     } else {
-      cta = `<a class="btn btn-sub" href="${fixHref(g.items[0])}">보완 재요청 메일 쓰기</a>`;
+      cta = g.items[0].status === 'follow'
+        ? `<a class="btn btn-sub" href="${followHref(g.items[0])}">후속 절차 열기</a>`
+        : `<a class="btn btn-sub" href="${fixHref(g.items[0])}">보완 재요청 메일 쓰기</a>`;
     }
 
     return `

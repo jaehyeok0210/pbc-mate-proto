@@ -1,7 +1,7 @@
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
 // 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
 //           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭) · #/report 주간 현황
-//           #/calendar 일정 · #/confirm 외부조회서 작성
+//           #/calendar 일정 · #/confirm 외부조회서 작성 · #/follow/<자료id> 외부조회 후속 절차
 
 import { todayISO } from './lib/dates.js';
 import { withDays } from './lib/priority.js';
@@ -28,6 +28,8 @@ import { renderReport } from './views/report.js';
 import { renderStatusSheet } from './views/status.js';
 import { renderCalendar } from './views/calendar.js';
 import { renderConfirm, partiesPreview, outputSection } from './views/confirm.js';
+import { renderFollow } from './views/follow.js';
+import { startFollow, completeFollow, clampVerified, evidenceRequests, FOLLOW_TYPES } from './lib/followup.js';
 import {
   CONF_TYPES, defaultSetup, validateSetup, parseConfirmations, buildLetters, toRegistryValues, nextDocNo,
 } from './lib/confirmation.js';
@@ -50,6 +52,7 @@ let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 �
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
+let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner }
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -144,6 +147,15 @@ function render() {
     fix = null;
   }
 
+  const followId = routeParam('follow');
+  const followItem = followId && state.items.find((x) => x.id === followId);
+  if (followItem?.status === 'follow') {
+    if (fu?.itemId !== followId) fu = { itemId: followId, owner: defaultPbcOwner() };
+    html += renderFollow(state, { today, ...fu });
+  } else {
+    fu = null;
+  }
+
   const addRoute = location.hash === '#/add' || location.hash === '#/add/paste';
   if (addRoute) {
     if (!add) add = { tab: location.hash.endsWith('/paste') ? 'paste' : 'single', form: {}, errors: {}, pasteText: '' };
@@ -163,7 +175,7 @@ function render() {
   const focusedTone = document.activeElement?.dataset?.tone;
   const focusedReason = document.activeElement?.dataset?.reason;
   app.innerHTML = html;
-  document.body.classList.toggle('has-drawer', Boolean(item || b || fix || add));
+  document.body.classList.toggle('has-drawer', Boolean(item || b || fix || add || fu));
   // 톤·사유를 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
   if (focusedTone) {
     [...app.querySelectorAll(`[data-tone="${focusedTone}"]`)].find((b) => b.offsetParent)?.focus();
@@ -242,6 +254,32 @@ function refreshConfOutput() {
   const today = currentToday();
   app.querySelector('.conf-preview').innerHTML = partiesPreview(conf.type, parseConfirmations(conf.type, conf.pasteText));
   app.querySelector('.conf-output').innerHTML = outputSection(state, { today, ...conf });
+}
+
+// ---------- 외부조회 후속 절차 ----------
+
+// 증빙을 요청할 회사 담당자 기본값: PBC 자료를 가장 많이 맡은 사람
+function defaultPbcOwner() {
+  const counts = new Map();
+  for (const x of state.items) if (x.kind !== 'confirmation') counts.set(x.owner, (counts.get(x.owner) || 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+
+/** '1,250,000' · '-3,000' · '' → 정수 / null */
+function numOf(value) {
+  const t = String(value ?? '').replace(/[,\s원₩]/g, '');
+  if (!t) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? Math.round(n) : null;
+}
+
+function setItem(id, fn) {
+  state = { ...state, items: state.items.map((x) => (x.id === id ? fn(x) : x)) };
+  save(state);
+}
+
+function setFollow(fn) {
+  setItem(fu.itemId, (x) => ({ ...x, follow: fn(x.follow, x) }));
 }
 
 const actions = {
@@ -431,6 +469,54 @@ const actions = {
     render();
     toast(`${label} ${letters.length}건을 조회 목록에 등록했어요. 회신 기한 ${formatMD(setup.replyBy)} 기준으로 추적해요.`);
   },
+  // 외부조회 후속 절차
+  'start-follow': (el) => {
+    const id = el.dataset.item;
+    const type = el.dataset.type;
+    const item = state.items.find((x) => x.id === id);
+    if (item.status === 'follow' && item.follow?.type === type) return;
+    const switching = item.status === 'follow';
+    setItem(id, (x) => startFollow(x, type, currentToday()));
+    location.hash = `#/follow/${encodeURIComponent(id)}`;
+    render();
+    toast(switching
+      ? `‘${FOLLOW_TYPES[type].label}’로 바꿨어요. 앞에서 기록한 내용은 지웠어요.`
+      : type === 'noreply' ? '미회수로 확정했어요. 조회서 종류에 맞는 절차를 정리했어요.' : '금액 차이 조정을 시작했어요. 회신금액부터 입력해 주세요.');
+  },
+  'follow-add-line': () => {
+    setFollow((f) => ({ ...f, recon: { ...f.recon, lines: [...(f.recon.lines || []), { cause: '', amount: null, note: '' }] } }));
+    render();
+    app.querySelector('.fu-line:last-of-type select')?.focus();
+  },
+  'follow-remove-line': (el) => {
+    const i = Number(el.dataset.index);
+    setFollow((f) => ({ ...f, recon: { ...f.recon, lines: f.recon.lines.filter((_, j) => j !== i) } }));
+    render();
+  },
+  'follow-request': (el) => {
+    const owner = fu.owner.trim();
+    if (!owner) {
+      toast('증빙을 요청할 회사 담당자를 입력해 주세요.');
+      app.querySelector('[data-action-input="follow-owner"]')?.focus();
+      return;
+    }
+    const item = state.items.find((x) => x.id === fu.itemId);
+    const reqs = evidenceRequests(item, { stepKeys: [el.dataset.key], owner, dept: state.people[owner]?.dept || '', today: currentToday() });
+    if (!reqs.length) return;
+    state = addItems(state, reqs.map((r) => r.value));
+    setFollow((f) => ({ ...f, requested: [...(f.requested || []), ...reqs.map((r) => r.key)] }));
+    render();
+    toast(`‘${reqs[0].value.item.name}’을(를) ${owner}에게 자료 요청으로 추가했어요.`);
+  },
+  'complete-follow': () => {
+    const item = state.items.find((x) => x.id === fu.itemId);
+    let done;
+    try { done = completeFollow(item, currentToday()); } catch (err) { toast(err.message); return; }
+    setItem(item.id, () => done);
+    fu = null;
+    closeDrawer();
+    toast(`${item.counterparty} 후속 절차를 완료했어요. ${done.follow.conclusion}`);
+  },
   'copy-bundle': () => {
     const sorted = bundleItems(state.items, bundle.owner, currentToday());
     const mail = buildBundleMail({
@@ -514,6 +600,26 @@ app.addEventListener('drop', (e) => {
 // 일정 패널의 날짜 입력으로 이동 (모바일·키보드)
 app.addEventListener('change', (e) => {
   if (e.target.dataset.actionChange === 'cal-move') moveCalendarEntry(e.target.dataset.entry, e.target.value);
+  const fuAction = e.target.dataset.actionChange;
+  if (fu && fuAction?.startsWith('follow-')) {
+    const t = e.target;
+    if (fuAction === 'follow-step') {
+      setFollow((f) => ({ ...f, steps: { ...f.steps, [t.dataset.step]: t.checked } }));
+    } else if (fuAction === 'follow-verified') {
+      setFollow((f, x) => ({ ...f, verified: clampVerified(x, t.value) }));
+    } else if (fuAction === 'follow-amount') {
+      setFollow((f) => ({ ...f, recon: { ...f.recon, [t.dataset.field]: numOf(t.value) } }));
+    } else if (fuAction === 'follow-line') {
+      const i = Number(t.dataset.index);
+      const v = t.dataset.field === 'amount' ? numOf(t.value) : t.value;
+      setFollow((f) => ({ ...f, recon: { ...f.recon, lines: f.recon.lines.map((l, j) => (j === i ? { ...l, [t.dataset.field]: v } : l)) } }));
+    }
+    const scroll = app.querySelector('.drawer-body')?.scrollTop;
+    render();
+    const body = app.querySelector('.drawer-body');
+    if (body && scroll) body.scrollTop = scroll;
+    return;
+  }
   if (e.target.dataset.actionChange === 'conf-bank-blank') {
     readConfSetup();
     conf.bankBlank = e.target.checked;
@@ -582,6 +688,10 @@ app.addEventListener('submit', (e) => {
 
 // 붙여넣기: 입력할 때마다 미리보기와 저장 버튼만 갱신한다 (textarea 포커스 유지).
 app.addEventListener('input', (e) => {
+  if (e.target.dataset.actionInput === 'follow-owner') {
+    fu.owner = e.target.value;
+    return;
+  }
   if (e.target.dataset.actionInput === 'conf-paste') {
     conf.pasteText = e.target.value;
     refreshConfOutput();
@@ -617,10 +727,10 @@ window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (sheet) { sheet = null; render(); return; }
-  if (compose || bundle || fix || add) closeDrawer();
+  if (compose || bundle || fix || add || fu) closeDrawer();
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = cal = conf = null; render(); } };
+window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = cal = conf = fu = null; render(); } };
 
 render();
