@@ -29,7 +29,7 @@ import { renderStatusSheet } from './views/status.js';
 import { renderCalendar } from './views/calendar.js';
 import { renderConfirm, partiesPreview, outputSection } from './views/confirm.js';
 import { renderFollow } from './views/follow.js';
-import { startFollow, completeFollow, clampVerified, evidenceRequests, FOLLOW_TYPES } from './lib/followup.js';
+import { startFollow, completeFollow, clampVerified, evidenceRequests, validateSignoff, FOLLOW_TYPES } from './lib/followup.js';
 import {
   CONF_TYPES, defaultSetup, validateSetup, parseConfirmations, buildLetters, toRegistryValues, nextDocNo,
 } from './lib/confirmation.js';
@@ -52,7 +52,7 @@ let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 �
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
-let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner }
+let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -150,7 +150,12 @@ function render() {
   const followId = routeParam('follow');
   const followItem = followId && state.items.find((x) => x.id === followId);
   if (followItem?.status === 'follow') {
-    if (fu?.itemId !== followId) fu = { itemId: followId, owner: defaultPbcOwner() };
+    if (fu?.itemId !== followId) {
+      // 수행자·검토자는 마지막으로 입력한 값을 기본으로 (완료일은 오늘)
+      const last = state.lastSignoff || {};
+      fu = { itemId: followId, owner: defaultPbcOwner(), signoffErrors: {},
+        signoff: { preparer: last.preparer || '', completedOn: today, reviewer: last.reviewer || '' } };
+    }
     html += renderFollow(state, { today, ...fu });
   } else {
     fu = null;
@@ -510,9 +515,17 @@ const actions = {
   },
   'complete-follow': () => {
     const item = state.items.find((x) => x.id === fu.itemId);
+    fu.signoffErrors = validateSignoff(fu.signoff);
+    if (Object.keys(fu.signoffErrors).length) {
+      render();
+      app.querySelector('.fu-signoff .has-error input')?.focus();
+      return;
+    }
     let done;
-    try { done = completeFollow(item, currentToday()); } catch (err) { toast(err.message); return; }
+    try { done = completeFollow(item, fu.signoff); } catch (err) { toast(err.message); return; }
     setItem(item.id, () => done);
+    state = { ...state, lastSignoff: { preparer: fu.signoff.preparer.trim(), reviewer: fu.signoff.reviewer.trim() } };
+    save(state);
     fu = null;
     closeDrawer();
     toast(`${item.counterparty} 후속 절차를 완료했어요. ${done.follow.conclusion}`);
@@ -600,6 +613,14 @@ app.addEventListener('drop', (e) => {
 // 일정 패널의 날짜 입력으로 이동 (모바일·키보드)
 app.addEventListener('change', (e) => {
   if (e.target.dataset.actionChange === 'cal-move') moveCalendarEntry(e.target.dataset.entry, e.target.value);
+  if (e.target.dataset.actionChange === 'set-performance') {
+    const value = numOf(e.target.value);
+    state = { ...state, materiality: { ...(state.materiality || {}), performance: value && value > 0 ? value : null } };
+    save(state);
+    render();
+    toast(value > 0 ? `수행중요성을 ${value.toLocaleString('ko-KR')}원으로 정했어요.` : '수행중요성을 지웠어요.');
+    return;
+  }
   const fuAction = e.target.dataset.actionChange;
   if (fu && fuAction?.startsWith('follow-')) {
     const t = e.target;
@@ -688,6 +709,10 @@ app.addEventListener('submit', (e) => {
 
 // 붙여넣기: 입력할 때마다 미리보기와 저장 버튼만 갱신한다 (textarea 포커스 유지).
 app.addEventListener('input', (e) => {
+  if (e.target.dataset.actionInput === 'follow-signoff') {
+    fu.signoff[e.target.dataset.field] = e.target.value;
+    return;
+  }
   if (e.target.dataset.actionInput === 'follow-owner') {
     fu.owner = e.target.value;
     return;

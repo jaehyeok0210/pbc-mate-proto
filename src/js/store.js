@@ -58,7 +58,7 @@ export function baseDateOf(state, override, realToday) {
  * 예시 자료. 시연 기준일(DEMO_DATE) 기준 상대 날짜로 만든다.
  * PBC 자료 5건 + 외부조회 7건(kind: 'confirmation'). 외부조회는 조회처가 담당자(owner)이고,
  * 미회신·독촉 중·회신 기한 지남·회신 완료·후속 절차(미회수 확정, 금액 차이)가 고루 보이게 넣었다.
- * confirmSetup은 외부조회서 작성 화면의 공통 정보 기본값이다 (기중 조기 조회, 9/30 기준).
+ * confirmSetup은 외부조회서 작성 화면의 공통 정보 기본값이다 (결산일 12/31 기준).
  */
 export function sampleState() {
   const d = (n) => addDays(DEMO_DATE, n);
@@ -78,11 +78,13 @@ export function sampleState() {
       '법무법인 정의': { dept: '법무법인', nudges: 0, lastNudgedOn: null },
       '㈜한결물류 평택센터': { dept: '보관처', nudges: 0, lastNudgedOn: null },
     },
+    // 회사 단위 중요성. 예시 회사는 매출 약 500억원을 가정해 전체 중요성 0.5%, 수행중요성은 그 약 75%.
+    materiality: { overall: 250000000, performance: 180000000, basis: '매출 약 500억원 가정 · 전체 중요성 0.5% · 수행중요성 약 75%' },
     confirmSetup: {
       companyName: '㈜한빛전자', ceoName: '정한빛', companyAddress: '경기도 성남시 분당구 판교역로 1',
       auditorName: '삼일회계법인', auditorAddress: '서울특별시 용산구 한강대로 100 아모레퍼시픽빌딩',
       contactName: '이서연 매니저', contactPhone: '02-0000-0000', contactEmail: '',
-      baseDate: '2026-09-30',
+      baseDate: '2026-12-31',
     },
     items: [
       { id: 'i2', name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-1), neededOn: d(7), status: 'fix', reason: '기준일 상이 · 12/31 기준 재요청 필요',
@@ -110,8 +112,8 @@ function sampleConfirmations(d) {
     const label = { bank: '은행조회서', arap: '채권채무조회서', legal: '변호사조회서', inventory: '제3자보관재고자산조회서' }[confType];
     return {
       id, kind: 'confirmation', confType, docNo, name: `${label} (${counterparty})`, owner: counterparty, counterparty,
-      baseDate: '2026-09-30', procedure: '외부조회', blank: false, nudges: [],
-      track: confType === 'bank' || confType === 'legal' ? 'required' : 'coverage',
+      baseDate: '2026-12-31', procedure: '외부조회', blank: false, nudges: [],
+      track: { bank: 'required', legal: 'general' }[confType] || 'coverage',
       ...extra,
     };
   };
@@ -125,7 +127,7 @@ function sampleConfirmations(d) {
       receivable: 842000000, payable: 0, bookAmount: 842000000, requestedOn: d(-9), neededOn: d(2), status: 'follow',
       nudges: [{ on: d(-4), tone: 'polite' }], received: { on: d(-1) },
       follow: { type: 'diff', startedOn: d(-1), requested: [],
-        recon: { book: 842000000, confirmed: 830000000, lines: [{ cause: 'goods', amount: 9000000, note: '9/29 출고 · 10/2 거래처 입고분' }] } } }),
+        recon: { book: 842000000, confirmed: 830000000, lines: [{ cause: 'goods', amount: 9000000, note: '12/29 출고 · 1/2 거래처 입고분' }] } } }),
     conf('c4', 'arap', 'AR-002', '세진물산㈜', {
       receivable: 315500000, payable: 120000000, bookAmount: 435500000, requestedOn: d(-16), neededOn: d(-2), status: 'none',
       nudges: [{ on: d(-6), tone: 'polite' }, { on: d(-2), tone: 'firm' }] }),

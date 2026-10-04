@@ -3,8 +3,9 @@
 
 import { formatMD } from '../lib/dates.js';
 import {
-  FOLLOW_TYPES, DIFF_CAUSES, noReplySteps, noReplyNotice, reconcile, reconConclusion, completeCheck,
+  FOLLOW_TYPES, DIFF_CAUSES, DELIVERY_TERMS, noReplySteps, noReplyNotice, reconcile, reconConclusion, completeCheck,
 } from '../lib/followup.js';
+import { TRACK_LABEL } from '../lib/confirmation.js';
 import { esc, ICON } from './html.js';
 
 const won = (n) => Number(n || 0).toLocaleString('ko-KR');
@@ -13,9 +14,10 @@ const RESULT_CLASS = { matched: 'is-ok', timing: 'is-ok', misstatement: 'is-bad'
 
 /**
  * @param state 앱 상태
- * @param opts  { today, itemId, owner }  owner: 증빙을 요청할 회사 담당자
+ * @param opts  { today, itemId, owner, signoff, signoffErrors }
+ *   owner: 증빙을 요청할 회사 담당자 · signoff: { preparer, completedOn, reviewer } 완료 기록 입력값
  */
-export function renderFollow(state, { today, itemId, owner }) {
+export function renderFollow(state, { today, itemId, owner, signoff = {}, signoffErrors = {} }) {
   const item = state.items.find((x) => x.id === itemId);
   const f = item.follow;
   const check = completeCheck(item);
@@ -39,7 +41,7 @@ export function renderFollow(state, { today, itemId, owner }) {
           <div class="compose-who">
             <div class="eyebrow desktop-only">외부조회 후속 절차 · ${formatMD(f.startedOn)} 시작</div>
             <h2 id="follow-title">${esc(item.name)}</h2>
-            <div class="fix-sub">${item.track === 'required' ? '필수 회수' : '커버리지 관리'}${item.bookAmount ? ` · 장부 ${won(item.bookAmount)}원` : ''} · 회신 기한 ${formatMD(item.neededOn)}</div>
+            <div class="fix-sub">${TRACK_LABEL[item.track] || ''}${item.bookAmount ? ` · 장부 ${won(item.bookAmount)}원` : ''} · 회신 기한 ${formatMD(item.neededOn)}</div>
           </div>
           <button type="button" class="icon-btn btn-sub desktop-only" data-action="close-drawer" aria-label="닫기">${ICON.close}</button>
         </div>
@@ -52,6 +54,8 @@ export function renderFollow(state, { today, itemId, owner }) {
         ${f.type === 'noreply' ? noReplyBody(item, f) : diffBody(item, f)}
 
         ${evidenceBox(item, f, owner, owners)}
+
+        ${signoffBox(signoff, signoffErrors)}
       </div>
 
       <footer class="compose-foot">
@@ -63,6 +67,26 @@ export function renderFollow(state, { today, itemId, owner }) {
         </div>
       </footer>
     </aside>`;
+}
+
+// ---------- 완료 기록 (감사기준서 230: 수행자·완료일·검토자) ----------
+
+function signoffBox(s, e) {
+  const field = (label, name, value, { type = 'text', hint = '', placeholder = '' } = {}) => `
+    <label class="f ${e[name] ? 'has-error' : ''}">
+      <span class="f-label">${label}${hint ? ` <small>${hint}</small>` : ''}</span>
+      <input type="${type}" data-action-input="follow-signoff" data-field="${name}" value="${esc(s[name] ?? '')}" placeholder="${esc(placeholder)}" autocomplete="off">
+      ${e[name] ? `<span class="f-error">${esc(e[name])}</span>` : ''}
+    </label>`;
+  return `
+    <section class="fu-signoff">
+      <div class="section-label">완료 기록 <small class="fu-count">조서에 남길 수행자와 검토자</small></div>
+      <div class="fu-signoff-grid">
+        ${field('수행자', 'preparer', s.preparer, { placeholder: '예: 장재혁' })}
+        ${field('완료일', 'completedOn', s.completedOn, { type: 'date' })}
+        ${field('검토자', 'reviewer', s.reviewer, { hint: '선택 · 나중에 채워도 돼요', placeholder: '예: 이서연 매니저' })}
+      </div>
+    </section>`;
 }
 
 // ---------- 미회수 ----------
@@ -91,7 +115,7 @@ function noReplyBody(item, f) {
   return `
     <div class="fix-alert ${item.track === 'required' ? 'is-required' : ''}">
       <span class="fix-alert-icon">${item.track === 'required' ? ICON.high : ICON.help}</span>
-      <div><b>${item.track === 'required' ? '대체적 절차로 끝낼 수 없는 조회예요' : '회신 대신 다른 증거로 잔액을 확인해요'}</b>
+      <div><b>${item.track === 'required' ? '대체적 절차로 끝낼 수 없는 조회예요' : item.track === 'general' ? '회신 대신 다른 경로로 소송·우발부채를 확인해요' : '회신 대신 다른 증거로 잔액을 확인해요'}</b>
         <small>${esc(noReplyNotice(item))}</small></div>
     </div>
     <section class="fix-status">
@@ -102,6 +126,20 @@ function noReplyBody(item, f) {
 }
 
 // ---------- 금액 차이 ----------
+
+// 미착품은 인도조건에 따라 시점 차이(선적지 인도)인지 기간귀속 오류(도착지 인도)인지 갈린다.
+function termsRow(l, i) {
+  const picked = DELIVERY_TERMS.find((t) => t.key === l.terms);
+  return `
+    <div class="fu-terms ${l.terms ? '' : 'is-pending'} ${l.terms === 'destination' ? 'is-bad' : ''}">
+      <span>인도조건 확인</span>
+      <select data-action-change="follow-line" data-index="${i}" data-field="terms" aria-label="인도조건">
+        <option value="">확인 전</option>
+        ${DELIVERY_TERMS.map((t) => `<option value="${t.key}" ${t.key === l.terms ? 'selected' : ''}>${t.label}</option>`).join('')}
+      </select>
+      <small>${picked ? esc(picked.hint) : '계약서·거래명세서로 인도조건을 확인해 주세요. 도착지 인도면 회사의 기간귀속 오류예요.'}</small>
+    </div>`;
+}
 
 function diffBody(item, f) {
   const recon = f.recon || { lines: [] };
@@ -117,7 +155,8 @@ function diffBody(item, f) {
       <input type="text" inputmode="numeric" data-action-change="follow-line" data-index="${i}" data-field="amount" value="${l.amount ? won(l.amount) : ''}" placeholder="금액" aria-label="금액">
       <input type="text" data-action-change="follow-line" data-index="${i}" data-field="note" value="${esc(l.note || '')}" placeholder="근거 (예: 1/3 입고분)" aria-label="근거">
       <button type="button" class="icon-btn btn-sub" data-action="follow-remove-line" data-index="${i}" aria-label="이 줄 삭제">${ICON.close}</button>
-    </div>`).join('');
+    </div>
+    ${l.cause === 'goods' ? termsRow(l, i) : ''}`).join('');
 
   return `
     <section class="fu-recon">

@@ -2,7 +2,7 @@
 // 판단(검증·묶기·문안)은 lib/confirmation.js가 하고, 여기서는 그리기만 한다.
 
 import {
-  CONF_TYPES, TYPE_ORDER, validateSetup, parseConfirmations, buildLetters, formatAmount, nextDocNo,
+  CONF_TYPES, TYPE_ORDER, TRACK_LABEL, validateSetup, parseConfirmations, buildLetters, formatAmount, nextDocNo,
 } from '../lib/confirmation.js';
 import { esc, ICON } from './html.js';
 import { topbar } from './dashboard.js';
@@ -41,7 +41,7 @@ export function renderConfirm(state, { today, isDemo, type, setup, setupErrors, 
               ${TYPE_ORDER.map((k) => `
                 <button type="button" role="tab" data-action="conf-type" data-type="${k}" aria-pressed="${k === type}">
                   <span class="seg-label">${CONF_TYPES[k].label}</span>
-                  <span class="seg-caption">${CONF_TYPES[k].track === 'required' ? '필수 회수' : '커버리지 관리'}</span>
+                  <span class="seg-caption">${TRACK_LABEL[CONF_TYPES[k].track]}</span>
                 </button>`).join('')}
             </div>
             ${type === 'bank' ? `
@@ -194,7 +194,7 @@ export function outputSection(state, { today, type, setup, pasteText, bankBlank 
           <button type="button" class="btn btn-cta" data-action="conf-register">조회 목록에 ${letters.length}건 등록</button>
         </div>
       </div>
-      <p class="need-note">등록하면 대시보드에서 ${CONF_TYPES[type].unit}별로 회신을 추적하고 독촉 메일을 만들 수 있어요. ${CONF_TYPES[type].track === 'required' ? '금액과 상관없이 전부 회수해야 하는 조회서예요.' : '수행중요성 대비 금액 커버리지로 관리하는 조회서예요.'}</p>
+      <p class="need-note">등록하면 대시보드에서 ${CONF_TYPES[type].unit}별로 회신을 추적하고 독촉 메일을 만들 수 있어요. ${{ required: '금액과 상관없이 전부 회수해야 하는 조회서예요.', coverage: '수행중요성 대비 금액 커버리지로 관리하는 조회서예요.', general: '회신 여부와 내용으로 관리하는 조회서예요.' }[CONF_TYPES[type].track]}</p>
     </div>
     <div class="letters">${letters.map(letterHtml).join('')}</div>`;
 }

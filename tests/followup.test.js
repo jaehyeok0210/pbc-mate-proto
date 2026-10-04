@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   noReplySteps, noReplyNotice, reconcile, reconConclusion, canStartFollow, startFollow,
-  completeCheck, completeFollow, clampVerified, evidenceRequests, coverageSummary,
+  completeCheck, completeFollow, clampVerified, evidenceRequests, coverageSummary, validateSignoff, isMisstatementLine,
 } from '../src/js/lib/followup.js';
 
 const ON = '2026-10-20';
@@ -78,9 +78,10 @@ test('완료 조건: 커버리지 조회는 대체적 절차 하나 이상', () 
   assert.equal(completeCheck(a).ok, false);
   a = { ...a, follow: { ...a.follow, steps: { subsequent: true }, verified: 500000000 } };
   assert.equal(completeCheck(a).ok, true);
-  const done = completeFollow(a, '2026-10-25');
+  const done = completeFollow(a, { preparer: ' 장재혁 ', completedOn: '2026-10-25', reviewer: '이서연 매니저' });
   assert.equal(done.status, 'done');
   assert.equal(done.follow.closedOn, '2026-10-25');
+  assert.deepEqual(done.follow.signoff, { preparer: '장재혁', reviewer: '이서연 매니저' });
   assert.match(done.follow.conclusion, /500,000,000원 확인/);
 });
 
@@ -91,8 +92,9 @@ test('완료 조건: 금액 차이는 회신금액 입력 + 설명되지 않은 
   assert.equal(completeCheck(d).ok, false);
   d = { ...d, follow: { ...d.follow, recon: { ...d.follow.recon, lines: [{ cause: 'cash', amount: 2000000 }] } } };
   assert.equal(completeCheck(d).ok, true);
-  assert.match(completeFollow(d, ON).follow.conclusion, /왜곡표시는 없어요/);
-  assert.throws(() => completeFollow(startFollow(ar, 'diff', ON), ON));
+  assert.match(completeFollow(d, { preparer: '장재혁', completedOn: ON }).follow.conclusion, /왜곡표시는 없어요/);
+  assert.throws(() => completeFollow(startFollow(ar, 'diff', ON), { preparer: '장재혁', completedOn: ON }));
+  assert.throws(() => completeFollow(d, { preparer: '', completedOn: ON }), /수행자/);
 });
 
 test('대체적 절차 확인 금액은 0~장부금액', () => {
@@ -145,4 +147,69 @@ test('미회수 절차: 재고 조회는 실사·창고증권·입출고 대조'
   const f = startFollow(inv, 'noreply', ON);
   const reqs = evidenceRequests(f, { stepKeys: ['receipts', 'inspect'], owner: '김민지 대리', today: ON });
   assert.deepEqual(reqs.map((r) => r.value.item.name), ['창고증권·보관증 사본 (㈜한결물류 평택센터)']);
+});
+
+test('완료 기록: 수행자·완료일 필수, 검토자는 선택', () => {
+  assert.deepEqual(validateSignoff({ preparer: '장재혁', completedOn: '2026-10-25' }), {});
+  const e = validateSignoff({ preparer: ' ', completedOn: '' });
+  assert.ok(e.preparer && e.completedOn);
+  assert.equal(validateSignoff({ preparer: 'a', completedOn: '10/25' }).completedOn, '완료일을 입력해 주세요.');
+});
+
+test('미착품 차이: 인도조건을 확인해야 완료, 도착지 인도면 왜곡표시', () => {
+  const lines = (terms) => [{ cause: 'goods', amount: 9000000, terms }, { cause: 'cash', amount: 3000000 }];
+  const pending = reconcile({ book: 842000000, confirmed: 830000000, lines: lines('') });
+  assert.equal(pending.termsPending, 1);
+  assert.equal(pending.result, 'timing', '금액은 모두 설명됨');
+  let d = startFollow(ar, 'diff', ON);
+  d = { ...d, follow: { ...d.follow, recon: { book: 842000000, confirmed: 830000000, lines: lines('') } } };
+  assert.match(completeCheck(d).reason, /인도조건/);
+
+  const shipping = reconcile({ book: 842000000, confirmed: 830000000, lines: lines('shipping') });
+  assert.equal(shipping.result, 'timing');
+  assert.equal(shipping.misstatement, 0);
+
+  const dest = reconcile({ book: 842000000, confirmed: 830000000, lines: lines('destination') });
+  assert.equal(dest.result, 'misstatement');
+  assert.equal(dest.misstatement, 9000000);
+  assert.match(reconConclusion(dest), /9,000,000원.*수정 여부를 검토/);
+  assert.equal(isMisstatementLine({ cause: 'company' }), true);
+  assert.equal(isMisstatementLine({ cause: 'cash' }), false);
+});
+
+test('변호사 조회는 필수 회수가 아니라 대체적 절차로 완료할 수 있다', () => {
+  const lg = { ...legal, track: 'general' };
+  assert.match(noReplyNotice(lg), /경영진 확인서/);
+  let f = startFollow(lg, 'noreply', ON);
+  assert.equal(completeCheck(f).ok, false);
+  f = { ...f, follow: { ...f.follow, steps: { mgmt: true } } };
+  assert.equal(completeCheck(f).ok, true);
+});
+
+test('트랙별 현황: 은행 회수 건수, 미확인 잔액과 수행중요성 비교', async () => {
+  const { trackOverview } = await import('../src/js/lib/followup.js');
+  const { sampleState } = await import('../src/js/store.js');
+  const s = sampleState();
+  const o = trackOverview(s.items, s.materiality.performance);
+  assert.equal(o.any, true);
+  assert.deepEqual([o.required.total, o.required.received], [2, 1]);
+  assert.deepEqual(o.required.pending.map((p) => p.name), ['한빛은행 여의도지점']);
+  assert.deepEqual([o.general.total, o.general.received], [1, 0]);
+  // 미확인 = 세진물산 435,500,000 + 오성테크 (96,300,000 − 60,000,000) + 대한부품 차이 12,000,000
+  assert.equal(o.coverage.uncovered, 483800000);
+  assert.equal(o.coverage.performance, 180000000);
+  assert.equal(o.coverage.exceeds, true);
+  assert.equal(o.coverage.gap, 303800000);
+  assert.equal(trackOverview([], 0).any, false);
+  assert.equal(trackOverview(s.items, null).coverage.exceeds, false, '수행중요성이 없으면 비교하지 않음');
+});
+
+test('커버리지: 차이 조정을 마치면 시점 차이로 설명된 금액까지 확인, 왜곡표시는 미확인으로 남김', () => {
+  const recon = { book: 842000000, confirmed: 830000000, lines: [
+    { cause: 'goods', amount: 9000000, terms: 'destination' }, { cause: 'cash', amount: 3000000 },
+  ] };
+  const doing = { ...ar, status: 'follow', follow: { type: 'diff', recon } };
+  const done = { ...doing, status: 'done' };
+  assert.equal(coverageSummary([doing]).confirmed, 830000000);
+  assert.equal(coverageSummary([done]).confirmed, 833000000, '송금 중 3,000,000만 더하고 도착지 인도 9,000,000은 제외');
 });

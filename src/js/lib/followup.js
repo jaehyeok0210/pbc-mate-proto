@@ -68,9 +68,10 @@ export function noReplySteps(item) {
 /** 은행·변호사 조회는 금액과 무관하게 회수해야 해서, 대체적 절차만으로 끝내지 않는다. */
 export function noReplyNotice(item) {
   if (item.track === 'required') {
-    return item.confType === 'bank'
-      ? '금융기관 조회는 금액과 상관없이 회수해야 해요. 잔액증명서는 보조 증거일 뿐, 조회를 대신하지 못해요.'
-      : '법률 조회는 소송·우발부채 판단의 핵심 증거라 회수를 계속 시도해요.';
+    return '금융기관 조회는 금액과 상관없이 회수해야 해요. 잔액증명서는 보조 증거일 뿐, 조회를 대신하지 못해요.';
+  }
+  if (item.track === 'general') {
+    return '경영진 질문, 의사록·법률비용 검토로 소송과 우발부채를 확인하고, 경영진 확인서에 반영해요.';
   }
   return '아래 절차로 기말 잔액을 확인하고, 확인한 금액만큼 커버리지에 반영해요.';
 }
@@ -85,13 +86,28 @@ export const DIFF_CAUSES = [
   { key: 'unknown', label: '원인 불명', misstatement: true, hint: '추가 절차가 필요한 차이' },
 ];
 
+// 미착품 차이는 인도조건에 따라 성격이 갈린다.
+//   선적지 인도: 출고 때 소유권이 넘어가 회사 장부가 맞고, 조회처가 늦게 잡은 시점 차이
+//   도착지 인도: 도착 때 소유권이 넘어가 회사가 매출(채권)을 너무 일찍 잡은 기간귀속 오류 → 왜곡표시
+export const DELIVERY_TERMS = [
+  { key: 'shipping', label: '선적지 인도', hint: '출고 때 소유권 이전 · 시점 차이' },
+  { key: 'destination', label: '도착지 인도', hint: '도착 때 소유권 이전 · 회사 기간귀속 오류' },
+];
+
+/** 이 차이 줄이 왜곡표시인지. 미착품은 도착지 인도일 때만 왜곡표시. */
+export function isMisstatementLine(line) {
+  if (line.cause === 'goods') return line.terms === 'destination';
+  return Boolean(causeOf(line.cause)?.misstatement);
+}
+
 export function causeOf(key) {
   return DIFF_CAUSES.find((c) => c.key === key);
 }
 
 /**
  * 조정 계산. 차이 = 장부금액 − 회신금액. 원인별 금액(부호 포함)의 합이 차이와 같아야 설명이 끝난다.
- * @returns {{ book, confirmed, diff, explained, unexplained, misstatement, lines, result }}
+ * @returns {{ book, confirmed, diff, explained, unexplained, misstatement, termsPending, lines, result }}
+ *   termsPending: 인도조건을 아직 확인하지 않은 미착품 줄 수
  *   result: 'matched'(차이 없음) | 'timing'(시점 차이 등으로 모두 설명, 왜곡표시 없음)
  *         | 'misstatement'(회사 오류·원인 불명 금액 있음) | 'open'(아직 설명 안 된 차이)
  */
@@ -102,13 +118,14 @@ export function reconcile(recon) {
   const diff = book - confirmed;
   const explained = lines.reduce((s, l) => s + Number(l.amount), 0);
   const unexplained = diff - explained;
-  const misstatement = lines.filter((l) => causeOf(l.cause)?.misstatement).reduce((s, l) => s + Number(l.amount), 0);
+  const misstatement = lines.filter(isMisstatementLine).reduce((s, l) => s + Number(l.amount), 0);
+  const termsPending = lines.filter((l) => l.cause === 'goods' && !l.terms).length;
   let result;
   if (diff === 0) result = 'matched';
   else if (unexplained !== 0) result = 'open';
   else if (misstatement !== 0) result = 'misstatement';
   else result = 'timing';
-  return { book, confirmed, diff, explained, unexplained, misstatement, lines, result };
+  return { book, confirmed, diff, explained, unexplained, misstatement, termsPending, lines, result };
 }
 
 const won = (n) => `${Number(n).toLocaleString('ko-KR')}원`;
@@ -118,7 +135,7 @@ export function reconConclusion(r) {
   switch (r.result) {
     case 'matched': return '회신금액이 장부금액과 일치해요. 추가 절차 없이 완료할 수 있어요.';
     case 'timing': return `차이 ${won(r.diff)}은 시점 차이·조회처 오류로 모두 설명돼요. 왜곡표시는 없어요.`;
-    case 'misstatement': return `회사 장부 오류·원인 불명 ${won(r.misstatement)}은 왜곡표시로 보고 수정 여부를 검토해야 해요.`;
+    case 'misstatement': return `왜곡표시 후보 ${won(r.misstatement)}(회사 장부 오류·원인 불명·도착지 인도 미착품)은 수정 여부를 검토해야 해요.`;
     default: return `아직 설명되지 않은 차이가 ${won(r.unexplained)} 남았어요. 원인을 더 확인해야 해요.`;
   }
 }
@@ -164,18 +181,42 @@ export function completeCheck(item) {
     return { ok: false, reason: '회신금액을 입력해 주세요.' };
   }
   const r = reconcile(f.recon);
-  return r.result === 'open' ? { ok: false, reason: '설명되지 않은 차이가 남아 있어요.' } : { ok: true };
+  if (r.result === 'open') return { ok: false, reason: '설명되지 않은 차이가 남아 있어요.' };
+  if (r.termsPending) return { ok: false, reason: '미착품 차이의 인도조건을 확인해 주세요.' };
+  return { ok: true };
 }
 
-/** 완료 처리한 새 자료. 결론을 남긴다. */
-export function completeFollow(item, on) {
+/**
+ * 완료 기록(감사기준서 230: 수행자·완료일·검토자) 검증. 수행자와 완료일은 필수, 검토자는 나중에 채워도 된다.
+ * @returns {Record<string,string>} 비어 있으면 통과
+ */
+export function validateSignoff({ preparer, completedOn, reviewer } = {}) {
+  const errors = {};
+  if (!String(preparer ?? '').trim()) errors.preparer = '수행자를 입력해 주세요.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(completedOn ?? ''))) errors.completedOn = '완료일을 입력해 주세요.';
+  return errors;
+}
+
+/** 완료 처리한 새 자료. 결론과 수행자·완료일·검토자를 남긴다. */
+export function completeFollow(item, signoff) {
   const check = completeCheck(item);
   if (!check.ok) throw new Error(check.reason);
+  const errors = validateSignoff(signoff);
+  if (Object.keys(errors).length) throw new Error(Object.values(errors)[0]);
   const f = item.follow;
   const conclusion = f.type === 'diff'
     ? reconConclusion(reconcile(f.recon))
     : `대체적 절차로 ${won(f.verified || 0)} 확인`;
-  return { ...item, status: 'done', follow: { ...f, closedOn: on, conclusion } };
+  return {
+    ...item,
+    status: 'done',
+    follow: {
+      ...f,
+      closedOn: signoff.completedOn,
+      conclusion,
+      signoff: { preparer: signoff.preparer.trim(), reviewer: String(signoff.reviewer ?? '').trim() },
+    },
+  };
 }
 
 /** 대체적 절차로 확인한 금액. 장부금액을 넘지 않게 자른다. */
@@ -219,7 +260,8 @@ export function evidenceRequests(item, { stepKeys = [], owner, dept = '', today,
 
 /**
  * 커버리지 트랙 조회의 확인 금액 집계.
- * 확인 = 회신 완료(완료 상태) 금액 + 대체적 절차로 확인한 금액 + 차이 조정 중인 건의 회신금액
+ * 확인 = 회신 완료(완료 상태) 금액 + 대체적 절차로 확인한 금액
+ *      + 차이 건의 회신금액 (조정을 마쳤으면 왜곡표시가 아닌 설명분까지)
  */
 export function coverageSummary(items) {
   const list = items.filter((x) => x.kind === 'confirmation' && x.track === 'coverage');
@@ -228,9 +270,49 @@ export function coverageSummary(items) {
   let alternative = 0;
   for (const x of list) {
     if (x.follow?.type === 'noreply') alternative += x.follow.verified || 0;
-    else if (x.follow?.type === 'diff' && x.follow.recon?.confirmed != null) confirmed += Math.min(Number(x.follow.recon.confirmed) || 0, x.bookAmount || 0);
+    else if (x.follow?.type === 'diff' && x.follow.recon?.confirmed != null) {
+      // 조정 중: 회신금액만. 조정을 마친 건: 왜곡표시가 아닌 것으로 설명된 차이(시점 차이 등)까지 확인된 것으로 본다.
+      let amount = Number(x.follow.recon.confirmed) || 0;
+      if (x.status === 'done') {
+        const r = reconcile(x.follow.recon);
+        amount += r.explained - r.misstatement;
+      }
+      confirmed += Math.min(Math.max(amount, 0), x.bookAmount || 0);
+    }
     else if (x.status === 'done') confirmed += x.bookAmount || 0;
   }
   const covered = confirmed + alternative;
   return { count: list.length, total, confirmed, alternative, covered, uncovered: total - covered, ratio: total ? covered / total : 0 };
+}
+
+// ---------- 대시보드 외부조회 현황 (트랙별) ----------
+
+/**
+ * 트랙별 현황. 회신 완료(완료 상태)를 '회수'로 본다.
+ * @param performance 수행중요성(원). 회사 단위로 하나. 없으면 비교하지 않는다.
+ * @returns {{
+ *   any: boolean,
+ *   required: { total, received, pending: { id, name }[] },   // 은행: 금액과 무관하게 전수 회수
+ *   general:  { total, received, pending: { id, name }[] },   // 변호사
+ *   coverage: coverageSummary() + { performance, exceeds, gap }  // 미확인 잔액 vs 수행중요성
+ * }}
+ */
+export function trackOverview(items, performance) {
+  const conf = items.filter((x) => x.kind === 'confirmation');
+  const byTrack = (track) => {
+    const list = conf.filter((x) => x.track === track);
+    return {
+      total: list.length,
+      received: list.filter((x) => x.status === 'done').length,
+      pending: list.filter((x) => x.status !== 'done').map((x) => ({ id: x.id, name: x.counterparty })),
+    };
+  };
+  const cov = coverageSummary(items);
+  const perf = Number(performance) || 0;
+  return {
+    any: conf.length > 0,
+    required: byTrack('required'),
+    general: byTrack('general'),
+    coverage: { ...cov, performance: perf || null, exceeds: perf ? cov.uncovered > perf : false, gap: perf ? cov.uncovered - perf : 0 },
+  };
 }

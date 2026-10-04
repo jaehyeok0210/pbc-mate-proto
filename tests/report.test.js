@@ -123,3 +123,11 @@ test('빈 상태', () => {
   assert.deepEqual(summaryLines(empty), ['아직 집계할 자료가 없어요.']);
   assert.equal(reportToCsv(empty).split('\n').length, 1);
 });
+
+test('주간 보고: 상태 칸 합계가 전체 건수와 같다 (외부조회 후속 절차 포함)', async () => {
+  const { sampleState: appSample } = await import('../src/js/store.js');
+  const r = buildReport(appSample(), '2026-10-01');
+  const c = r.counts;
+  assert.equal(c.done + c.none + c.part + c.fix + c.follow, c.total);
+  assert.equal(c.follow, 2);
+});

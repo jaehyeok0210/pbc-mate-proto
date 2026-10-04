@@ -9,7 +9,9 @@
 //   legal : 변호사조회서 — 법무법인 1곳당 1장, 사건 행을 묶는다
 //   inventory : 제3자보관재고자산조회서 — 보관처(창고)별 1장, 품목 행을 묶는다. 수량을 확인받는다
 //
-// track: 'required'(금액과 무관하게 전수 회수) | 'coverage'(수행중요성 대비 금액 커버리지로 관리)
+// track: 'required'(금액과 무관하게 전수 회수 — 은행, 실무 관행)
+//      | 'coverage'(수행중요성 대비 금액 커버리지로 관리 — 채권채무·재고)
+//      | 'general'(금액 없이 회신 여부로 관리 — 변호사)
 
 import { normalizeDate, splitCells } from './add.js';
 import { addDays, daysBetween } from './dates.js';
@@ -39,7 +41,7 @@ export const CONF_TYPES = {
     ].join('\n'),
   },
   legal: {
-    key: 'legal', label: '변호사조회서', title: '법률 조회서', prefix: 'LG', track: 'required',
+    key: 'legal', label: '변호사조회서', title: '법률 조회서', prefix: 'LG', track: 'general',
     unit: '법무법인',
     columns: ['법무법인', '담당 변호사(선택)', '주소', '사건명(선택)'],
     example: [
@@ -61,6 +63,8 @@ export const CONF_TYPES = {
     ].join('\n'),
   },
 };
+
+export const TRACK_LABEL = { required: '필수 회수', coverage: '커버리지 관리', general: '일반 조회' };
 
 export const TYPE_ORDER = ['bank', 'arap', 'legal', 'inventory'];
 

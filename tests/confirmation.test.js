@@ -232,3 +232,10 @@ test('재고: 품목·수량 누락과 형식 오류', () => {
   assert.equal(parsed.rows[1].errors.amount, '수량 형식 오류');
   assert.equal(parsed.rows[2].errors.amount, '금액 형식 오류');
 });
+
+test('트랙: 은행은 필수 회수, 변호사는 일반, 채권채무·재고는 커버리지', () => {
+  assert.equal(CONF_TYPES.bank.track, 'required');
+  assert.equal(CONF_TYPES.legal.track, 'general');
+  assert.equal(CONF_TYPES.arap.track, 'coverage');
+  assert.equal(CONF_TYPES.inventory.track, 'coverage');
+});

@@ -1303,3 +1303,66 @@ a.m-bundle { text-decoration: none; }
   .fu-sum div + div { border-left: 0; border-top: 1px solid var(--line); }
 }
 .compose-foot .btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+.fu-terms { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: -2px 0 4px; padding: 8px 10px; font-size: 12.5px; background: var(--fill-2); border-left: 3px solid var(--low-line); }
+.fu-terms > span { font-weight: 700; color: var(--ink); }
+.fu-terms select { height: 30px; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 6px; font: inherit; background: #fff; }
+.fu-terms small { color: var(--ink-3); }
+.fu-terms.is-pending { background: var(--mid-bg); border-color: var(--mid-line); }
+.fu-terms.is-bad { background: var(--high-bg); border-color: var(--high-line); }
+.fu-signoff { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+.fu-signoff-grid { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 10px; align-items: start; }
+@media (max-width: 720px) { .fu-signoff-grid { grid-template-columns: 1fr 1fr; } .fu-signoff-grid .f:last-child { grid-column: 1 / -1; } }
+
+/* ---------- 대시보드 외부조회 현황 ---------- */
+.confirm-overview { display: flex; flex-direction: column; gap: 10px; padding-top: 12px; position: relative; }
+.confirm-overview::before { content: ''; position: absolute; left: 0; top: 0; width: 28px; height: 3px; background: var(--orange); }
+.co-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.co-head h2 { font-size: 22px; font-weight: 700; }
+.co-head h2 span { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+.co-perf { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.co-perf input { width: 150px; height: 34px; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 10px; font: inherit; text-align: right; font-variant-numeric: tabular-nums; }
+.co-perf input:focus { outline: 2px solid var(--orange); outline-offset: -1px; }
+.co-basis { font-size: 12.5px; color: var(--ink-3); margin-top: -4px; }
+.co-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--radius); }
+.co-card { display: flex; flex-direction: column; gap: 6px; padding: 16px 20px; min-width: 0; }
+.co-card + .co-card { border-left: 1px solid var(--line); }
+.co-label { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+.co-big { font-size: 30px; font-weight: 800; line-height: 1.1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.co-big small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+.co-card.is-required .co-big { color: var(--high-fg); }
+.co-card.is-ok .co-big { color: var(--low-fg); }
+.co-sub { font-size: 12.5px; color: var(--ink-3); }
+.co-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-3); }
+.co-chip { padding: 2px 8px; border: 1px solid var(--line); border-radius: 3px; font-weight: 600; color: var(--ink); text-decoration: none; background: #fff; }
+.co-chip:hover { border-color: var(--orange); color: var(--orange-dark); }
+.co-bar { display: flex; height: 10px; background: var(--fill); border-radius: 5px; overflow: hidden; }
+.co-seg.is-confirmed { background: var(--low-line); }
+.co-seg.is-alt { background: var(--mid-line); }
+.co-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); }
+.co-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: var(--fill); border: 1px solid var(--line); margin-right: 5px; vertical-align: -1px; }
+.co-legend i.is-confirmed { background: var(--low-line); border-color: var(--low-line); }
+.co-legend i.is-alt { background: var(--mid-line); border-color: var(--mid-line); }
+.co-verdict { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; font-size: 13px; border-radius: var(--radius); }
+.co-verdict svg { width: 13px; height: 13px; margin-top: 3px; }
+.co-verdict.is-bad { background: var(--high-bg); color: var(--high-fg); }
+.co-verdict.is-ok { background: var(--low-bg); color: var(--low-fg); }
+.co-verdict.is-open { background: var(--fill-2); color: var(--ink-3); }
+@media (max-width: 1100px) {
+  .co-grid { grid-template-columns: 1fr 1fr; }
+  .co-wide { grid-column: 1 / -1; grid-row: 1; }
+  .co-card + .co-card { border-left: 0; }
+  .co-card:not(.co-wide) { border-top: 1px solid var(--line); }
+  .co-card:last-child { border-left: 1px solid var(--line); }
+}
+@media (max-width: 720px) {
+  .confirm-overview { order: 2; }
+  .co-head h2 { font-size: 19px; }
+  .co-grid { grid-template-columns: 1fr; }
+  .co-card:last-child { border-left: 0; }
+  .co-perf input { width: 130px; }
+}
+
+/* 주간 보고: 후속 절차 칸이 생기면 지연 칸을 한 줄 전체로 */
+.stat.is-follow .stat-value { color: var(--follow-fg); }
+.stat.stat-span { grid-column: 1 / -1; }

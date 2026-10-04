@@ -13,7 +13,7 @@ export function sampleState() {
   const pbc = s.items.filter((x) => x.kind !== 'confirmation');
   const owners = new Set(pbc.map((x) => x.owner));
   const people = Object.fromEntries(Object.entries(s.people).filter(([name]) => owners.has(name)));
-  const { confirmSetup, ...rest } = s;
+  const { confirmSetup, materiality, ...rest } = s;
   return {
     ...rest,
     people: { ...people, '박준호 과장': { dept: '재무팀', nudges: 1, lastNudgedOn: d(-1) } },

@@ -47,7 +47,8 @@ function body(report, lines) {
           ${stat('미회신', counts.none, '')}
           ${stat('일부 수령', counts.part, '')}
           ${stat('보완 요청', counts.fix, '', counts.fix ? 'is-fix' : '')}
-          ${stat('지연', counts.late, counts.urgent ? `2일 이내 포함 ${counts.urgent}건` : '', counts.late ? 'is-late' : '')}
+          ${counts.follow ? stat('후속 절차', counts.follow, '외부조회 미회수·차이', 'is-follow') : ''}
+          ${stat('지연', counts.late, counts.urgent ? `2일 이내 포함 ${counts.urgent}건` : '', `${counts.late ? 'is-late' : ''} ${counts.follow ? 'stat-span' : ''}`)}
         </div>
         <div class="stat stat-wide">
           <div class="stat-label">이번 주 수령</div>
@@ -81,7 +82,7 @@ function body(report, lines) {
             <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div></div>
             ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
-                <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}</div>
+                <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
                 <div>${esc(r.owner)}</div>
                 <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
                 <div>${formatMD(r.neededOn)}</div>
