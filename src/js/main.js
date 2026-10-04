@@ -1,7 +1,7 @@
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
 // 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
 //           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭) · #/report 주간 현황
-//           #/calendar 일정
+//           #/calendar 일정 · #/confirm 외부조회서 작성
 
 import { todayISO } from './lib/dates.js';
 import { withDays } from './lib/priority.js';
@@ -27,6 +27,10 @@ import { renderAdd, pastePreview, pasteSubmit } from './views/add.js';
 import { renderReport } from './views/report.js';
 import { renderStatusSheet } from './views/status.js';
 import { renderCalendar } from './views/calendar.js';
+import { renderConfirm, partiesPreview, outputSection } from './views/confirm.js';
+import {
+  CONF_TYPES, defaultSetup, validateSetup, parseConfirmations, buildLetters, toRegistryValues, nextDocNo,
+} from './lib/confirmation.js';
 
 // ?today=2026-10-01 처럼 기준일을 직접 지정해 확인할 수 있다.
 // ?now=2026-10-02T17:20 은 날짜와 시각을 함께 지정한다 (발송 시점 안내 확인용).
@@ -44,6 +48,7 @@ let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteTe
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
 let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 화면 입력값
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
+let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank }
 
 function currentToday() {
   return baseDateOf(state, todayParam, todayISO());
@@ -77,6 +82,20 @@ function render() {
     compose = bundle = fix = add = sheet = null;
     if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
     app.innerHTML = renderCalendar(state, { today, isDemo, ...cal });
+    document.body.classList.remove('has-drawer');
+    return;
+  }
+
+  // 외부조회서 작성: 대시보드 대신 그리는 전체 화면
+  if (location.hash === '#/confirm') {
+    compose = bundle = fix = add = sheet = null;
+    if (!conf) {
+      conf = {
+        type: 'bank', touched: new Set(), pasteText: '', bankBlank: false,
+        setup: { ...defaultSetup(state.client, today), ...(state.confirmSetup || {}), issuedOn: today, replyBy: defaultSetup(state.client, today).replyBy },
+      };
+    }
+    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) });
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -203,6 +222,25 @@ async function copyForDrawer(view, { itemIds, text }, record) {
   render();
   clearTimeout(drawerToastTimer);
   drawerToastTimer = setTimeout(() => { view.toast = false; render(); }, 2800);
+}
+
+// 외부조회서: 손댄 칸의 오류만 보여준다 (처음 열었을 때 빨간 칸이 가득하지 않게)
+function confSetupErrors(today) {
+  const { errors } = validateSetup(conf.setup, today);
+  return Object.fromEntries(Object.entries(errors).filter(([k]) => conf.touched.has(k)));
+}
+
+function readConfSetup() {
+  const form = document.getElementById('conf-setup');
+  if (!form || !conf) return;
+  for (const el of form.elements) if (el.name) conf.setup[el.name] = el.value;
+}
+
+// 붙여넣기·공통 정보가 바뀌면 미리보기와 조회서 영역만 다시 그린다 (입력 포커스 유지)
+function refreshConfOutput() {
+  const today = currentToday();
+  app.querySelector('.conf-preview').innerHTML = partiesPreview(conf.type, parseConfirmations(conf.type, conf.pasteText));
+  app.querySelector('.conf-output').innerHTML = outputSection(state, { today, ...conf });
 }
 
 const actions = {
@@ -350,6 +388,30 @@ const actions = {
     return copyForDrawer(fix, { text: fixMailToText(mail) },
       (s, on, text, copy) => copyAndRecordFix(s, { itemId: item.id, reason, on, text }, copy));
   },
+  // 외부조회서 작성
+  'conf-type': (el) => { readConfSetup(); conf.type = el.dataset.type; conf.pasteText = ''; render(); },
+  'conf-example': () => { readConfSetup(); conf.pasteText = CONF_TYPES[conf.type].example; render(); },
+  'conf-clear': () => { readConfSetup(); conf.pasteText = ''; render(); },
+  'conf-print': () => window.print(),
+  'conf-register': () => {
+    readConfSetup();
+    const today = currentToday();
+    const { value: setup } = validateSetup(conf.setup, today);
+    const parsed = parseConfirmations(conf.type, conf.pasteText);
+    if (!setup || !parsed.parties.length || parsed.errorCount) return;
+    const letters = buildLetters(conf.type, parsed.parties, setup,
+      { startNo: nextDocNo(state.items, conf.type), bankBlank: conf.bankBlank });
+    state = addItems(state, toRegistryValues(letters, setup));
+    // 다음 작성 때 회사·감사인 정보를 다시 입력하지 않도록 기억한다 (날짜는 매번 새로)
+    const { issuedOn, replyBy, ...keep } = setup;
+    state = { ...state, confirmSetup: keep };
+    save(state);
+    const label = CONF_TYPES[conf.type].label;
+    conf.pasteText = '';
+    location.hash = '';
+    render();
+    toast(`${label} ${letters.length}건을 조회 목록에 등록했어요. 회신 기한 ${formatMD(setup.replyBy)} 기준으로 추적해요.`);
+  },
   'copy-bundle': () => {
     const sorted = bundleItems(state.items, bundle.owner, currentToday());
     const mail = buildBundleMail({
@@ -433,6 +495,25 @@ app.addEventListener('drop', (e) => {
 // 일정 패널의 날짜 입력으로 이동 (모바일·키보드)
 app.addEventListener('change', (e) => {
   if (e.target.dataset.actionChange === 'cal-move') moveCalendarEntry(e.target.dataset.entry, e.target.value);
+  if (e.target.dataset.actionChange === 'conf-bank-blank') {
+    readConfSetup();
+    conf.bankBlank = e.target.checked;
+    refreshConfOutput();
+  }
+  // 공통 정보 칸을 벗어나면 그 칸의 오류를 보여준다
+  if (e.target.form?.id === 'conf-setup' && e.target.name) {
+    // 다시 그리면 Tab으로 넘어간 다음 칸의 포커스가 사라지므로, 오류 표시만 바꾼다.
+    readConfSetup();
+    conf.touched.add(e.target.name);
+    const errors = confSetupErrors(currentToday());
+    for (const label of app.querySelectorAll('#conf-setup .f')) {
+      const name = label.querySelector('input')?.name;
+      if (!conf.touched.has(name)) continue;
+      label.classList.toggle('has-error', Boolean(errors[name]));
+      label.querySelector('.f-error')?.remove();
+      if (errors[name]) label.insertAdjacentHTML('beforeend', `<span class="f-error">${errors[name]}</span>`);
+    }
+  }
 });
 
 function readAddForm() {
@@ -482,6 +563,16 @@ app.addEventListener('submit', (e) => {
 
 // 붙여넣기: 입력할 때마다 미리보기와 저장 버튼만 갱신한다 (textarea 포커스 유지).
 app.addEventListener('input', (e) => {
+  if (e.target.dataset.actionInput === 'conf-paste') {
+    conf.pasteText = e.target.value;
+    refreshConfOutput();
+    return;
+  }
+  if (e.target.form?.id === 'conf-setup') {
+    readConfSetup();
+    refreshConfOutput();
+    return;
+  }
   if (e.target.dataset.actionInput === 'paste') {
     add.pasteText = e.target.value;
     const parsed = parsePaste(add.pasteText, currentToday());
@@ -511,6 +602,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = cal = null; render(); } };
+window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = cal = conf = null; render(); } };
 
 render();

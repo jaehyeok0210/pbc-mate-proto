@@ -66,7 +66,7 @@ export function validateItem(fields, baseDate) {
 const HEADER_WORDS = ['자료명', '자료', '담당자', '요청일', '필요일', '감사절차', '감사 절차', '절차'];
 
 /** 한 줄을 열로 나눈다. 탭이 없으면 공백 2칸 이상으로도 나눠 본다. */
-function splitCells(line) {
+export function splitCells(line) {
   const cells = line.includes('\t') ? line.split('\t') : line.split(/ {2,}/);
   return cells.map((c) => c.trim());
 }

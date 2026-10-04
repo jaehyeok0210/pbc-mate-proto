@@ -48,6 +48,7 @@ export function topbar(client, today, isDemo, active) {
       <nav class="tabs">
         <a class="tab ${active === 'dashboard' ? 'is-active' : ''}" href="#">대시보드</a>
         <a class="tab" href="#/add">자료 요청</a>
+        <a class="tab ${active === 'confirm' ? 'is-active' : ''}" href="#/confirm">외부조회서</a>
         <a class="tab ${active === 'calendar' ? 'is-active' : ''}" href="#/calendar">일정</a>
         <a class="tab ${active === 'report' ? 'is-active' : ''}" href="#/report">주간 보고</a>
       </nav>

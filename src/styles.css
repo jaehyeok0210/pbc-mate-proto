@@ -94,6 +94,10 @@ a { color: inherit; }
 .tab.is-active { color: var(--ink); font-weight: 700; }
 .tab.is-active::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 3px; background: var(--orange); }
 .topbar-end { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+/* 탭(외부조회서)이 늘어도 상단바 글자가 두 줄로 꺾이지 않게 */
+.topbar .brand, .topbar .chip, .topbar .tab, .topbar .demo-date, .topbar .today, .topbar .org-label, .topbar .btn { white-space: nowrap; }
+.topbar .tab { padding: 0 10px; }
+.topbar .tab.is-active::after { left: 10px; right: 10px; }
 .today { font-size: 13px; color: var(--ink-3); }
 .demo-date + .topbar-end { margin-left: 12px; }
 .demo-date {
@@ -893,23 +897,23 @@ a.m-bundle { text-decoration: none; }
 
   .page { padding: 0 16px 32px; gap: 16px; }
 
-  .dashboard .topbar, .report .topbar, .calendar .topbar {
+  .dashboard .topbar, .report .topbar, .calendar .topbar, .confirm .topbar {
     height: auto; margin: 0 -16px; padding: 10px 16px 8px; flex-wrap: wrap; row-gap: 2px; position: relative; padding-right: 60px;
   }
-  .dashboard .topbar .brand, .report .topbar .brand, .calendar .topbar .brand { flex-basis: 100%; font-size: 17px; }
-  .dashboard .topbar .chip, .report .topbar .chip, .calendar .topbar .chip { height: auto; padding: 0; border: 0; font-size: 12.5px; font-weight: 500; color: var(--ink-3); flex-basis: 100%; }
+  .dashboard .topbar .brand, .report .topbar .brand, .calendar .topbar .brand, .confirm .topbar .brand { flex-basis: 100%; font-size: 17px; }
+  .dashboard .topbar .chip, .report .topbar .chip, .calendar .topbar .chip, .confirm .topbar .chip { height: auto; padding: 0; border: 0; font-size: 12.5px; font-weight: 500; color: var(--ink-3); flex-basis: 100%; }
   /* 모바일에서도 탭은 보인다: 상단바 아래 줄, 가로 스크롤 가능 */
-  .dashboard .topbar .tabs, .report .topbar .tabs, .calendar .topbar .tabs {
+  .dashboard .topbar .tabs, .report .topbar .tabs, .calendar .topbar .tabs, .confirm .topbar .tabs {
     display: flex; flex-basis: 100%; order: 3; margin: 4px 0 0; height: 36px; gap: 0; overflow-x: auto; scrollbar-width: none;
   }
-  .dashboard .topbar .tab, .report .topbar .tab, .calendar .topbar .tab { height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
-  .dashboard .topbar .tab.is-active::after, .report .topbar .tab.is-active::after, .calendar .topbar .tab.is-active::after { left: 10px; right: 10px; bottom: 0; }
-  .dashboard .topbar .demo-date, .report .topbar .demo-date, .calendar .topbar .demo-date { margin: 6px 0 0; }
-  .dashboard .topbar-end, .report .topbar-end, .calendar .topbar-end { position: absolute; right: 16px; top: 10px; }
-  .dashboard .topbar .today, .report .topbar .today, .calendar .topbar .today { font-size: 12.5px; }
+  .dashboard .topbar .tab, .report .topbar .tab, .calendar .topbar .tab, .confirm .topbar .tab { height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+  .dashboard .topbar .tab.is-active::after, .report .topbar .tab.is-active::after, .calendar .topbar .tab.is-active::after, .confirm .topbar .tab.is-active::after { left: 10px; right: 10px; bottom: 0; }
+  .dashboard .topbar .demo-date, .report .topbar .demo-date, .calendar .topbar .demo-date, .confirm .topbar .demo-date { margin: 6px 0 0; }
+  .dashboard .topbar-end, .report .topbar-end, .calendar .topbar-end, .confirm .topbar-end { position: absolute; right: 16px; top: 10px; }
+  .dashboard .topbar .today, .report .topbar .today, .calendar .topbar .today, .confirm .topbar .today { font-size: 12.5px; }
   .org-label { display: none; }
-  .dashboard .topbar .btn, .report .topbar .btn, .calendar .topbar .btn { width: 40px; height: 40px; padding: 0; }
-  .dashboard .topbar .btn svg, .report .topbar .btn svg, .calendar .topbar .btn svg { width: 18px; height: 18px; }
+  .dashboard .topbar .btn, .report .topbar .btn, .calendar .topbar .btn, .confirm .topbar .btn { width: 40px; height: 40px; padding: 0; }
+  .dashboard .topbar .btn svg, .report .topbar .btn svg, .calendar .topbar .btn svg, .confirm .topbar .btn svg { width: 18px; height: 18px; }
 
   .hero { margin: 0 -16px; padding: 20px 16px 18px; order: 1; }
   .hero h1 { font-size: 24px; }
@@ -1126,4 +1130,88 @@ a.m-bundle { text-decoration: none; }
   .empty-main h1 { font-size: 24px; }
   .empty-actions { flex-direction: column; width: 100%; }
   .steps { grid-template-columns: 1fr; }
+}
+
+/* ---------- 외부조회서 작성 ---------- */
+.confirm { gap: 24px; }
+.confirm-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 32px; align-items: start; }
+.confirm-side .conf-setup { display: flex; flex-direction: column; gap: 22px; position: sticky; top: 16px; }
+.confirm-main { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
+.conf-setup .report-block h2, .confirm-main .report-block h2 { font-size: 18px; }
+.conf-two { grid-template-columns: 1fr 1fr; }
+.conf-types { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+.conf-types button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 0; background: none; text-align: left; }
+.conf-types .seg-label { font-weight: 700; font-size: 14.5px; }
+.conf-types .seg-caption { font-size: 12px; color: var(--ink-3); }
+.conf-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink); }
+.conf-check small { color: var(--ink-3); }
+.conf-check input { accent-color: var(--orange); width: 16px; height: 16px; }
+.conf-paste-actions { display: flex; gap: 8px; }
+.conf-paste-actions .btn { height: 34px; padding: 0 12px; font-size: 13px; }
+.conf-preview { display: flex; flex-direction: column; gap: 8px; }
+.conf-table .pp-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 56px; }
+.conf-addr { font-size: 13px; color: var(--ink-2); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.conf-content { font-size: 13.5px; color: var(--ink); }
+.conf-content small { display: block; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conf-row-errors { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--high-bg); border: 1px solid var(--high-border); border-radius: var(--radius); font-size: 13px; }
+.conf-wait p { font-size: 14px; color: var(--ink-3); padding: 18px; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--fill-2); }
+.conf-out-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* 조회서 한 장 (화면에서는 종이처럼, 인쇄하면 A4 한 장) */
+.letters { display: flex; flex-direction: column; gap: 24px; padding: 24px; background: var(--fill); border: 1px solid var(--line); border-radius: var(--radius); }
+.letter {
+  background: #fff; color: #111; width: 100%; max-width: 760px; margin: 0 auto; padding: 44px 52px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12); font-size: 13.5px; line-height: 1.65; display: flex; flex-direction: column; gap: 12px;
+}
+.lt-meta { display: flex; justify-content: space-between; font-size: 12px; color: #555; }
+.lt-title { text-align: center; font-size: 24px; font-weight: 800; letter-spacing: 0.3em; margin: 6px 0 2px; color: #111; }
+.lt-badge { align-self: center; font-size: 12px; font-weight: 700; padding: 2px 10px; border: 1px solid #111; }
+.lt-addr { margin: 4px 0; display: flex; flex-direction: column; gap: 8px; border-top: 2px solid #111; border-bottom: 1px solid #111; padding: 10px 0; }
+.lt-addr div { display: grid; grid-template-columns: 48px 1fr; }
+.lt-addr dt { font-weight: 700; }
+.lt-addr dd { margin: 0; }
+.lt-addr small { color: #555; font-size: 12.5px; }
+.lt-p { margin: 0; color: #111; text-indent: 0.6em; }
+.lt-caption { font-weight: 700; font-size: 13px; margin-top: 4px; }
+.lt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lt-table th, .lt-table td { border: 1px solid #111; padding: 6px 8px; text-align: left; vertical-align: top; }
+.lt-table th { background: #f2f2f2; font-weight: 700; }
+.lt-table .is-amt { text-align: right; min-width: 130px; font-variant-numeric: tabular-nums; }
+.lt-table td.is-amt { height: 30px; }
+.lt-requests, .lt-notes { margin: 0; padding-left: 20px; font-size: 12.5px; color: #222; }
+.lt-notes { list-style: '※ '; }
+.lt-sign { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-weight: 700; margin-top: 6px; }
+.lt-seal { display: inline-block; margin-left: 10px; color: #888; font-weight: 500; }
+.lt-reply-to { display: flex; flex-direction: column; gap: 1px; padding: 10px 12px; background: #f7f7f7; border-left: 3px solid var(--orange); font-size: 12.5px; }
+.lt-reply-to b { font-size: 13px; }
+.lt-cut { text-align: center; font-size: 11.5px; color: #777; border-top: 1px dashed #999; padding-top: 6px; margin-top: 6px; }
+.lt-reply { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid #111; }
+.lt-check { display: flex; align-items: center; gap: 8px; }
+.lt-box { width: 13px; height: 13px; border: 1px solid #111; flex-shrink: 0; }
+.lt-signline { display: flex; justify-content: space-between; border-bottom: 1px solid #999; padding: 10px 0 4px; font-size: 12.5px; color: #333; }
+
+@media (max-width: 1100px) {
+  .confirm-grid { grid-template-columns: minmax(0, 1fr); }
+  .confirm-side .conf-setup { position: static; }
+}
+@media (max-width: 720px) {
+  .conf-types { grid-template-columns: 1fr; }
+  .conf-table .pp-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .conf-table .pp-head > div:nth-child(n+3), .conf-table .pp-row > .pp-date { display: none; }
+  .conf-table .conf-content { grid-column: 1 / -1; }
+  .letters { padding: 8px; margin: 0 -8px; }
+  .letter { padding: 24px 18px; font-size: 13px; }
+  .lt-title { font-size: 19px; letter-spacing: 0.15em; }
+}
+
+/* 인쇄: 조회서만 A4 한 장씩 */
+@media print {
+  @page { size: A4; margin: 16mm 14mm; }
+  body { border: 0; background: #fff; }
+  body * { visibility: hidden; }
+  .letters, .letters * { visibility: visible; }
+  .letters { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; gap: 0; background: none; border: 0; }
+  .letter { box-shadow: none; max-width: none; padding: 0; break-after: page; page-break-after: always; }
+  .letter:last-child { break-after: auto; page-break-after: auto; }
+  .toast { display: none; }
 }
