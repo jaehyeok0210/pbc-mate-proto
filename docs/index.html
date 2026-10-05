@@ -1523,6 +1523,20 @@ button.owner-link { border: 0; background: none; padding: 0; font: inherit; font
   .req-table .ot-row { grid-template-columns: 1fr 1fr; }
 }
 
+/* 상단바 '처음으로' (두 번 눌러야 초기화) */
+.reset-btn { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; font-size: 12.5px; font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+.reset-btn svg { width: 12px; height: 12px; }
+.reset-btn:hover { color: var(--ink); border-color: #BDBDBD; }
+.reset-btn.is-armed { background: var(--high-bg); border-color: var(--high-line); color: var(--high-fg); }
+@media (max-width: 720px) { .reset-btn { height: 30px; padding: 0 8px; } }
+/* 상단바 폭: 사용자·처음으로 버튼이 늘어 좁은 화면에서는 덜 중요한 것부터 줄인다 */
+.topbar .chip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 22px; }
+@media (max-width: 1560px) { .topbar .org-label { display: none; } .reset-label { display: none; } .reset-btn { padding: 0 8px; } }
+@media (max-width: 1380px) { .topbar .today { display: none; } .me-picker select { max-width: 120px; } .topbar .chip { max-width: 170px; } }
+@media (max-width: 1240px) { .topbar .tab { padding: 0 7px; } .topbar .tab.is-active::after { left: 7px; right: 7px; } .demo-date { font-size: 11px; } }
+@media (max-width: 1120px) { .topbar .chip { display: none; } }
+@media (max-width: 720px) { .topbar .chip { display: inline-block; max-width: none; } }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -4404,6 +4418,7 @@ function topbar(client, today, isDemo, active, team) {
         ${userPicker(team)}
         <span class="org-label desktop-only">삼일회계법인</span>
         <span class="today">${formatKoreanDay(today)}</span>
+        <button type="button" class="reset-btn" data-action="reset-all" title="모든 자료를 지우고 첫 화면으로" aria-label="처음으로">${ICON.fix}<span class="reset-label">처음으로</span></button>
       </div>
     </header>`;
 }
@@ -6772,6 +6787,8 @@ let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set
 let confResetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
+let resetArmed = false; // '처음으로'를 한 번 눌러 확인을 기다리는 중
+let resetTimer;
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
@@ -7051,6 +7068,21 @@ function setFollow(fn) {
 
 const actions = {
   'set-mode': (el) => { mode = el.dataset.mode; render(); },
+  // 처음으로: 첫 클릭은 확인 대기(4초), 한 번 더 누르면 모든 자료·첨부 파일을 지우고 첫 화면으로
+  'reset-all': (el) => {
+    clearTimeout(resetTimer);
+    if (!resetArmed) {
+      resetArmed = true;
+      el.classList.add('is-armed');
+      el.innerHTML = '한 번 더 누르면 모든 자료가 지워져요';
+      resetTimer = setTimeout(() => { resetArmed = false; render(); }, 4000);
+      return;
+    }
+    resetArmed = false;
+    window.pbc.reset();
+    location.hash = '';
+    toast('모든 자료를 지웠어요. 처음부터 시작할 수 있어요.');
+  },
   'set-who': (el) => { who = el.dataset.who; render(); },
   // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
   'show-requester': (el) => {

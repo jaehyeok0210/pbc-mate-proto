@@ -74,6 +74,7 @@ export function topbar(client, today, isDemo, active, team) {
         ${userPicker(team)}
         <span class="org-label desktop-only">삼일회계법인</span>
         <span class="today">${formatKoreanDay(today)}</span>
+        <button type="button" class="reset-btn" data-action="reset-all" title="모든 자료를 지우고 첫 화면으로" aria-label="처음으로">${ICON.fix}<span class="reset-label">처음으로</span></button>
       </div>
     </header>`;
 }
