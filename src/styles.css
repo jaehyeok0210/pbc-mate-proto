@@ -1540,3 +1540,11 @@ button.owner-link { border: 0; background: none; padding: 0; font: inherit; font
 /* 타임라인 박스: 긴 자료명은 말줄임, 올리면(포커스) 전체 이름 */
 .tl-label b { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
 a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
+
+/* 첫 화면 클라이언트명: 직접 입력하지 않고 조회 창에서 고른다 */
+.eng-display { background: var(--fill-2) !important; cursor: pointer; color: var(--ink); font-weight: 600; }
+.eng-display::placeholder { font-weight: 400; color: var(--ink-3); }
+.eng-search .btn svg { width: 14px; height: 14px; }
+.eng-modal .sheet-body { display: flex; flex-direction: column; gap: 12px; }
+.eng-modal .eng-results { max-height: 320px; }
+.eng-list { min-height: 60px; }

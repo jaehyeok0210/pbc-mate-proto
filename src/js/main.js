@@ -21,7 +21,7 @@ import { currentUser, switchUser, signMail } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
 import { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
-import { renderEmpty } from './views/empty.js';
+import { renderEmpty, lookupResults } from './views/empty.js';
 import { renderCompose } from './views/compose.js';
 import { renderBundle } from './views/bundle.js';
 import { renderFix } from './views/fix.js';
@@ -54,7 +54,7 @@ let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
-const EMPTY_FORM = { query: '', results: null, selectedId: null, myName: '', myTitle: '', errors: {} };
+const EMPTY_FORM = { lookupOpen: false, query: '', results: null, selectedId: null, myName: '', myTitle: '', errors: {} };
 let emptyForm = { ...EMPTY_FORM }; // 첫 실행 화면 입력값
 let who = 'all';    // 대시보드 요청 감사인 필터: 'all' | 'me' | 팀원 이름
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
@@ -380,30 +380,32 @@ const actions = {
     render();
   },
 
-  // 첫 화면: 감사 계약 조회
-  'eng-search': () => {
+  // 첫 화면: 클라이언트 조회 창 (클라이언트명은 이 창에서만 입력)
+  'eng-open': () => {
     readEmptyForm();
-    emptyForm.results = searchEngagements(emptyForm.query);
-    emptyForm.selectedId = null;
-    emptyForm.errors = {};
-    // 한 건뿐이면 바로 고른다
-    if (emptyForm.results.length === 1) emptyForm.selectedId = emptyForm.results[0].id;
+    emptyForm.lookupOpen = true;
+    emptyForm.results = emptyForm.query ? searchEngagements(emptyForm.query) : null;
     render();
-    (emptyForm.selectedId ? app.querySelector('[name="myName"]') : app.querySelector('.eng-item'))?.focus();
+    const input = app.querySelector('[name="engQuery"]');
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  },
+  'eng-close': () => {
+    emptyForm.lookupOpen = false;
+    render();
+  },
+  'eng-search': () => {
+    emptyForm.query = app.querySelector('[name="engQuery"]')?.value ?? emptyForm.query;
+    emptyForm.results = searchEngagements(emptyForm.query);
+    app.querySelector('.eng-list').innerHTML = lookupResults(emptyForm.results, emptyForm.query);
+    app.querySelector('.eng-list .eng-item')?.focus();
   },
   'eng-pick': (el) => {
-    readEmptyForm();
     emptyForm.selectedId = el.dataset.id;
-    emptyForm.errors = { ...emptyForm.errors, client: undefined };
+    emptyForm.lookupOpen = false;
     delete emptyForm.errors.client;
     render();
     app.querySelector('[name="myName"]')?.focus();
-  },
-  'eng-clear': () => {
-    readEmptyForm();
-    emptyForm.selectedId = null;
-    render();
-    app.querySelector('[name="clientQuery"]')?.focus();
   },
 
   // 자료 상태 변경 시트
@@ -762,7 +764,6 @@ function applyReceiptCheck() {
 function readEmptyForm() {
   const form = document.getElementById('engagement-form');
   if (!form) return;
-  emptyForm.query = form.clientQuery?.value ?? emptyForm.query;
   emptyForm.myName = form.myName?.value ?? emptyForm.myName;
   emptyForm.myTitle = form.myTitle?.value ?? emptyForm.myTitle;
 }
@@ -982,6 +983,13 @@ app.addEventListener('submit', (e) => {
 
 // 붙여넣기: 입력할 때마다 미리보기와 저장 버튼만 갱신한다 (textarea 포커스 유지).
 app.addEventListener('input', (e) => {
+  // 클라이언트 조회 창: 입력할 때마다 목록을 거른다
+  if (e.target.dataset.actionInput === 'eng-query') {
+    emptyForm.query = e.target.value;
+    emptyForm.results = emptyForm.query.trim() ? searchEngagements(emptyForm.query) : null;
+    app.querySelector('.eng-list').innerHTML = lookupResults(emptyForm.results, emptyForm.query);
+    return;
+  }
   if (e.target.dataset.actionInput === 'report-search') {
     reportQuery = e.target.value;
     app.querySelector('.item-table').innerHTML = itemTableBody(buildReport(state, currentToday()).rows, reportQuery);
@@ -1039,6 +1047,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key !== 'Escape') return;
+  if (!state && emptyForm.lookupOpen) { actions['eng-close'](); return; }
   if (att) { att = null; render(); return; }
   if (sheet) { sheet = null; render(); return; }
   if (compose || bundle || fix || add || fu) actions['close-drawer']();
