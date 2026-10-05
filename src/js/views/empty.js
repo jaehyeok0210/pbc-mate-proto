@@ -13,7 +13,7 @@ export function renderEmpty({ lookupOpen = false, query = '', results = null, se
   return `
     <div class="page empty">
       <header class="topbar">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PwC 메이트</div>
         <span class="chip">${picked ? `${esc(picked.client)} · ${esc(picked.engagement)}` : '클라이언트를 조회해 주세요'}</span>
       </header>
 
@@ -29,6 +29,7 @@ export function renderEmpty({ lookupOpen = false, query = '', results = null, se
         </div>
         <h1>요청한 자료를 필요일 기준으로 챙겨드려요</h1>
         <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 요청 메일 초안까지 만들어요.</p>
+        <p class="empty-disclaimer">삼일PwC 입사 전 과제로 만든 시연용 프로토타입이에요. PwC 공식 서비스가 아니에요.</p>
 
         <form class="empty-form" id="engagement-form" novalidate>
           <div class="f eng-lookup ${errors.client ? 'has-error' : ''}">
