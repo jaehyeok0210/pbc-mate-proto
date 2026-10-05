@@ -7,7 +7,7 @@
 //   people: { [이름]: { dept, nudges, lastNudgedOn } },
 //   items:  [{ id, name, owner, requestedOn, neededOn, status, reason?,
 //              procedure?,                           // 이 자료를 쓰는 감사 절차
-//              nudges?: [{ on, tone }],               // 독촉 이력
+//              nudges?: [{ on, tone }],               // 요청 이력
 //              received?: { on, basisDate? },         // 받은 자료 (보완 요청 자료)
 //              fix?: { reason, requiredBasisDate?, details? },  // 현재 보완 사유
 //              fixes?: [{ on, reason }] }]            // 보완 요청 이력
@@ -88,7 +88,7 @@ export function upgradeSampleAttachments(state) {
 /**
  * 예시 자료. 시연 기준일(DEMO_DATE, 2027-01-14 목) 기준 상대 날짜로 만든다.
  * 기능마다 보여줄 장면이 하나씩 있도록 구성했다.
- *   PBC 6건  : 미회신·독촉 중(재고실사) / 묶음 독촉(김민지 대리 3건) / 일부 수령(특수관계자) /
+ *   PBC 6건  : 미회신·요청 중(재고실사) / 묶음 요청(김민지 대리 3건) / 일부 수령(특수관계자) /
  *              보완 요청-기준일 상이(유형자산) / 완료+첨부(법인세) / 후속 절차에서 만든 증빙 요청(지급 내역)
  *              4건은 표준 양식(template·basisDate)으로 요청
  *   외부조회 8건: 은행 2(미회신·회수 완료) / 채권채무 4(기한 지남·미회수 대체적 절차·금액 차이 조정 중·조정 완료+서명) /
@@ -209,9 +209,9 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
 }
 
 /**
- * 메일 한 통을 복사했을 때 독촉 이력을 남긴다. 원래 state는 바꾸지 않고 새 state를 돌려준다.
+ * 메일 한 통을 복사했을 때 요청 이력을 남긴다. 원래 state는 바꾸지 않고 새 state를 돌려준다.
  * 메일에 담긴 자료마다 이력에 { on, tone }을 추가하고,
- * 담당자의 독촉 횟수는 메일 1통이므로 1만 올린다. (같은 담당자의 자료만 묶는다고 가정)
+ * 담당자의 요청 횟수는 메일 1통이므로 1만 올린다. (같은 담당자의 자료만 묶는다고 가정)
  */
 export function recordNudges(state, itemIds, tone, on) {
   const ids = new Set(itemIds);

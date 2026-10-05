@@ -1,4 +1,4 @@
-// 3. 묶음 독촉: 같은 담당자의 남은 자료를 메일 한 통으로
+// 3. 묶음 요청: 같은 담당자의 남은 자료를 메일 한 통으로
 
 import { formatMD, formatMDW } from './dates.js';
 import { withDays, sortItems } from './priority.js';

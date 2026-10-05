@@ -24,7 +24,7 @@ export function renderFix(state, { today, itemId, reason, copied, toast }) {
 
   const flow = [
     `<span class="flow-chip">${formatMD(item.requestedOn)} 요청</span>`,
-    nudges ? `<span class="flow-chip">독촉 ${nudges}회</span>` : '',
+    nudges ? `<span class="flow-chip">요청 ${nudges}회</span>` : '',
     item.received ? `<span class="flow-chip">${formatMD(item.received.on)} 파일 수령</span>` : '',
     lastFix ? `<span class="flow-chip is-fix">${formatMD(lastFix.on)} 보완 요청</span>` : '',
   ].filter(Boolean).join(`<span class="flow-arrow">${ICON.chevron}</span>`);

@@ -1,4 +1,4 @@
-// 자료 상태 변경 시트 — 단건 독촉·보완 요청 화면 위에 작게 뜬다.
+// 자료 상태 변경 시트 — 단건 요청·보완 요청 화면 위에 작게 뜬다.
 
 import { formatMD } from '../lib/dates.js';
 import { allowedStatuses, STATUS_HINT } from '../lib/status.js';
@@ -22,7 +22,7 @@ export function renderStatusSheet(item, { status, reason, basisDate, requiredBas
     ? `수령일은 처음 받은 ${formatMD(item.received.on)} 그대로예요.`
     : `수령일이 ${formatMD(today)}로 기록돼요.`;
   const note = status
-    ? `${receivedNote} 독촉 횟수와 이력은 바뀌지 않아요.`
+    ? `${receivedNote} 요청 횟수와 이력은 바뀌지 않아요.`
     : '바꿀 상태를 골라 주세요. 미회신으로 되돌리는 건 지원하지 않아요.';
 
   return `

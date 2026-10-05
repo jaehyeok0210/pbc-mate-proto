@@ -30,7 +30,7 @@ test('미회신 → 일부 수령: 상태와 최초 수령일, 이력은 그대�
   const next = transitionItem(bank, { status: 'part' }, ON);
   assert.equal(next.status, 'part');
   assert.deepEqual(next.received, { on: ON });
-  assert.deepEqual(next.nudges, bank.nudges, '독촉 이력 변화 없음');
+  assert.deepEqual(next.nudges, bank.nudges, '요청 이력 변화 없음');
   assert.equal(bank.status, 'none', '원래 자료는 그대로');
   assert.equal('received' in bank, false);
 });
@@ -61,7 +61,7 @@ test('미회신 → 보완 요청: 사유 필수, 저장 후 보완 화면 진�
   assert.equal(canOpenFix(next), true);
   assert.equal(currentFixReason(next), 'sign');
   assert.deepEqual(next.fixes, undefined, '보완 이력은 메일 복사 때만 쌓인다');
-  assert.equal(isBundleEligible(next), false, '묶음 독촉 대상에서 빠짐');
+  assert.equal(isBundleEligible(next), false, '묶음 요청 대상에서 빠짐');
 });
 
 test('기준일 상이: 두 기준일을 모두 받아 저장', () => {
@@ -89,7 +89,7 @@ test('일부 수령으로 바꾸면 단건 메일은 일부 수령 문구를 쓴
   const next = withDays(transitionItem(bank, { status: 'part' }, ON), ON);
   const mail = buildMail({ item: next, person: {}, client: state.client, today: ON, tone: 'firm' });
   assert.match(mail.segments.map((s) => s.text).join(''), /중 아직 받지 못한 자료가 있습니다/);
-  assert.equal(isBundleEligible(next), true, '묶음 독촉에는 계속 포함');
+  assert.equal(isBundleEligible(next), true, '묶음 요청에는 계속 포함');
 });
 
 test('updateItemStatus: 새 state 반환, 대시보드·주간 현황 숫자 즉시 반영', () => {
@@ -104,12 +104,12 @@ test('updateItemStatus: 새 state 반환, 대시보드·주간 현황 숫자 즉
   const report = buildReport(after, ON);
   assert.equal(report.counts.done, 2);
   assert.equal(report.received.count, 2, '수령일이 이번 주라 이번 주 수령에 포함');
-  assert.equal(after.people['박준호 과장'].nudges, state.people['박준호 과장'].nudges, '독촉 횟수 변화 없음');
+  assert.equal(after.people['박준호 과장'].nudges, state.people['박준호 과장'].nudges, '요청 횟수 변화 없음');
 });
 
-test('updateItemStatus: 보완 요청으로 바꾸면 독촉 대상에서 빠지고 보완 건수 증가', () => {
+test('updateItemStatus: 보완 요청으로 바꾸면 요청 대상에서 빠지고 보완 건수 증가', () => {
   const after = updateItemStatus(state, 'i3', { status: 'fix', reason: 'file' }, ON);
   assert.equal(bundleItems(after.items, '김민지 대리', ON).length, 2);
   assert.equal(summarize(after.items.map((x) => withDays(x, ON))).needsFix, 2);
-  assert.equal(after.items.find((x) => x.id === 'i3').nudges.length, 1, '독촉 이력 그대로');
+  assert.equal(after.items.find((x) => x.id === 'i3').nudges.length, 1, '요청 이력 그대로');
 });

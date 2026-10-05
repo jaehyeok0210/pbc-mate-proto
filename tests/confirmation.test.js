@@ -176,7 +176,7 @@ test('등록: 조회처가 담당자, 발송일→요청일, 회신 기한→필
   assert.equal(a.item.receivable, 842000000);
 });
 
-test('등록 후 기존 기능과 함께 동작: 문서번호 이어서, 대시보드 정렬·묶음, 독촉 메일', () => {
+test('등록 후 기존 기능과 함께 동작: 문서번호 이어서, 대시보드 정렬·묶음, 요청 메일', () => {
   const setup = { ...valid(), issuedOn: '2026-09-28', replyBy: '2026-10-08' };
   let state = sampleState();
   const letters = buildLetters('arap', parseConfirmations('arap', CONF_TYPES.arap.example).parties, setup,

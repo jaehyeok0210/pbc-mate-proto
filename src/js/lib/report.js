@@ -165,7 +165,7 @@ const csvCell = (v) => {
 
 /** CSV (엑셀에서 한글이 깨지지 않도록 BOM 포함). 완료 자료는 남은일수를 비운다. */
 export function reportToCsv(report) {
-  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근독촉일'];
+  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근요청일'];
   const body = report.rows.map((r) => [
     r.name, r.owner, r.statusLabel, r.requestedOn, r.neededOn,
     r.status === 'done' ? '' : r.left, r.lastNudgedOn ?? '',
@@ -198,7 +198,7 @@ const CONF_NAME = { bank: '은행조회서', arap: '채권채무조회서', lega
  * @returns {null | {
  *   owner, dept, isCounterparty,
  *   counts: { total, open, urgent, done },
- *   nudges, lastNudgedOn, bundlable,           // 묶음 독촉 가능한 건수
+ *   nudges, lastNudgedOn, bundlable,           // 묶음 요청 가능한 건수
  *   rows: 주간 보고 행 + { nudgeCount, kindLabel, bookAmount }[],  // 미완료(필요일순) → 완료
  *   history: { on, kind: 'nudge'|'fix'|'received'|'closed', text, itemName }[]  // 최근 순
  * }}
@@ -220,7 +220,7 @@ export function ownerDetail(state, owner, today) {
 
   const history = [];
   for (const x of items) {
-    for (const n of x.nudges || []) history.push({ on: n.on, kind: 'nudge', text: `독촉 메일 · ${TONE_NAME[n.tone] || n.tone}`, itemName: x.name });
+    for (const n of x.nudges || []) history.push({ on: n.on, kind: 'nudge', text: `요청 메일 · ${TONE_NAME[n.tone] || n.tone}`, itemName: x.name });
     for (const f of x.fixes || []) history.push({ on: f.on, kind: 'fix', text: `보완 요청 · ${FIX_NAME[f.reason] || f.reason}`, itemName: x.name });
     if (x.received?.on) history.push({ on: x.received.on, kind: 'received', text: '자료 수령', itemName: x.name });
     if (x.follow?.closedOn) history.push({ on: x.follow.closedOn, kind: 'closed', text: '후속 절차 완료', itemName: x.name });

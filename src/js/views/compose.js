@@ -1,4 +1,4 @@
-// 2. 단건 독촉 — 레퍼런스 2 / 2-1 / 2-2 / 2-3 / 2-M
+// 2. 단건 요청 — 레퍼런스 2 / 2-1 / 2-2 / 2-3 / 2-M
 // 데스크톱은 대시보드 위 오른쪽 패널, 모바일(720px 이하)은 전체 화면.
 
 import { formatMD, formatMDW } from '../lib/dates.js';
@@ -28,22 +28,22 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
   const dates = mailDates([item], today);
 
   const footNote = copied && last
-    ? `${ICON.done}독촉 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
-    : '복사하면 독촉 이력에 자동으로 기록돼요. 발송은 아웃룩에서 해주세요.';
+    ? `${ICON.done}요청 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
+    : '복사하면 요청 이력에 자동으로 기록돼요. 발송은 아웃룩에서 해주세요.';
 
   return `
     <div class="drawer-dim" data-action="close-compose"></div>
     <aside class="drawer compose" role="dialog" aria-modal="true" aria-labelledby="compose-title">
       <header class="m-header mobile-only">
         <button type="button" class="icon-btn" data-action="close-compose" aria-label="뒤로">${ICON.back}</button>
-        <div class="m-header-title">독촉 메일</div>
+        <div class="m-header-title">요청 메일</div>
         ${timingChip(timing)}
       </header>
 
       <div class="drawer-body">
         <div class="compose-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">단건 독촉 ${timingChip(timing)}</div>
+            <div class="eyebrow desktop-only">단건 요청 ${timingChip(timing)}</div>
             <h2 id="compose-title">${esc(item.name)}</h2>
             <div class="compose-owner desktop-only">${esc(item.owner)}${person.dept ? ` · ${esc(person.dept)}` : ''}</div>
           </div>
@@ -71,12 +71,12 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
         <div class="compose-toast" role="status">
           <span class="toast-check">${ICON.done}</span>
           <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>독촉 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
+            <small>요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
         </div>` : ''}
     </aside>`;
 }
 
-// 표준 양식으로 요청한 자료: 독촉하면서 양식을 다시 보낼 수 있게
+// 표준 양식으로 요청한 자료: 요청하면서 양식을 다시 보낼 수 있게
 function templateNote(item) {
   const t = templateOf(item);
   if (!t) return '';
@@ -88,7 +88,7 @@ function templateNote(item) {
     </section>`;
 }
 
-// 외부조회 건: 독촉을 마치고도 회신이 없거나, 회신 금액이 다르면 후속 절차로 넘어간다.
+// 외부조회 건: 요청을 마치고도 회신이 없거나, 회신 금액이 다르면 후속 절차로 넘어간다.
 function followEntry(item) {
   return `
     <section class="follow-entry">
@@ -102,7 +102,7 @@ function followEntry(item) {
     </section>`;
 }
 
-// 데스크톱 상단 4칸: 필요일 / 남은 날 / 요청 후 / 독촉 이력
+// 데스크톱 상단 4칸: 필요일 / 남은 날 / 요청 후 / 요청 이력
 function facts(item, history, last) {
   const leftValue = item.left === 0 ? '오늘' : item.left > 0 ? `${item.left}일` : `${-item.left}일 지남`;
   return `
@@ -123,7 +123,7 @@ function facts(item, history, last) {
         <div class="fact-sub">${formatMD(item.requestedOn)} 요청 · ${STATUS_LABEL[item.status]}</div>
       </div>
       <div class="fact">
-        <div class="fact-label">독촉 이력</div>
+        <div class="fact-label">요청 이력</div>
         <div class="fact-value">${history.length}회</div>
         <div class="fact-sub">${last ? `최근 ${formatMD(last.on)} · ${toneName(last.tone)}` : '아직 없음'}</div>
       </div>
@@ -136,7 +136,7 @@ function mobileChips(item, history, last) {
     <div class="chips mobile-only">
       <span class="chip-pill risk-${item.risk}">${ICON[item.risk]}${formatMD(item.neededOn)} 필요 · ${leftText(item.left)}</span>
       <span class="chip-pill">${formatMD(item.requestedOn)} 요청 · D+${item.elapsed}</span>
-      <span class="chip-pill">${last ? `독촉 ${history.length}회 · ${formatMD(last.on)}` : '독촉 이력 없음'}</span>
+      <span class="chip-pill">${last ? `요청 ${history.length}회 · ${formatMD(last.on)}` : '요청 이력 없음'}</span>
     </div>`;
 }
 

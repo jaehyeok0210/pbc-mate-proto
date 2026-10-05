@@ -51,7 +51,7 @@ export function fixSummary(item, reason) {
 
 /**
  * @returns {{ subject, to: {name, dept}, segments }}
- * segments 형식은 단건 독촉 메일과 같다 (field / reason / plain).
+ * segments 형식은 단건 요청 메일과 같다 (field / reason / plain).
  */
 export function buildFixMail({ item, person = {}, client, today, reason }) {
   const field = (text) => ({ kind: 'field', text });

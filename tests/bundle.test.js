@@ -95,7 +95,7 @@ test('톤 체계는 단건과 같다: 매니저 참조면 CC와 협의 문구', 
   assert.equal(bodies.size, 4);
 });
 
-test('복사 성공: 묶인 자료마다 같은 날짜·톤 기록, 담당자 독촉은 1회 증가', async () => {
+test('복사 성공: 묶인 자료마다 같은 날짜·톤 기록, 담당자 요청은 1회 증가', async () => {
   const ids = minji.map((x) => x.id);
   const { ok, state: after } = await copyAndRecord(
     state, { itemIds: ids, tone: 'polite', on: DEMO_DATE, text: 'mail' }, async () => true);

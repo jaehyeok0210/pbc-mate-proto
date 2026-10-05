@@ -1,5 +1,5 @@
 // 외부조회 후속 절차: 회신 결과에 따라 갈라지는 두 갈래를 다룬다.
-//   noreply : 최종 독촉 후에도 회신이 없어 '미회수'로 확정 → 조회서 종류별 대체적 절차 가이드
+//   noreply : 최종 요청 후에도 회신이 없어 '미회수'로 확정 → 조회서 종류별 대체적 절차 가이드
 //   diff    : 회신은 왔지만 장부금액과 다름 → 차이 원인별 조정 기록과 결론
 // (회신이 불완전한 경우 — 서명 누락·기준일 상이 등 — 는 기존 보완 요청(fix.js)을 그대로 쓴다.)
 //
@@ -11,7 +11,7 @@
 import { addDays } from './dates.js';
 
 export const FOLLOW_TYPES = {
-  noreply: { key: 'noreply', label: '미회수 확정', hint: '최종 독촉 후에도 회신이 없어요' },
+  noreply: { key: 'noreply', label: '미회수 확정', hint: '최종 요청 후에도 회신이 없어요' },
   diff: { key: 'diff', label: '금액 차이', hint: '회신 금액이 장부와 달라요' },
 };
 

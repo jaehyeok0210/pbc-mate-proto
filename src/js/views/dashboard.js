@@ -225,7 +225,7 @@ function fixHref(item) {
   return `#/fix/${encodeURIComponent(item.id)}`;
 }
 
-// 자료를 눌렀을 때: 보완 요청 자료는 보완 요청 화면, 나머지는 단건 독촉
+// 자료를 눌렀을 때: 보완 요청 자료는 보완 요청 화면, 나머지는 단건 요청
 function followHref(item) {
   return `#/follow/${encodeURIComponent(item.id)}`;
 }
@@ -256,7 +256,7 @@ function itemMeta(x) {
 function rowActionLabel(x) {
   if (x.status === 'fix') return '보완 재요청 메일 쓰기';
   if (x.status === 'follow') return '후속 절차 열기';
-  return '이 자료만 따로 독촉';
+  return '이 자료만 따로 요청';
 }
 
 function leftBig(left) {
@@ -271,10 +271,10 @@ function ownerCards(groups, people, done, text) {
     const person = people[g.owner] || {};
     const doneHere = done.filter((x) => x.owner === g.owner);
     const nudged = person.nudges
-      ? `마지막 독촉 ${formatMD(person.lastNudgedOn)} · 독촉 ${person.nudges}회`
-      : '아직 독촉하지 않았어요';
+      ? `마지막 요청 ${formatMD(person.lastNudgedOn)} · 요청 ${person.nudges}회`
+      : '아직 요청하지 않았어요';
 
-    // 묶음 독촉 대상이 2건 이상인 카드: 항목마다 따로 보내는 경우를 위한 버튼을 붙인다.
+    // 묶음 요청 대상이 2건 이상인 카드: 항목마다 따로 보내는 경우를 위한 버튼을 붙인다.
     const bundlable = g.items.filter(isBundleEligible);
     const perItem = bundlable.length > 1;
 
@@ -298,13 +298,13 @@ function ownerCards(groups, people, done, text) {
       ? `<div class="done-line">${ICON.done}완료 ${doneHere.length}건 · ${doneHere.map((x) => esc(x.name)).join(', ')}</div>`
       : '';
 
-    // 버튼 건수는 묶음 독촉 화면과 같은 기준(보완 요청 제외)으로 센다. (bundlable은 위에서 계산)
+    // 버튼 건수는 묶음 요청 화면과 같은 기준(보완 요청 제외)으로 센다. (bundlable은 위에서 계산)
     let cta;
     if (bundlable.length > 1) {
       cta = `<a class="btn btn-cta" href="${bundleHref(g.owner)}">
-        ${bundlable.length}건 묶어서 독촉 <span class="cta-sub">· 메일 1통</span></a>`;
+        ${bundlable.length}건 묶어서 요청 <span class="cta-sub">· 메일 1통</span></a>`;
     } else if (bundlable.length === 1) {
-      cta = `<a class="btn btn-sub" href="${composeHref(bundlable[0])}">${esc(bundlable[0].name)} 독촉하기</a>`;
+      cta = `<a class="btn btn-sub" href="${composeHref(bundlable[0])}">${esc(bundlable[0].name)} 요청하기</a>`;
     } else {
       cta = g.items[0].status === 'follow'
         ? `<a class="btn btn-sub" href="${followHref(g.items[0])}">후속 절차 열기</a>`
@@ -339,7 +339,7 @@ function ownerCards(groups, people, done, text) {
 
 // 모바일(레퍼런스 1-M): 담당자 묶음 대신 한 줄 목록 + 가장 많이 밀린 담당자 묶음 버튼
 function mobileList(sorted, topLabel) {
-  // 보완 요청 자료는 단건 독촉 대신 보완 요청 화면으로 연결한다.
+  // 보완 요청 자료는 단건 요청 대신 보완 요청 화면으로 연결한다.
   const rows = sorted.map((x, i) => `
     <a href="${itemHref(x)}" class="m-row ${i === 0 ? 'is-top' : ''}">
       <span class="m-left">
@@ -356,7 +356,7 @@ function mobileList(sorted, topLabel) {
     .reduce((a, b) => (b.items.length > a.items.length ? b : a), { items: [] });
   const bundle = biggest.items.length > 1 ? `
     <a class="m-bundle" href="${bundleHref(biggest.owner)}">
-      <span><b>${esc(biggest.owner)} ${biggest.items.length}건 묶어서 독촉</b><small>개별 메일 ${biggest.items.length}통 대신 1통</small></span>
+      <span><b>${esc(biggest.owner)} ${biggest.items.length}건 묶어서 요청</b><small>개별 메일 ${biggest.items.length}통 대신 1통</small></span>
       ${ICON.chevron}
     </a>` : '';
 

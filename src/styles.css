@@ -358,7 +358,7 @@ a.row-name { color: inherit; text-decoration: none; }
 a.row-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 a.m-row { color: inherit; text-decoration: none; }
 
-/* ---------- 패널(단건 독촉 · 묶음 독촉 · 보완 요청): 왼쪽 정보 / 오른쪽 메일 초안 ---------- */
+/* ---------- 패널(단건 요청 · 묶음 요청 · 보완 요청): 왼쪽 정보 / 오른쪽 메일 초안 ---------- */
 body.has-drawer { overflow: hidden; }
 .drawer-dim { position: fixed; inset: 0; z-index: 30; background: rgba(23, 23, 23, .4); }
 .drawer {
@@ -472,7 +472,7 @@ body.has-drawer { overflow: hidden; }
 .compose-toast b { font-size: 15px; color: #fff; }
 .compose-toast small { font-size: 12.5px; color: #BDBDBD; }
 
-/* ---------- 묶음 독촉 ---------- */
+/* ---------- 묶음 요청 ---------- */
 a.m-bundle { text-decoration: none; }
 .bundle-head { display: flex; align-items: flex-start; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .bundle-head .compose-who { flex-grow: 1; min-width: 0; }
@@ -1005,7 +1005,7 @@ a.m-bundle { text-decoration: none; }
   .compose-toast b { font-size: 14px; }
   .compose-toast small { font-size: 12px; }
 
-  /* 묶음 독촉 */
+  /* 묶음 요청 */
   .bundle-head { display: flex; flex-direction: column; gap: 10px; }
   .bundle-head h2 { font-size: 22px; }
   .value-chip { align-self: stretch; padding: 10px 12px; }
@@ -1083,7 +1083,7 @@ a.m-bundle { text-decoration: none; }
   .ot-row > div:nth-child(3)::before { content: '긴급·지연 '; color: var(--ink-3); font-weight: 500; }
   .ot-row > div:nth-child(4) { grid-column: 1 / -1; }
   .ot-row > div:nth-child(4)::before { content: '가장 가까운 필요일 '; color: var(--ink-3); }
-  .ot-row > div:nth-child(5)::before { content: '최근 독촉 '; color: var(--ink-3); }
+  .ot-row > div:nth-child(5)::before { content: '최근 요청 '; color: var(--ink-3); }
   .it-row { grid-template-columns: 1fr auto; row-gap: 6px; padding: 12px 14px; }
   .it-row > div:nth-child(2) { grid-column: 1; font-size: 13px; color: var(--ink-3); }
   .it-row > div:nth-child(3) { grid-column: 2; grid-row: 1; justify-self: end; }
@@ -1091,7 +1091,7 @@ a.m-bundle { text-decoration: none; }
   .it-row > div:nth-child(4)::before { content: '필요일 '; color: var(--ink-3); }
   .it-row > div:nth-child(5) { grid-column: 2; grid-row: 2 / 4; justify-self: end; align-self: center; flex-direction: column; align-items: flex-end; gap: 4px; }
   .it-row > div:nth-child(6) { grid-column: 1; font-size: 12.5px; color: var(--ink-3); }
-  .it-row > div:nth-child(6)::before { content: '최근 독촉 '; }
+  .it-row > div:nth-child(6)::before { content: '최근 요청 '; }
   .it-row > div:nth-child(7) { grid-column: 1 / -1; }
   .it-row > div.it-att:empty, .it-head > div:nth-child(7) { display: none; }
 
@@ -1405,7 +1405,7 @@ a.m-bundle { text-decoration: none; }
 .rc-result.is-fix { background: var(--fix-bg); color: var(--fix-fg); }
 .rc-result.is-done { background: var(--low-bg); color: var(--low-fg); }
 
-/* 묶음 독촉 카드: 항목별로 따로 보내기 */
+/* 묶음 요청 카드: 항목별로 따로 보내기 */
 .row-action { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; font-size: 12px; font-weight: 600; color: var(--ink-2); text-decoration: none; }
 .row-action svg { width: 12px; height: 12px; }
 .row-action:hover { border-color: var(--orange); color: var(--orange-dark); }
@@ -1481,7 +1481,7 @@ a.m-bundle { text-decoration: none; }
   .owner-items .it-row > div:nth-child(3)::before, .owner-items .it-row > div:nth-child(5)::before, .owner-items .it-row > div:nth-child(6)::before { content: none; }
 }
 
-/* 필요일 타임라인: 박스에 올리면 살짝 커지고 맨 앞으로, 누르면 자료 화면(독촉·보완·후속 절차) */
+/* 필요일 타임라인: 박스에 올리면 살짝 커지고 맨 앞으로, 누르면 자료 화면(요청·보완·후속 절차) */
 a.tl-label { text-decoration: none; color: inherit; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
 .above a.tl-label { transform-origin: left bottom; }
 .below a.tl-label { transform-origin: left top; }

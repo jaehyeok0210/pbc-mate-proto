@@ -96,7 +96,7 @@ test('fixSummary: 기준일 상이 요약은 기존 대시보드 문구와 같�
   assert.equal(fixSummary(ppe, 'date'), ppe.reason);
 });
 
-test('복사 성공 시 보완 이력 기록 (독촉 이력·담당자 횟수는 그대로)', async () => {
+test('복사 성공 시 보완 이력 기록 (요청 이력·담당자 횟수는 그대로)', async () => {
   const { ok, state: after } = await copyAndRecordFix(
     state, { itemId: 'i2', reason: 'missing', on: DEMO_DATE, text: 't' }, async () => true);
   const item = after.items.find((x) => x.id === 'i2');

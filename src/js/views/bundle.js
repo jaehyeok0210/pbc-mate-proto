@@ -1,4 +1,4 @@
-// 3. 묶음 독촉 — 레퍼런스 3
+// 3. 묶음 요청 — 레퍼런스 3
 // 데스크톱은 대시보드 위 오른쪽 패널, 모바일(720px 이하)은 전체 화면.
 
 import { formatMD } from '../lib/dates.js';
@@ -26,8 +26,8 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
   const timing = sendTiming(clock, top.neededOn);
   const dates = mailDates(sorted, clock.date);
   const nudged = person.nudges
-    ? `마지막 독촉 ${formatMD(person.lastNudgedOn)} · 독촉 ${person.nudges}회`
-    : '아직 독촉하지 않았어요';
+    ? `마지막 요청 ${formatMD(person.lastNudgedOn)} · 요청 ${person.nudges}회`
+    : '아직 요청하지 않았어요';
 
   const rows = sorted.map((x, i) => `
     <div class="b-row ${i === 0 ? 'is-top' : ''}">
@@ -64,22 +64,22 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
     : '<span class="muted-text">없음</span>';
 
   const footNote = copied
-    ? `${ICON.done}${count}건 모두 독촉 이력에 기록했어요`
-    : `복사하면 ${count}건 모두 독촉 이력에 기록돼요. 발송은 아웃룩에서 해주세요.`;
+    ? `${ICON.done}${count}건 모두 요청 이력에 기록했어요`
+    : `복사하면 ${count}건 모두 요청 이력에 기록돼요. 발송은 아웃룩에서 해주세요.`;
 
   return `
     <div class="drawer-dim" data-action="close-drawer"></div>
     <aside class="drawer bundle" role="dialog" aria-modal="true" aria-labelledby="bundle-title">
       <header class="m-header mobile-only">
         <button type="button" class="icon-btn" data-action="close-drawer" aria-label="뒤로">${ICON.back}</button>
-        <div class="m-header-title">묶음 독촉</div>
+        <div class="m-header-title">묶음 요청</div>
         ${timingChip(timing)}
       </header>
 
       <div class="drawer-body">
         <div class="bundle-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">묶음 독촉 ${timingChip(timing)}</div>
+            <div class="eyebrow desktop-only">묶음 요청 ${timingChip(timing)}</div>
             <h2 id="bundle-title">${esc(owner)} <span>${esc(person.dept || '')}</span></h2>
             <div class="bundle-sub">미완료 ${count}건 · ${nudged}</div>
           </div>
@@ -130,7 +130,7 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
         <div class="compose-toast" role="status">
           <span class="toast-check">${ICON.done}</span>
           <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>${count}건 모두 독촉 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
+            <small>${count}건 모두 요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
         </div>` : ''}
     </aside>`;
 }

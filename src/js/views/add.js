@@ -92,7 +92,7 @@ function singleForm(state, today, form, errors) {
       </div>
 
       <div class="add-col need-panel">
-        ${field('이 자료를 쓰는 감사 절차', 'procedure', form.procedure, { placeholder: '예: 차입금 실증', hint: '선택 · 독촉 메일의 일정 근거에 들어가요', list: 'procedure-list' })}
+        ${field('이 자료를 쓰는 감사 절차', 'procedure', form.procedure, { placeholder: '예: 차입금 실증', hint: '선택 · 요청 메일의 일정 근거에 들어가요', list: 'procedure-list' })}
         <datalist id="procedure-list">${procedures.map((p) => `<option value="${esc(p)}">`).join('')}</datalist>
         ${field('필요일', 'neededOn', form.neededOn, { type: 'date', error: errors.neededOn, hint: '감사 절차를 시작하는 날' })}
         ${needPreview(form.neededOn, today)}

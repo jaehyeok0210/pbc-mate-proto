@@ -459,7 +459,7 @@ export function nextDocNo(items, type) {
 
 /**
  * 조회서를 대시보드 조회 목록에 넣을 값으로 바꾼다. store.addItems()에 그대로 넘긴다.
- * 조회처를 담당자(owner)로 두어 기존 대시보드의 담당자별 묶음·독촉 이력이 그대로 동작한다.
+ * 조회처를 담당자(owner)로 두어 기존 대시보드의 담당자별 묶음·요청 이력이 그대로 동작한다.
  * 요청일 = 발송일, 필요일 = 회신 기한.
  */
 export function toRegistryValues(letters, setup) {

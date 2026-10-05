@@ -1,5 +1,5 @@
 // 담당자 상세 — 주간 보고의 담당자별 현황에서 담당자를 누르면 연다 (#/owner/<담당자>).
-// 이 담당자에게 요청한 자료, 바로 할 일(독촉·보완·후속 절차), 독촉·수령 이력을 한 화면에.
+// 이 담당자에게 요청한 자료, 바로 할 일(요청·보완·후속 절차), 요청·수령 이력을 한 화면에.
 
 import { formatMD, formatMDW } from '../lib/dates.js';
 import { leftText } from '../lib/priority.js';
@@ -19,7 +19,7 @@ export function renderOwner(state, detail, { today, isDemo }) {
   const d = detail;
   const back = `#/owner/${encodeURIComponent(d.owner)}`; // 패널을 닫으면 이 화면으로 돌아온다
   const bundle = d.bundlable > 1
-    ? `<a class="btn btn-cta" href="#/bundle/${encodeURIComponent(d.owner)}" data-return="${esc(back)}">${ICON.mail}${d.bundlable}건 묶어서 독촉</a>` : '';
+    ? `<a class="btn btn-cta" href="#/bundle/${encodeURIComponent(d.owner)}" data-return="${esc(back)}">${ICON.mail}${d.bundlable}건 묶어서 요청</a>` : '';
 
   return `
     <div class="page report owner-page">
@@ -39,7 +39,7 @@ export function renderOwner(state, detail, { today, isDemo }) {
             ${stat('미완료', `${d.counts.open}건`, `전체 ${d.counts.total}건`)}
             ${stat('긴급·지연', `${d.counts.urgent}건`, '지연 · 2일 이내', d.counts.urgent ? 'is-late' : '')}
             ${stat('완료', `${d.counts.done}건`, '')}
-            ${stat('독촉', `${d.nudges}회`, d.lastNudgedOn ? `마지막 ${formatMD(d.lastNudgedOn)}` : '아직 없음')}
+            ${stat('요청', `${d.nudges}회`, d.lastNudgedOn ? `마지막 ${formatMD(d.lastNudgedOn)}` : '아직 없음')}
           </div>
           <div class="report-block owner-history">
             <h2>이력 <span>· 최근 순</span></h2>
@@ -56,7 +56,7 @@ export function renderOwner(state, detail, { today, isDemo }) {
           <div class="report-block">
             <h2>요청한 자료 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
             <div class="item-table owner-items">
-              <div class="it-row it-head"><div>자료명</div><div>상태</div><div>필요일</div><div>남은 날</div><div>독촉</div><div>첨부자료</div><div></div></div>
+              <div class="it-row it-head"><div>자료명</div><div>상태</div><div>필요일</div><div>남은 날</div><div>요청</div><div>첨부자료</div><div></div></div>
               ${d.rows.map((r) => `
                 <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                   <div class="it-name">${esc(r.name)}<small>${esc(r.kindLabel)}${r.bookAmount ? ` · 장부 ${won(r.bookAmount)}` : ''}${r.fixReason ? ` · ${esc(r.fixReason)}` : ''}</small>${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
@@ -79,7 +79,7 @@ function rowAction(r, back) {
   if (r.status === 'done') return '';
   if (r.status === 'fix') return `<a class="btn btn-sub" href="#/fix/${id}" data-return="${esc(back)}">보완 재요청</a>`;
   if (r.status === 'follow') return `<a class="btn btn-sub" href="#/follow/${id}" data-return="${esc(back)}">후속 절차</a>`;
-  return `<a class="btn btn-sub" href="#/compose/${id}" data-return="${esc(back)}">독촉하기</a>`;
+  return `<a class="btn btn-sub" href="#/compose/${id}" data-return="${esc(back)}">요청하기</a>`;
 }
 
 function stat(label, value, sub, cls = '') {

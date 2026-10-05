@@ -1,5 +1,5 @@
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
-// 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
+// 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 요청 · #/bundle/<담당자> 묶음 요청
 //           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭) · #/report 주간 현황
 //           #/calendar 일정 · #/confirm 외부조회서 작성 · #/follow/<자료id> 외부조회 후속 절차
 
@@ -60,8 +60,8 @@ let state = load();
   }
 }
 let mode = 'need';
-let compose = null; // 단건 독촉 화면 상태: { itemId, tone, copied, toast }
-let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast }
+let compose = null; // 단건 요청 화면 상태: { itemId, tone, copied, toast }
+let bundle = null;  // 묶음 요청 화면 상태: { owner, tone, copied, toast }
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
@@ -134,7 +134,7 @@ function render() {
     return;
   }
 
-  // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
+  // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(요청·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = sheet = null;
     app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + attachOverlay();
@@ -211,7 +211,7 @@ function render() {
     add = null;
   }
 
-  // 상태 변경 시트는 단건 독촉·보완 요청 패널이 열려 있을 때만 그 위에 뜬다.
+  // 상태 변경 시트는 단건 요청·보완 요청 패널이 열려 있을 때만 그 위에 뜬다.
   const sheetItem = sheet && (item || fixItem) && state.items.find((x) => x.id === sheet.itemId);
   if (sheetItem && sheetItem.status !== 'done') {
     html += renderStatusSheet(sheetItem, sheet, today);
@@ -273,7 +273,7 @@ function closeDrawer() {
 }
 
 // 복사 성공 시에만 이력을 남기고, 화면 상태(copied·toast)를 갱신한다.
-// record: 기본은 독촉 이력. 보완 요청은 copyAndRecordFix를 넘긴다.
+// record: 기본은 요청 이력. 보완 요청은 copyAndRecordFix를 넘긴다.
 let drawerToastTimer;
 async function copyForDrawer(view, { itemIds, text }, record) {
   const result = record
@@ -474,7 +474,7 @@ const actions = {
     add.errors = {};
     render();
   },
-  // 엑셀용 요청 양식 복사: 자료 추가 창이면 입력 중인 값, 독촉 패널이면 그 자료 기준
+  // 엑셀용 요청 양식 복사: 자료 추가 창이면 입력 중인 값, 요청 패널이면 그 자료 기준
   'copy-template': async (el) => {
     let t; let basis;
     if (el.dataset.item) {
@@ -523,7 +523,7 @@ const actions = {
     } else {
       location.hash = `#/compose/${encodeURIComponent(item.id)}`;
       render();
-      toast(`${name} 일부 수령으로 바꿨어요. 나머지는 계속 독촉할 수 있어요.`);
+      toast(`${name} 일부 수령으로 바꿨어요. 나머지는 계속 요청할 수 있어요.`);
     }
   },
 
@@ -1100,7 +1100,7 @@ app.addEventListener('input', (e) => {
 });
 
 app.addEventListener('click', (e) => {
-  // 담당자 상세의 '독촉하기' 등: 패널을 닫으면 이 화면으로 돌아오도록 기억한다
+  // 담당자 상세의 '요청하기' 등: 패널을 닫으면 이 화면으로 돌아오도록 기억한다
   const ret = e.target.closest('[data-return]');
   if (ret) drawerReturn = ret.dataset.return;
   else if (e.target.closest('a[href^="#"]')) drawerReturn = null;

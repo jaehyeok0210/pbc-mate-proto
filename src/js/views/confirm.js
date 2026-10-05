@@ -206,7 +206,7 @@ export function outputSection(state, { today, type, setup, pasteText, bankBlank 
           <button type="button" class="btn btn-cta" data-action="conf-register">조회 목록에 ${letters.length}건 등록</button>
         </div>
       </div>
-      <p class="need-note">등록하면 대시보드에서 ${CONF_TYPES[type].unit}별로 회신을 추적하고 독촉 메일을 만들 수 있어요. ${{ required: '금액과 상관없이 전부 회수해야 하는 조회서예요.', coverage: '수행중요성 대비 금액 커버리지로 관리하는 조회서예요.', general: '회신 여부와 내용으로 관리하는 조회서예요.' }[CONF_TYPES[type].track]}</p>
+      <p class="need-note">등록하면 대시보드에서 ${CONF_TYPES[type].unit}별로 회신을 추적하고 요청 메일을 만들 수 있어요. ${{ required: '금액과 상관없이 전부 회수해야 하는 조회서예요.', coverage: '수행중요성 대비 금액 커버리지로 관리하는 조회서예요.', general: '회신 여부와 내용으로 관리하는 조회서예요.' }[CONF_TYPES[type].track]}</p>
     </div>
     <div class="letters">${letters.map(letterHtml).join('')}</div>`;
 }

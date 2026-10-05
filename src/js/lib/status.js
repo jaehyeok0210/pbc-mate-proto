@@ -1,4 +1,4 @@
-// 자료 상태 변경: 요청 → 독촉 → 수령 뒤에 사용자가 상태를 직접 갱신한다.
+// 자료 상태 변경: 요청 → 요청 → 수령 뒤에 사용자가 상태를 직접 갱신한다.
 // 상태 체계는 그대로(none · part · fix · done). 역방향 전환은 막는다.
 
 import { FIX_REASONS, fixSummary } from './fix.js';
@@ -12,7 +12,7 @@ export const ALLOWED_TRANSITIONS = {
 };
 
 export const STATUS_HINT = {
-  part: '일부만 받았고 나머지는 계속 독촉해요',
+  part: '일부만 받았고 나머지는 계속 요청해요',
   fix: '받았지만 그대로 쓸 수 없어 다시 요청해요',
   done: '필요한 자료를 모두 받았어요',
 };
@@ -46,7 +46,7 @@ export function validateTransition(item, change) {
  * 상태를 바꾼 새 자료를 돌려준다. 원래 자료는 바꾸지 않는다.
  * - 일부 수령·보완 요청·완료로 처음 바뀔 때 received.on = on. 이미 있으면 최초 수령일 유지.
  * - 보완 요청이면 fix.reason(·기준일)을 저장하고 대시보드용 요약(reason)을 fixSummary로 만든다.
- * - 독촉 이력(nudges)·보완 이력(fixes)은 건드리지 않는다.
+ * - 요청 이력(nudges)·보완 이력(fixes)은 건드리지 않는다.
  */
 export function transitionItem(item, change, on) {
   const errors = validateTransition(item, change);

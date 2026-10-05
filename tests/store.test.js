@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { recordNudge } from '../src/js/store.js';
 import { sampleState } from './fixtures.js';
 
-test('예시 자료에 기존 독촉 이력과 매니저가 들어 있다', () => {
+test('예시 자료에 기존 요청 이력과 매니저가 들어 있다', () => {
   const s = sampleState();
   assert.deepEqual(s.items.find((x) => x.id === 'i1').nudges, [{ on: '2026-09-30', tone: 'angel' }]);
   assert.deepEqual(s.team.manager, { name: '이서연 매니저', dept: '감사팀' });
 });
 
-test('recordNudge: 자료 이력에 날짜·톤 추가, 담당자 독촉 횟수 갱신', () => {
+test('recordNudge: 자료 이력에 날짜·톤 추가, 담당자 요청 횟수 갱신', () => {
   const before = sampleState();
   const after = recordNudge(before, 'i1', 'polite', '2026-10-01');
 
@@ -40,7 +40,7 @@ test('앱 예시 데이터에는 은행조회서가 PBC 자료로 들어가 있�
   const pbc = s.items.filter((x) => x.kind !== 'confirmation');
   assert.equal(pbc.some((x) => x.name.includes('은행조회서')), false, '은행조회서는 PBC 자료가 아님');
   assert.equal(pbc.length, 6);
-  assert.equal(s.people['박준호 과장'].nudges, 0, '독촉 이력도 함께 정리');
+  assert.equal(s.people['박준호 과장'].nudges, 0, '요청 이력도 함께 정리');
 });
 
 test('앱 예시 데이터: 외부조회 건은 네 종류와 여러 상태가 섞여 있고 조회처가 담당자', async () => {

@@ -93,7 +93,7 @@ test('isOffHours / nextBusinessDay', () => {
   assert.equal(nextBusinessDay('2026-10-01'), '2026-10-02');
 });
 
-test('묶음 독촉은 가장 급한 자료(재고실사 10/6) 기준', () => {
+test('묶음 요청은 가장 급한 자료(재고실사 10/6) 기준', () => {
   const sorted = bundleItems(sampleState().items, '김민지 대리', FRI_1720.date);
   assert.equal(sorted[0].name, '재고실사 결과표');
   const t = sendTiming(FRI_1720, sorted[0].neededOn);

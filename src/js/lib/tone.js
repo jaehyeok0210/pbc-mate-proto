@@ -1,4 +1,4 @@
-// 독촉 메일 톤 4단계와 기본 추천 규칙
+// 요청 메일 톤 4단계와 기본 추천 규칙
 
 export const TONES = [
   { key: 'angel', name: '천사', emoji: '😇' },

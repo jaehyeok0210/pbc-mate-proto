@@ -48,7 +48,7 @@ test('이번 주 수령: 수령일이 저장된 자료만 센다', () => {
   assert.equal(other.received.count, 0);
 });
 
-test('담당자별 묶기와 미완료 건수·긴급·가장 가까운 필요일·최근 독촉일', () => {
+test('담당자별 묶기와 미완료 건수·긴급·가장 가까운 필요일·최근 요청일', () => {
   assert.deepEqual(report.owners.map((o) => [o.owner, o.open, o.urgent, o.nearest, o.lastNudgedOn]), [
     ['박준호 과장', 1, 1, '2026-10-02', '2026-09-30'],
     ['김민지 대리', 3, 0, '2026-10-06', '2026-09-29'],
@@ -99,7 +99,7 @@ test('현황 복사 텍스트', () => {
 test('CSV 생성: 헤더·BOM·완료 자료는 남은일수 비움·쉼표 이스케이프', () => {
   const csv = reportToCsv(report);
   const lines = csv.split('\n');
-  assert.equal(lines[0], '﻿자료명,담당자,상태,요청일,필요일,남은일수,최근독촉일');
+  assert.equal(lines[0], '﻿자료명,담당자,상태,요청일,필요일,남은일수,최근요청일');
   assert.equal(lines[1], '은행조회서 회신,박준호 과장,미회신,2026-09-28,2026-10-02,1,2026-09-30');
   assert.equal(lines.at(-1), '법인세 신고서 사본,박준호 과장,완료,2026-09-25,2026-10-04,,');
   assert.equal(lines.length, 7);
@@ -140,7 +140,7 @@ test('자료 목록 검색: 자료명으로, 띄어쓰기·대소문자 무시',
   assert.equal(filterRows(rows, '없는자료').length, 0);
 });
 
-test('담당자 상세: 자료·건수·묶음 독촉 가능 건수·이력(최근 순)', async () => {
+test('담당자 상세: 자료·건수·묶음 요청 가능 건수·이력(최근 순)', async () => {
   const { ownerDetail } = await import('../src/js/lib/report.js');
   const s = sampleState();
   const d = ownerDetail(s, '김민지 대리', DEMO_DATE);
@@ -153,7 +153,7 @@ test('담당자 상세: 자료·건수·묶음 독촉 가능 건수·이력(최�
   assert.equal(d.rows[1].nudgeCount, 2);
   const dates = d.history.map((h) => h.on);
   assert.deepEqual(dates, [...dates].sort().reverse(), '최근 순');
-  assert.ok(d.history.some((h) => h.text === '독촉 메일 · 정중'));
+  assert.ok(d.history.some((h) => h.text === '요청 메일 · 정중'));
   assert.equal(ownerDetail(s, '없는 사람', DEMO_DATE), null);
 });
 
@@ -164,6 +164,6 @@ test('담당자 상세: 외부조회 조회처는 조회서 종류와 장부금�
   assert.equal(d.isCounterparty, true);
   assert.equal(d.rows[0].kindLabel, '채권채무조회서');
   assert.equal(d.rows[0].bookAmount, 842000000);
-  assert.equal(d.bundlable, 0, '후속 절차 건은 묶음 독촉 대상 아님');
+  assert.equal(d.bundlable, 0, '후속 절차 건은 묶음 요청 대상 아님');
   assert.ok(d.history.some((h) => h.kind === 'received'));
 });

@@ -199,7 +199,7 @@ function evidenceBox(item, f, owner, owners) {
 
   return `
     <section class="fu-evidence">
-      <div class="section-label">회사에 요청할 증빙 <small class="fu-count">자료 요청 목록에 추가돼 독촉까지 이어져요</small></div>
+      <div class="section-label">회사에 요청할 증빙 <small class="fu-count">자료 요청 목록에 추가돼 메일까지 이어져요</small></div>
       <label class="f fu-owner">
         <span class="f-label">회사 담당자</span>
         <input type="text" data-action-input="follow-owner" value="${esc(owner || '')}" placeholder="예: 김민지 대리" list="follow-owners" autocomplete="off">

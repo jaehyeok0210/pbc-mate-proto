@@ -21,7 +21,7 @@ export function confirmOverview(o, materiality) {
     ? `<div class="co-verdict ${c.exceeds ? 'is-bad' : 'is-ok'}">
          ${c.exceeds ? ICON.high : ICON.done}
          <span>미확인 잔액 <b>${eok(c.uncovered)}</b>이 수행중요성 ${eok(c.performance)}을
-         ${c.exceeds ? `<b>${eok(c.gap)} 넘어요</b>. 회신 독촉이나 대체적 절차가 더 필요해요.` : '넘지 않아요.'}</span>
+         ${c.exceeds ? `<b>${eok(c.gap)} 넘어요</b>. 회신 요청이나 대체적 절차가 더 필요해요.` : '넘지 않아요.'}</span>
        </div>`
     : '<div class="co-verdict is-open">수행중요성을 입력하면 미확인 잔액과 비교해 드려요.</div>';
 
