@@ -7156,9 +7156,9 @@ function render() {
         type: 'bank', touched: new Set(), pasteText: '', bankBlank: false,
         setup: { ...defaultSetup(state.client, today), ...(state.confirmSetup || {}), issuedOn: today, replyBy: defaultSetup(state.client, today).replyBy },
       };
+      // 회신처 담당자는 실무진 중 한 명. 처음 열 때는 상단바에서 고른 사람(매니저면 첫 실무진)으로 시작한다.
+      conf.setup.contactName = pickRequester(state, '');
     }
-    // 회신처 담당자는 실무진 중 한 명 (기억해 둔 이름이 후보에 없으면 지금 쓰는 사람으로)
-    conf.setup.contactName = pickRequester(state, conf.setup.contactName);
     app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
@@ -7957,6 +7957,9 @@ app.addEventListener('change', (e) => {
     save(state);
     if (isManager(state)) who = 'all';
     else if (who === e.target.value) who = 'me';
+    // 담당자·요청 감사인 기본값도 바뀐 사람으로 맞춘다
+    if (conf) conf.setup.contactName = pickRequester(state, '');
+    if (add?.form) add.form.requester = pickRequester(state, '');
     render();
     const who2 = `${currentUser(state)}${josa(currentUser(state), '으로', '로')}`;
     toast(isManager(state)
