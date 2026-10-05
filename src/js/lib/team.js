@@ -44,6 +44,28 @@ export function currentUser(state) {
   return state?.team?.me || '';
 }
 
+/** 담당 매니저 이름 (없으면 '') */
+export function managerName(state) {
+  return state?.team?.manager?.name || '';
+}
+
+/** 지금 쓰는 사람이 담당 매니저인지. 매니저는 자료를 직접 요청하지 않고 팀 전체를 본다. */
+export function isManager(state) {
+  const me = currentUser(state);
+  return Boolean(me) && me === managerName(state);
+}
+
+/** 요청 감사인이 될 수 있는 팀원: 매니저를 뺀 실무진 */
+export function requesterMembers(state) {
+  const mgr = managerName(state);
+  return teamMembers(state).filter((m) => m !== mgr);
+}
+
+/** 새 자료의 요청 감사인 기본값: 지금 쓰는 사람이 실무진이면 그 사람, 매니저면 비워 둔다 */
+export function defaultRequester(state) {
+  return isManager(state) ? '' : currentUser(state);
+}
+
 /** 다른 팀원으로 바꾼 새 state (팀원 목록에 있는 사람만) */
 export function switchUser(state, name) {
   return teamMembers(state).includes(name) ? { ...state, team: { ...state.team, me: name } } : state;

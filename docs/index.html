@@ -3986,6 +3986,28 @@ function currentUser(state) {
   return state?.team?.me || '';
 }
 
+/** 담당 매니저 이름 (없으면 '') */
+function managerName(state) {
+  return state?.team?.manager?.name || '';
+}
+
+/** 지금 쓰는 사람이 담당 매니저인지. 매니저는 자료를 직접 요청하지 않고 팀 전체를 본다. */
+function isManager(state) {
+  const me = currentUser(state);
+  return Boolean(me) && me === managerName(state);
+}
+
+/** 요청 감사인이 될 수 있는 팀원: 매니저를 뺀 실무진 */
+function requesterMembers(state) {
+  const mgr = managerName(state);
+  return teamMembers(state).filter((m) => m !== mgr);
+}
+
+/** 새 자료의 요청 감사인 기본값: 지금 쓰는 사람이 실무진이면 그 사람, 매니저면 비워 둔다 */
+function defaultRequester(state) {
+  return isManager(state) ? '' : currentUser(state);
+}
+
 /** 다른 팀원으로 바꾼 새 state (팀원 목록에 있는 사람만) */
 function switchUser(state, name) {
   return teamMembers(state).includes(name) ? { ...state, team: { ...state.team, me: name } } : state;
@@ -4036,7 +4058,7 @@ function signMail(mail, signer) {
   };
 }
 
-return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, switchUser, filterByRequester, requesterSummary, signMail };
+return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, managerName, isManager, requesterMembers, defaultRequester, switchUser, filterByRequester, requesterSummary, signMail };
 })();
 
 // ---- lib/timing.js
@@ -4223,7 +4245,7 @@ const SAMPLE_FILES = [
  *   외부조회 8건: 은행 2(미회신·회수 완료) / 채권채무 4(기한 지남·미회수 대체적 절차·금액 차이 조정 중·조정 완료+서명) /
  *              변호사 1(미회신) / 제3자보관재고 1(회수 완료+첨부)
  *   커버리지: 미확인 잔액 약 4.8억원 > 수행중요성 1.8억원 → 주간 보고에서 경고가 보인다
- *   팀: 장재혁(나)·김서윤·이서연 매니저가 나눠 요청 (첫 화면 조회의 ㈜한빛전자 2026 기말감사와 같다)
+ *   팀: 장재혁(나)·김서윤 실무진이 나눠 요청, 이서연 매니저는 요청하지 않고 전체를 본다 (첫 화면 조회의 ㈜한빛전자 2026 기말감사와 같다)
  *   필요일은 타임라인 박스가 겹치지 않게 며칠씩 띄워 두었다.
  */
 function sampleState() {
@@ -4288,7 +4310,7 @@ function sampleState() {
 }
 
 /** 예시 외부조회 건. 발송일 = 요청일(대부분 1/4 월), 회신 기한 = 필요일. */
-function sampleConfirmations(d, { ME, KIM, LEE }) {
+function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 감사인 아님, 서명 검토자)
   const conf = (id, confType, docNo, counterparty, extra) => {
     const label = { bank: '은행조회서', arap: '채권채무조회서', legal: '변호사조회서', inventory: '제3자보관재고자산조회서' }[confType];
     return {
@@ -4327,7 +4349,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) {
         conclusion: '차이 7,000,000원은 시점 차이·조회처 오류로 모두 설명돼요. 왜곡표시는 없어요.',
         signoff: { preparer: ME, reviewer: LEE } } }),
     // 변호사: 일반 조회 · 미회신
-    conf('c6', 'legal', 'LG-001', '법무법인 정의', { requester: LEE, requestedOn: SENT, neededOn: d(13), status: 'none' }),
+    conf('c6', 'legal', 'LG-001', '법무법인 정의', { requester: KIM, requestedOn: SENT, neededOn: d(13), status: 'none' }),
     // 제3자 보관 재고: 회수 완료
     conf('c7', 'inventory', 'IV-001', '㈜한결물류 평택센터', { requester: KIM,
       bookAmount: 1913000000, requestedOn: SENT, neededOn: d(6), status: 'done', received: { on: d(-2) },
@@ -4492,7 +4514,7 @@ const __m_views_dashboard = (() => {
 const { addDays, formatMD, formatKoreanDay } = __m_lib_dates;
 const { withDays, isOpen, sortItems, groupByOwner, summarize, insight, leftText } = __m_lib_priority;
 const { isBundleEligible } = __m_lib_bundle;
-const { currentUser, teamMembers, filterByRequester } = __m_lib_team;
+const { currentUser, requesterMembers, isManager, filterByRequester } = __m_lib_team;
 const { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL } = __m_views_html;
 // 1. 대시보드 — 레퍼런스 1 / 1-1 / 1-M
 
@@ -4511,8 +4533,10 @@ const MODE_TEXT = {
 };
 
 function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
-  const me = currentUser(state);
-  const members = teamMembers(state);
+  // 매니저는 자료를 직접 요청하지 않으므로 요청 감사인 필터 없이 팀 전체를 본다
+  const manager = isManager(state);
+  const me = manager ? '' : currentUser(state);
+  const members = manager ? [] : requesterMembers(state);
   const scope = members.length ? who : 'all';
   const everyOpen = state.items.filter((x) => x.status !== 'done');
   const all = filterByRequester(state.items, scope, me).map((x) => withDays(x, today));
@@ -5702,7 +5726,7 @@ const { formatMD, formatMDW, daysBetween } = __m_lib_dates;
 const { riskOf, leftText } = __m_lib_priority;
 const { parsePaste, markDuplicates, rowErrorText, leftOf, normalizeDate } = __m_lib_add;
 const { PBC_TEMPLATES, TEMPLATE_ORDER, templateForName, defaultBasisDate } = __m_lib_pbcTemplate;
-const { currentUser, teamMembers } = __m_lib_team;
+const { requesterMembers, defaultRequester } = __m_lib_team;
 const { esc, ICON, RISK_LABEL } = __m_views_html;
 // 6. 자료 추가 — 레퍼런스 6 / 6-1
 // 데스크톱은 가운데 모달, 모바일(720px 이하)은 전체 화면.
@@ -5836,12 +5860,12 @@ function templatePreview(state, today, form, errors) {
 
 // 요청 감사인: 지금 쓰는 사람이 기본값, 팀원 중에서 바꿀 수 있다
 function requesterField(state, form) {
-  const members = teamMembers(state);
+  const members = requesterMembers(state);
   if (!members.length) return '';
-  const value = form.requester || currentUser(state);
+  const value = form.requester || defaultRequester(state) || members[0];
   return `
     <label class="f">
-      <span class="f-label">요청 감사인 <small>독촉 진행 상황을 감사인별로 볼 수 있어요</small></span>
+      <span class="f-label">요청 감사인 <small>실무진 중에서 · 감사인별로 진행 상황을 볼 수 있어요</small></span>
       <select name="requester">${members.map((m) => `<option value="${esc(m)}" ${m === value ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
     </label>`;
 }
@@ -6106,7 +6130,7 @@ const { topbar } = __m_views_dashboard;
 const { confirmOverview } = __m_views_overview;
 const { trackOverview } = __m_lib_followup;
 const { attachCell } = __m_views_attach;
-const { requesterSummary, teamMembers } = __m_lib_team;
+const { requesterSummary, requesterMembers } = __m_lib_team;
 // 7. 주간 현황 보고 — 레퍼런스 7
 // 대시보드와 같은 상단바 아래에 요약 카드(왼쪽)와 담당자별 현황·자료 목록(오른쪽)을 보여준다.
 
@@ -6182,7 +6206,7 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
-        ${requesterBlock(report.rows, teamMembers(state))}
+        ${requesterBlock(report.rows, requesterMembers(state))}
 
         <div class="report-block">
           <div class="it-headline">
@@ -6971,7 +6995,7 @@ const { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } = __m
 const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } = __m_lib_calendar;
 const { formatMD } = __m_lib_dates;
 const { validateTransition, canTransition } = __m_lib_status;
-const { currentUser, switchUser, signMail } = __m_lib_team;
+const { currentUser, switchUser, signMail, defaultRequester, isManager } = __m_lib_team;
 const { searchEngagements, engagementById, validateStart, teamFromEngagement } = __m_lib_engagements;
 const { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
 const { renderDashboard } = __m_views_dashboard;
@@ -7531,7 +7555,7 @@ const actions = {
     const today = currentToday();
     const parsed = markDuplicates(parsePaste(add.pasteText, today), state.items);
     if (!parsed.rows.length || parsed.errorCount) return;
-    const me = currentUser(state);
+    const me = defaultRequester(state);
     state = addItems(state, parsed.rows.map((r) => (me ? { ...r.value, item: { ...r.value.item, requester: me } } : r.value)));
     save(state);
     add = null;
@@ -7577,7 +7601,7 @@ const actions = {
     if (!setup || !parsed.parties.length || parsed.errorCount) return;
     const letters = buildLetters(conf.type, parsed.parties, setup,
       { startNo: nextDocNo(state.items, conf.type), bankBlank: conf.bankBlank });
-    const me = currentUser(state);
+    const me = defaultRequester(state);
     state = addItems(state, toRegistryValues(letters, setup).map((v) => (me ? { ...v, item: { ...v.item, requester: me } } : v)));
     // 다음 작성 때 회사·감사인 정보를 다시 입력하지 않도록 기억한다 (날짜는 매번 새로)
     const { issuedOn, replyBy, ...keep } = setup;
@@ -7848,9 +7872,12 @@ app.addEventListener('change', (e) => {
   if (e.target.dataset.actionChange === 'switch-user') {
     state = switchUser(state, e.target.value);
     save(state);
-    if (who === e.target.value) who = 'me';
+    if (isManager(state)) who = 'all';
+    else if (who === e.target.value) who = 'me';
     render();
-    toast(`지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
+    toast(isManager(state)
+      ? `${currentUser(state)}(으)로 바꿨어요. 매니저 화면에서는 팀 전체 자료가 보여요.`
+      : `지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
     return;
   }
   if (e.target.dataset.actionChange === 'attach-pick') {
@@ -7940,7 +7967,7 @@ app.addEventListener('submit', (e) => {
   }
   const source = add.source;
   if (source) value.item.sourceId = source.itemId; // 어느 외부조회 건의 증빙인지
-  const requester = add.form.requester || currentUser(state);
+  const requester = add.form.requester || defaultRequester(state);
   if (requester) value.item.requester = requester;
   const tpl = PBC_TEMPLATES[add.form.template] || templateForName(value.item.name);
   if (tpl) {

@@ -9,7 +9,7 @@ import { topbar } from './dashboard.js';
 import { confirmOverview } from './overview.js';
 import { trackOverview } from '../lib/followup.js';
 import { attachCell } from './attach.js';
-import { requesterSummary, teamMembers } from '../lib/team.js';
+import { requesterSummary, requesterMembers } from '../lib/team.js';
 
 /**
  * @param state  앱 상태
@@ -82,7 +82,7 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
-        ${requesterBlock(report.rows, teamMembers(state))}
+        ${requesterBlock(report.rows, requesterMembers(state))}
 
         <div class="report-block">
           <div class="it-headline">

@@ -5,7 +5,7 @@ import { formatMD, formatMDW, daysBetween } from '../lib/dates.js';
 import { riskOf, leftText } from '../lib/priority.js';
 import { parsePaste, markDuplicates, rowErrorText, leftOf, normalizeDate } from '../lib/add.js';
 import { PBC_TEMPLATES, TEMPLATE_ORDER, templateForName, defaultBasisDate } from '../lib/pbcTemplate.js';
-import { currentUser, teamMembers } from '../lib/team.js';
+import { requesterMembers, defaultRequester } from '../lib/team.js';
 import { esc, ICON, RISK_LABEL } from './html.js';
 
 export const PASTE_EXAMPLE = [
@@ -136,12 +136,12 @@ function templatePreview(state, today, form, errors) {
 
 // 요청 감사인: 지금 쓰는 사람이 기본값, 팀원 중에서 바꿀 수 있다
 function requesterField(state, form) {
-  const members = teamMembers(state);
+  const members = requesterMembers(state);
   if (!members.length) return '';
-  const value = form.requester || currentUser(state);
+  const value = form.requester || defaultRequester(state) || members[0];
   return `
     <label class="f">
-      <span class="f-label">요청 감사인 <small>독촉 진행 상황을 감사인별로 볼 수 있어요</small></span>
+      <span class="f-label">요청 감사인 <small>실무진 중에서 · 감사인별로 진행 상황을 볼 수 있어요</small></span>
       <select name="requester">${members.map((m) => `<option value="${esc(m)}" ${m === value ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
     </label>`;
 }

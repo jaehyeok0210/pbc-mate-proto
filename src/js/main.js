@@ -17,7 +17,7 @@ import { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } from
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
 import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
-import { currentUser, switchUser, signMail } from './lib/team.js';
+import { currentUser, switchUser, signMail, defaultRequester, isManager } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
 import { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -574,7 +574,7 @@ const actions = {
     const today = currentToday();
     const parsed = markDuplicates(parsePaste(add.pasteText, today), state.items);
     if (!parsed.rows.length || parsed.errorCount) return;
-    const me = currentUser(state);
+    const me = defaultRequester(state);
     state = addItems(state, parsed.rows.map((r) => (me ? { ...r.value, item: { ...r.value.item, requester: me } } : r.value)));
     save(state);
     add = null;
@@ -620,7 +620,7 @@ const actions = {
     if (!setup || !parsed.parties.length || parsed.errorCount) return;
     const letters = buildLetters(conf.type, parsed.parties, setup,
       { startNo: nextDocNo(state.items, conf.type), bankBlank: conf.bankBlank });
-    const me = currentUser(state);
+    const me = defaultRequester(state);
     state = addItems(state, toRegistryValues(letters, setup).map((v) => (me ? { ...v, item: { ...v.item, requester: me } } : v)));
     // 다음 작성 때 회사·감사인 정보를 다시 입력하지 않도록 기억한다 (날짜는 매번 새로)
     const { issuedOn, replyBy, ...keep } = setup;
@@ -891,9 +891,12 @@ app.addEventListener('change', (e) => {
   if (e.target.dataset.actionChange === 'switch-user') {
     state = switchUser(state, e.target.value);
     save(state);
-    if (who === e.target.value) who = 'me';
+    if (isManager(state)) who = 'all';
+    else if (who === e.target.value) who = 'me';
     render();
-    toast(`지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
+    toast(isManager(state)
+      ? `${currentUser(state)}(으)로 바꿨어요. 매니저 화면에서는 팀 전체 자료가 보여요.`
+      : `지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
     return;
   }
   if (e.target.dataset.actionChange === 'attach-pick') {
@@ -983,7 +986,7 @@ app.addEventListener('submit', (e) => {
   }
   const source = add.source;
   if (source) value.item.sourceId = source.itemId; // 어느 외부조회 건의 증빙인지
-  const requester = add.form.requester || currentUser(state);
+  const requester = add.form.requester || defaultRequester(state);
   if (requester) value.item.requester = requester;
   const tpl = PBC_TEMPLATES[add.form.template] || templateForName(value.item.name);
   if (tpl) {

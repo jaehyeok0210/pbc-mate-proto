@@ -5,7 +5,7 @@ import {
   withDays, isOpen, sortItems, groupByOwner, summarize, insight, leftText,
 } from '../lib/priority.js';
 import { isBundleEligible } from '../lib/bundle.js';
-import { currentUser, teamMembers, filterByRequester } from '../lib/team.js';
+import { currentUser, requesterMembers, isManager, filterByRequester } from '../lib/team.js';
 import { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL } from './html.js';
 
 const MODE_TEXT = {
@@ -22,8 +22,10 @@ const MODE_TEXT = {
 };
 
 export function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
-  const me = currentUser(state);
-  const members = teamMembers(state);
+  // 매니저는 자료를 직접 요청하지 않으므로 요청 감사인 필터 없이 팀 전체를 본다
+  const manager = isManager(state);
+  const me = manager ? '' : currentUser(state);
+  const members = manager ? [] : requesterMembers(state);
   const scope = members.length ? who : 'all';
   const everyOpen = state.items.filter((x) => x.status !== 'done');
   const all = filterByRequester(state.items, scope, me).map((x) => withDays(x, today));

@@ -73,7 +73,7 @@ export const SAMPLE_FILES = [
  *   외부조회 8건: 은행 2(미회신·회수 완료) / 채권채무 4(기한 지남·미회수 대체적 절차·금액 차이 조정 중·조정 완료+서명) /
  *              변호사 1(미회신) / 제3자보관재고 1(회수 완료+첨부)
  *   커버리지: 미확인 잔액 약 4.8억원 > 수행중요성 1.8억원 → 주간 보고에서 경고가 보인다
- *   팀: 장재혁(나)·김서윤·이서연 매니저가 나눠 요청 (첫 화면 조회의 ㈜한빛전자 2026 기말감사와 같다)
+ *   팀: 장재혁(나)·김서윤 실무진이 나눠 요청, 이서연 매니저는 요청하지 않고 전체를 본다 (첫 화면 조회의 ㈜한빛전자 2026 기말감사와 같다)
  *   필요일은 타임라인 박스가 겹치지 않게 며칠씩 띄워 두었다.
  */
 export function sampleState() {
@@ -138,7 +138,7 @@ export function sampleState() {
 }
 
 /** 예시 외부조회 건. 발송일 = 요청일(대부분 1/4 월), 회신 기한 = 필요일. */
-function sampleConfirmations(d, { ME, KIM, LEE }) {
+function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 감사인 아님, 서명 검토자)
   const conf = (id, confType, docNo, counterparty, extra) => {
     const label = { bank: '은행조회서', arap: '채권채무조회서', legal: '변호사조회서', inventory: '제3자보관재고자산조회서' }[confType];
     return {
@@ -177,7 +177,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) {
         conclusion: '차이 7,000,000원은 시점 차이·조회처 오류로 모두 설명돼요. 왜곡표시는 없어요.',
         signoff: { preparer: ME, reviewer: LEE } } }),
     // 변호사: 일반 조회 · 미회신
-    conf('c6', 'legal', 'LG-001', '법무법인 정의', { requester: LEE, requestedOn: SENT, neededOn: d(13), status: 'none' }),
+    conf('c6', 'legal', 'LG-001', '법무법인 정의', { requester: KIM, requestedOn: SENT, neededOn: d(13), status: 'none' }),
     // 제3자 보관 재고: 회수 완료
     conf('c7', 'inventory', 'IV-001', '㈜한결물류 평택센터', { requester: KIM,
       bookAmount: 1913000000, requestedOn: SENT, neededOn: d(6), status: 'done', received: { on: d(-2) },

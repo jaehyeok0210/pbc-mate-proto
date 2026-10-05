@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, switchUser,
-  filterByRequester, requesterSummary, signMail,
+  filterByRequester, requesterSummary, signMail, requesterMembers, isManager, defaultRequester,
 } from '../src/js/lib/team.js';
 import { sampleState, createEmptyState } from '../src/js/store.js';
 import { buildMail } from '../src/js/lib/mail.js';
@@ -51,19 +51,17 @@ test('요청 감사인 필터: 전체 / 내 요청 / 팀원', () => {
   assert.equal(filterByRequester(s.items, 'all', me).length, s.items.length);
   const mine = filterByRequester(s.items, 'me', me);
   assert.ok(mine.length > 0 && mine.every((x) => x.requester === me));
-  assert.deepEqual(filterByRequester(s.items, '이서연 매니저', me).map((x) => x.id), ['c6']);
+  assert.deepEqual(filterByRequester(s.items, '이서연 매니저', me), [], '매니저는 요청하지 않는다');
 });
 
 test('감사인별 현황: 팀원 순서, 미완료·긴급·완료, 미지정은 따로', () => {
   const s = sampleState();
   const rows = buildReport(s, TODAY).rows.map((r) => ({ ...r, requester: s.items.find((x) => x.id === r.id).requester }));
-  const sum = requesterSummary(rows, teamMembers(s));
-  assert.deepEqual(sum.map((r) => r.name), ['장재혁 회계사', '김서윤 회계사', '이서연 매니저']);
+  const sum = requesterSummary(rows, requesterMembers(s));
+  assert.deepEqual(sum.map((r) => r.name), ['장재혁 회계사', '김서윤 회계사'], '매니저는 감사인별 현황에서 빠짐');
   const total = sum.reduce((n, r) => n + r.total, 0);
   assert.equal(total, s.items.length);
-  const lee = sum.find((r) => r.name === '이서연 매니저');
-  assert.deepEqual([lee.open, lee.done], [1, 0]);
-  const withUnassigned = requesterSummary([...rows, { ...rows[0], id: 'x', requester: undefined }], teamMembers(s));
+  const withUnassigned = requesterSummary([...rows, { ...rows[0], id: 'x', requester: undefined }], requesterMembers(s));
   assert.equal(withUnassigned.at(-1).name, '미지정');
 });
 
@@ -79,4 +77,15 @@ test('메일 서명: [이름]을 보내는 사람으로, 이름이 없으면 그
   assert.match(mail.segments.map((x) => x.text).join(''), /\[이름\] 드림$/, '원래 메일은 그대로');
   const bundle = signMail({ intro: [{ text: 'a' }], rows: [], outro: [{ text: '감사합니다.\n[이름] 드림' }] }, '김서윤 회계사');
   assert.equal(bundle.outro[0].text, '감사합니다.\n김서윤 회계사 드림');
+});
+
+test('매니저: 요청 감사인에서 빠지고, 매니저로 바꾸면 새 요청의 감사인은 비워 둔다', () => {
+  const s = sampleState();
+  assert.deepEqual(requesterMembers(s), ['장재혁 회계사', '김서윤 회계사']);
+  assert.equal(isManager(s), false);
+  assert.equal(defaultRequester(s), '장재혁 회계사');
+  const mgr = switchUser(s, '이서연 매니저');
+  assert.equal(isManager(mgr), true);
+  assert.equal(defaultRequester(mgr), '');
+  assert.ok(s.items.every((x) => x.requester !== '이서연 매니저'), '예시에 매니저가 요청한 자료 없음');
 });
