@@ -23,7 +23,7 @@ export function renderOwner(state, detail, { today, isDemo }) {
 
   return `
     <div class="page report owner-page">
-      ${topbar(state.client, today, isDemo, 'report')}
+      ${topbar(state.client, today, isDemo, 'report', state.team)}
 
       <section class="report-head">
         <div>

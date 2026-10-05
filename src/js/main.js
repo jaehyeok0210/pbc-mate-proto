@@ -18,6 +18,7 @@ import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress
 import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
 import { validateEngagement } from './lib/engagement.js';
+import { validateTeam, buildTeam, currentUser, switchUser, signMail } from './lib/team.js';
 import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
@@ -53,7 +54,9 @@ let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
-let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 화면 입력값
+const EMPTY_FORM = { clientName: '', engagement: '', myName: '', myTitle: '', members: '', manager: '', errors: {} };
+let emptyForm = { ...EMPTY_FORM }; // 첫 실행 화면 입력값
+let who = 'all';    // 대시보드 요청 감사인 필터: 'all' | 'me' | 팀원 이름
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
@@ -132,7 +135,7 @@ function render() {
     }
   }
 
-  let html = renderDashboard(state, { today, mode, isDemo });
+  let html = renderDashboard(state, { today, mode, isDemo, who });
 
   const id = routeParam('compose');
   const item = id && state.items.find((x) => x.id === id && x.status !== 'done');
@@ -338,21 +341,29 @@ function setFollow(fn) {
 
 const actions = {
   'set-mode': (el) => { mode = el.dataset.mode; render(); },
-  'load-sample': () => { state = sampleState(); save(state); render(); },
+  'set-who': (el) => { who = el.dataset.who; render(); },
+  // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
+  'show-requester': (el) => {
+    who = el.dataset.who === currentUser(state) ? 'me' : el.dataset.who;
+    location.hash = '';
+    render();
+  },
+  'load-sample': () => { state = sampleState(); save(state); who = 'all'; render(); },
 
   // 첫 실행: 클라이언트명·감사명을 넣고 빈 state로 시작 → 자료 추가 화면으로
   'start-blank': (el) => {
     const form = document.getElementById('engagement-form');
-    emptyForm = { clientName: form.clientName.value, engagement: form.engagement.value, errors: {} };
-    emptyForm.errors = validateEngagement(emptyForm);
+    emptyForm = Object.fromEntries(Object.keys(EMPTY_FORM).filter((k) => k !== 'errors').map((k) => [k, form[k]?.value ?? '']));
+    emptyForm.errors = { ...validateEngagement(emptyForm), ...validateTeam(emptyForm) };
     if (Object.keys(emptyForm.errors).length) {
       render();
       app.querySelector('.empty-form .has-error input')?.focus();
       return;
     }
-    state = createEmptyState(emptyForm);
+    state = createEmptyState({ ...emptyForm, team: buildTeam(emptyForm) });
     save(state);
-    emptyForm = { clientName: '', engagement: '', errors: {} };
+    emptyForm = { ...EMPTY_FORM };
+    who = 'all';
     location.hash = el.dataset.target === 'paste' ? '#/add/paste' : '#/add';
     render();
   },
@@ -450,10 +461,10 @@ const actions = {
   'copy-mail': () => {
     const today = currentToday();
     const item = withDays(state.items.find((x) => x.id === compose.itemId), today);
-    const mail = buildMail({
+    const mail = signMail(buildMail({
       item, person: state.people[item.owner], client: state.client,
       manager: state.team?.manager, today, tone: compose.tone,
-    });
+    }), currentUser(state));
     return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
   },
   'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; render(); },
@@ -515,7 +526,8 @@ const actions = {
     const today = currentToday();
     const parsed = markDuplicates(parsePaste(add.pasteText, today), state.items);
     if (!parsed.rows.length || parsed.errorCount) return;
-    state = addItems(state, parsed.rows.map((r) => r.value));
+    const me = currentUser(state);
+    state = addItems(state, parsed.rows.map((r) => (me ? { ...r.value, item: { ...r.value.item, requester: me } } : r.value)));
     save(state);
     add = null;
     closeDrawer();
@@ -524,7 +536,7 @@ const actions = {
   'copy-fix': () => {
     const today = currentToday();
     const item = withDays(state.items.find((x) => x.id === fix.itemId), today);
-    const mail = buildFixMail({ item, person: state.people[item.owner], client: state.client, today, reason: fix.reason });
+    const mail = signMail(buildFixMail({ item, person: state.people[item.owner], client: state.client, today, reason: fix.reason }), currentUser(state));
     const reason = fix.reason;
     return copyForDrawer(fix, { text: fixMailToText(mail) },
       (s, on, text, copy) => copyAndRecordFix(s, { itemId: item.id, reason, on, text }, copy));
@@ -560,7 +572,8 @@ const actions = {
     if (!setup || !parsed.parties.length || parsed.errorCount) return;
     const letters = buildLetters(conf.type, parsed.parties, setup,
       { startNo: nextDocNo(state.items, conf.type), bankBlank: conf.bankBlank });
-    state = addItems(state, toRegistryValues(letters, setup));
+    const me = currentUser(state);
+    state = addItems(state, toRegistryValues(letters, setup).map((v) => (me ? { ...v, item: { ...v.item, requester: me } } : v)));
     // 다음 작성 때 회사·감사인 정보를 다시 입력하지 않도록 기억한다 (날짜는 매번 새로)
     const { issuedOn, replyBy, ...keep } = setup;
     state = { ...state, confirmSetup: keep };
@@ -683,10 +696,10 @@ const actions = {
   },
   'copy-bundle': () => {
     const sorted = bundleItems(state.items, bundle.owner, currentToday());
-    const mail = buildBundleMail({
+    const mail = signMail(buildBundleMail({
       sorted, person: state.people[bundle.owner], client: state.client,
       manager: state.team?.manager, tone: bundle.tone,
-    });
+    }), currentUser(state));
     return copyForDrawer(bundle, { itemIds: sorted.map((x) => x.id), text: bundleMailToText(mail) });
   },
 };
@@ -803,6 +816,14 @@ app.addEventListener('change', (e) => {
     toast(value > 0 ? `수행중요성을 ${value.toLocaleString('ko-KR')}원으로 정했어요.` : '수행중요성을 지웠어요.');
     return;
   }
+  if (e.target.dataset.actionChange === 'switch-user') {
+    state = switchUser(state, e.target.value);
+    save(state);
+    if (who === e.target.value) who = 'me';
+    render();
+    toast(`지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
+    return;
+  }
   if (e.target.dataset.actionChange === 'attach-pick') {
     pickFiles(e.target.files);
     return;
@@ -851,7 +872,7 @@ app.addEventListener('change', (e) => {
 function readAddForm() {
   const form = document.getElementById('add-form');
   if (!form) return add?.form || {};
-  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure', 'basisDate', 'template']
+  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure', 'basisDate', 'template', 'requester']
     .map((k) => [k, form[k]?.value ?? '']));
 }
 
@@ -890,6 +911,8 @@ app.addEventListener('submit', (e) => {
   }
   const source = add.source;
   if (source) value.item.sourceId = source.itemId; // 어느 외부조회 건의 증빙인지
+  const requester = add.form.requester || currentUser(state);
+  if (requester) value.item.requester = requester;
   const tpl = PBC_TEMPLATES[add.form.template] || templateForName(value.item.name);
   if (tpl) {
     value.item.template = tpl.key;

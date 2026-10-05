@@ -85,6 +85,7 @@ export function buildReport(state, today) {
     lastNudgedOn: lastOf(x.nudges)?.on ?? null,
     fixReason: x.status === 'fix' && x.fix?.reason ? fixReasonLabel(x.fix.reason) : null,
     attachments: x.attachments || [], // 완료한 자료에 첨부한 파일 목록
+    requester: x.requester || '',     // 요청 감사인 (lib/team.js)
     // 외부조회 후속 절차를 마친 건: 수행자·검토자 (감사기준서 230)
     signoff: x.follow?.signoff
       ? `수행 ${x.follow.signoff.preparer}${x.follow.signoff.reviewer ? ` · 검토 ${x.follow.signoff.reviewer}` : ' · 검토 전'}`

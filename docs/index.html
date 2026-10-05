@@ -1504,6 +1504,25 @@ a.tl-label:hover, a.tl-label:focus-visible { transform: scale(1.08); border-colo
 a.tl-label:hover b, a.tl-label:focus-visible b { color: var(--orange-dark); }
 @media (prefers-reduced-motion: reduce) { a.tl-label { transition: none; } }
 
+/* ---------- 감사팀: 첫 화면 · 상단바 사용자 · 요청 감사인 ---------- */
+.empty-team-title { grid-column: 1 / -1; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft); font-size: 14px; font-weight: 700; color: var(--ink); }
+.empty-team-title small { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+.me-picker { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 4px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.me-dot { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--orange); color: #fff; font-size: 12px; font-weight: 700; }
+.me-picker select { border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); padding-right: 2px; cursor: pointer; }
+.me-picker select:focus { outline: none; }
+.me-picker:focus-within { outline: 2px solid var(--orange); outline-offset: 1px; }
+.who-bar .segmented button { min-height: 40px; }
+.it-req { display: block; font-size: 11.5px; color: var(--ink-3); }
+.req-table .ot-row { grid-template-columns: minmax(0, 1.4fr) 80px 90px 70px minmax(0, 1.4fr); }
+button.owner-link { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
+.add-col select, .f select[name="requester"] { height: 42px; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 10px; font: inherit; background: #fff; }
+@media (max-width: 720px) {
+  .who-bar .segmented { grid-template-columns: 1fr 1fr; }
+  .me-picker select { max-width: 110px; }
+  .req-table .ot-row { grid-template-columns: 1fr 1fr; }
+}
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -3551,6 +3570,7 @@ function buildReport(state, today) {
     lastNudgedOn: lastOf(x.nudges)?.on ?? null,
     fixReason: x.status === 'fix' && x.fix?.reason ? fixReasonLabel(x.fix.reason) : null,
     attachments: x.attachments || [], // 완료한 자료에 첨부한 파일 목록
+    requester: x.requester || '',     // 요청 감사인 (lib/team.js)
     // 외부조회 후속 절차를 마친 건: 수행자·검토자 (감사기준서 230)
     signoff: x.follow?.signoff
       ? `수행 ${x.follow.signoff.preparer}${x.follow.signoff.reviewer ? ` · 검토 ${x.follow.signoff.reviewer}` : ' · 검토 전'}`
@@ -3792,6 +3812,108 @@ function transitionItem(item, change, on) {
 return { ALLOWED_TRANSITIONS, STATUS_HINT, allowedStatuses, canTransition, validateTransition, transitionItem };
 })();
 
+// ---- lib/team.js
+const __m_lib_team = (() => {
+
+// 팀 단위 사용: 감사팀원 목록과 '지금 쓰는 사람'을 두고, 자료마다 요청 감사인(requester)을 기록한다.
+//   state.team = { manager: { name, dept } | null, members: ['장재혁 회계사', …], me: '장재혁 회계사' }
+//   item.requester = '장재혁 회계사'
+// 데이터는 브라우저마다 따로 저장되므로, 같은 화면에서 사용자를 바꿔 보는 방식으로 팀 사용을 보여준다.
+
+const clean = (s) => String(s ?? '').trim().replace(/\s+/g, ' ');
+
+/** '장재혁', '회계사' → '장재혁 회계사' */
+function memberLabel(name, title) {
+  return [clean(name), clean(title)].filter(Boolean).join(' ');
+}
+
+/** '김서윤 회계사, 이서연 매니저\n박도윤' → ['김서윤 회계사', '이서연 매니저', '박도윤'] (중복 제거) */
+function parseMembers(text) {
+  return [...new Set(String(text ?? '').split(/[,\n]/).map(clean).filter(Boolean))];
+}
+
+/** 첫 화면의 감사인 정보 검증. 내 이름만 필수. */
+function validateTeam({ myName }) {
+  const errors = {};
+  if (!clean(myName)) errors.myName = '내 이름을 입력해 주세요. 요청 감사인과 메일 서명에 들어가요.';
+  return errors;
+}
+
+/**
+ * 첫 화면 입력 → state.team. 나는 항상 팀원 맨 앞, 매니저가 있으면 팀원에도 넣는다.
+ * @returns {{ manager, members, me }}
+ */
+function buildTeam({ myName, myTitle, members, manager }) {
+  const me = memberLabel(myName, myTitle);
+  const mgr = clean(manager);
+  const list = [...new Set([me, ...parseMembers(members), ...(mgr ? [mgr] : [])].filter(Boolean))];
+  return { manager: mgr ? { name: mgr, dept: '감사팀' } : null, members: list, me };
+}
+
+/** 팀원 목록. 예전 데이터처럼 팀 정보가 없으면 빈 목록. */
+function teamMembers(state) {
+  const t = state?.team || {};
+  const list = t.members?.length ? t.members : t.me ? [t.me] : [];
+  return [...list];
+}
+
+function currentUser(state) {
+  return state?.team?.me || '';
+}
+
+/** 다른 팀원으로 바꾼 새 state (팀원 목록에 있는 사람만) */
+function switchUser(state, name) {
+  return teamMembers(state).includes(name) ? { ...state, team: { ...state.team, me: name } } : state;
+}
+
+/**
+ * 요청 감사인으로 거르기.
+ * who: 'all' | 'me' | 팀원 이름. 'me'는 지금 쓰는 사람.
+ */
+function filterByRequester(items, who, me) {
+  if (!who || who === 'all') return items;
+  const name = who === 'me' ? me : who;
+  return items.filter((x) => x.requester === name);
+}
+
+/**
+ * 감사인별 현황 (주간 보고). 팀원 순서대로, 요청 감사인이 비어 있는 자료는 '미지정'으로.
+ * @param rows 주간 보고 행(withDays가 적용된 상태·남은 날·위험도 포함) + requester
+ */
+function requesterSummary(rows, members) {
+  const names = [...members];
+  if (rows.some((r) => !r.requester)) names.push('');
+  return names.map((name) => {
+    const mine = rows.filter((r) => (r.requester || '') === name);
+    const open = mine.filter((r) => r.status !== 'done');
+    const nearest = [...open].sort((a, b) => a.left - b.left)[0];
+    return {
+      name: name || '미지정',
+      key: name,
+      total: mine.length,
+      open: open.length,
+      urgent: open.filter((r) => r.risk === 'late' || r.risk === 'high').length,
+      done: mine.length - open.length,
+      nearest: nearest ? { neededOn: nearest.neededOn, left: nearest.left } : null,
+    };
+  }).filter((r) => r.total > 0 || r.key);
+}
+
+/** 메일 서명 '[이름] 드림'을 보내는 사람 이름으로. 이름이 없으면 그대로 둔다. */
+function signMail(mail, signer) {
+  if (!signer) return mail;
+  const sign = (segs) => segs?.map((s) => (s.text.includes('[이름]') ? { ...s, text: s.text.replaceAll('[이름]', signer) } : s));
+  return {
+    ...mail,
+    ...(mail.segments && { segments: sign(mail.segments) }),
+    ...(mail.intro && { intro: sign(mail.intro) }),
+    ...(mail.outro && { outro: sign(mail.outro) }),
+  };
+}
+
+return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, switchUser, filterByRequester, requesterSummary, signMail };
+})();
+
 // ---- lib/timing.js
 const __m_lib_timing = (() => {
 const { addDays, daysBetween, formatMD, todayISO } = __m_lib_dates;
@@ -3909,7 +4031,7 @@ const { transitionItem } = __m_lib_status;
 // state = {
 //   demoDate?: 'YYYY-MM-DD',   // 예시 자료일 때만. 이 날짜를 오늘로 보고 계산한다.
 //   client: { name, engagement },
-//   team:   { manager: { name, dept } },              // 매니저 참조 메일의 CC
+//   team:   { manager: { name, dept }, members: [], me }, // 매니저 참조 메일의 CC · 감사팀원 · 지금 쓰는 사람 (lib/team.js)
 //   people: { [이름]: { dept, nudges, lastNudgedOn } },
 //   items:  [{ id, name, owner, requestedOn, neededOn, status, reason?,
 //              procedure?,                           // 이 자료를 쓰는 감사 절차
@@ -3968,7 +4090,11 @@ function sampleState() {
   return {
     demoDate: DEMO_DATE,
     client: { name: '㈜한빛전자', engagement: '2026 기말감사' },
-    team: { manager: { name: '이서연 매니저', dept: '감사팀' } },
+    team: {
+      manager: { name: '이서연 매니저', dept: '감사팀' },
+      members: ['장재혁 회계사', '김서윤 회계사', '이서연 매니저'],
+      me: '장재혁 회계사',
+    },
     people: {
       '박준호 과장': { dept: '재무팀', nudges: 0, lastNudgedOn: null },
       '김민지 대리': { dept: '재무팀', nudges: 2, lastNudgedOn: d(-2) },
@@ -3990,19 +4116,19 @@ function sampleState() {
       baseDate: '2026-12-31',
     },
     items: [
-      { id: 'i2', name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-1), neededOn: d(7), status: 'fix', reason: '기준일 상이 · 12/31 기준 재요청 필요',
+      { id: 'i2', requester: '김서윤 회계사', name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-1), neededOn: d(7), status: 'fix', reason: '기준일 상이 · 12/31 기준 재요청 필요',
         procedure: '유형자산 실증', nudges: [], template: 'ppe', basisDate: '2026-12-31',
         received: { on: d(-1), basisDate: '2026-06-30' },
         fix: { reason: 'date', requiredBasisDate: '2026-12-31',
                details: { sign: '담당 임원 확인란', missing: '건설중인자산 대체 내역' } },
         fixes: [{ on: d(-1), reason: 'date' }] },
-      { id: 'i3', name: '재고실사 결과표', owner: '김민지 대리', requestedOn: d(-5), neededOn: d(5), status: 'none',
+      { id: 'i3', requester: '장재혁 회계사', name: '재고실사 결과표', owner: '김민지 대리', requestedOn: d(-5), neededOn: d(5), status: 'none',
         procedure: '재고 실사 검토', nudges: [{ on: d(-2), tone: 'polite' }], template: 'inventory', basisDate: '2026-12-31' },
-      { id: 'i4', name: '특수관계자 거래내역', owner: '김민지 대리', requestedOn: d(-9), neededOn: d(9), status: 'part',
+      { id: 'i4', requester: '김서윤 회계사', name: '특수관계자 거래내역', owner: '김민지 대리', requestedOn: d(-9), neededOn: d(9), status: 'part',
         procedure: '특수관계자 검토', nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }], template: 'related', basisDate: '2026-12-31' },
-      { id: 'i5', name: '매출채권 연령분석표', owner: '김민지 대리', requestedOn: d(-11), neededOn: d(19), status: 'none',
+      { id: 'i5', requester: '장재혁 회계사', name: '매출채권 연령분석표', owner: '김민지 대리', requestedOn: d(-11), neededOn: d(19), status: 'none',
         procedure: '채권 평가', nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }], template: 'aging', basisDate: '2026-12-31' },
-      { id: 'i6', name: '법인세 신고서 사본', owner: '박준호 과장', requestedOn: d(-6), neededOn: d(3), status: 'done',
+      { id: 'i6', requester: '김서윤 회계사', name: '법인세 신고서 사본', owner: '박준호 과장', requestedOn: d(-6), neededOn: d(3), status: 'done',
         procedure: '법인세 검토', nudges: [] },
       ...sampleConfirmations(d),
     ],
@@ -4022,24 +4148,31 @@ function sampleConfirmations(d) {
   };
   return [
     conf('c1', 'bank', 'BK-001', '한빛은행 여의도지점', {
+      requester: '장재혁 회계사',
       bookAmount: 4250000000, requestedOn: d(-9), neededOn: d(2), status: 'none',
       nudges: [{ on: d(-2), tone: 'polite' }] }),
     conf('c2', 'bank', 'BK-002', '바다저축은행 본점', {
+      requester: '장재혁 회계사',
       bookAmount: 500000000, requestedOn: d(-9), neededOn: d(2), status: 'done', received: { on: d(-3) } }),
     conf('c3', 'arap', 'AR-001', '㈜대한부품', {
+      requester: '장재혁 회계사',
       receivable: 842000000, payable: 0, bookAmount: 842000000, requestedOn: d(-9), neededOn: d(2), status: 'follow',
       nudges: [{ on: d(-4), tone: 'polite' }], received: { on: d(-1) },
       follow: { type: 'diff', startedOn: d(-1), requested: [],
         recon: { book: 842000000, confirmed: 830000000, lines: [{ cause: 'goods', amount: 9000000, note: '12/29 출고 · 1/2 거래처 입고분' }] } } }),
     conf('c4', 'arap', 'AR-002', '세진물산㈜', {
+      requester: '장재혁 회계사',
       receivable: 315500000, payable: 120000000, bookAmount: 435500000, requestedOn: d(-16), neededOn: d(-2), status: 'none',
       nudges: [{ on: d(-6), tone: 'polite' }, { on: d(-2), tone: 'firm' }] }),
     conf('c5', 'arap', 'AR-003', '㈜오성테크', {
+      requester: '김서윤 회계사',
       receivable: 0, payable: 96300000, bookAmount: 96300000, blank: true, requestedOn: d(-16), neededOn: d(-2), status: 'follow',
       nudges: [{ on: d(-9), tone: 'polite' }, { on: d(-5), tone: 'firm' }, { on: d(-1), tone: 'cc' }],
       follow: { type: 'noreply', startedOn: d(0), requested: [], steps: { subsequentPay: true }, verified: 60000000 } }),
-    conf('c6', 'legal', 'LG-001', '법무법인 정의', { requestedOn: d(-9), neededOn: d(5), status: 'none' }),
+    conf('c6', 'legal', 'LG-001', '법무법인 정의', {
+      requester: '이서연 매니저', requestedOn: d(-9), neededOn: d(5), status: 'none' }),
     conf('c7', 'inventory', 'IV-001', '㈜한결물류 평택센터', {
+      requester: '김서윤 회계사',
       bookAmount: 1913000000, requestedOn: d(-9), neededOn: d(2), status: 'done', received: { on: d(-2) } }),
   ];
 }
@@ -4125,10 +4258,10 @@ function addItems(state, values) {
 /**
  * 예시 자료 없이 직접 시작할 때의 빈 state. demoDate가 없어 실제 오늘(또는 ?today=) 기준으로 계산된다.
  */
-function createEmptyState({ clientName, engagement }) {
+function createEmptyState({ clientName, engagement, team }) {
   return {
     client: { name: String(clientName).trim(), engagement: String(engagement).trim() },
-    team: { manager: null },
+    team: team || { manager: null },
     people: {},
     items: [],
   };
@@ -4200,6 +4333,7 @@ const __m_views_dashboard = (() => {
 const { addDays, formatMD, formatKoreanDay } = __m_lib_dates;
 const { withDays, isOpen, sortItems, groupByOwner, summarize, insight, leftText } = __m_lib_priority;
 const { isBundleEligible } = __m_lib_bundle;
+const { currentUser, teamMembers, filterByRequester } = __m_lib_team;
 const { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL } = __m_views_html;
 // 1. 대시보드 — 레퍼런스 1 / 1-1 / 1-M
 
@@ -4217,17 +4351,33 @@ const MODE_TEXT = {
   },
 };
 
-function renderDashboard(state, { today, mode, isDemo }) {
-  const all = state.items.map((x) => withDays(x, today));
+function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
+  const me = currentUser(state);
+  const members = teamMembers(state);
+  const scope = members.length ? who : 'all';
+  const everyOpen = state.items.filter((x) => x.status !== 'done');
+  const all = filterByRequester(state.items, scope, me).map((x) => withDays(x, today));
   const sorted = sortItems(all.filter(isOpen), mode);
   const done = all.filter((x) => !isOpen(x));
   const text = MODE_TEXT[mode];
+  const filter = members.length ? requesterFilter(scope, members, me, everyOpen) : '';
+
+  if (!sorted.length && scope !== 'all' && everyOpen.length) {
+    return `
+      <div class="page dashboard">
+        ${topbar(state.client, today, isDemo, 'dashboard', state.team)}
+        ${filter}
+        <section class="all-done">${ICON.done}<h1>${scope === 'me' ? '내가 요청 중인 자료가 없어요' : `${esc(scope)}님이 요청 중인 자료가 없어요`}</h1>
+          <p>‘전체’를 누르면 팀 전체 자료를 볼 수 있어요.</p></section>
+      </div>`;
+  }
 
   return `
     <div class="page dashboard">
-      ${topbar(state.client, today, isDemo, 'dashboard')}
+      ${topbar(state.client, today, isDemo, 'dashboard', state.team)}
       ${sorted.length ? `
         ${insightSection(insight(sorted[0], mode), summarize(all))}
+        ${filter}
         ${modeToggle(mode, text.hint)}
         ${timeline(sorted, today)}
         ${ownerCards(groupByOwner(sorted), state.people, done, text)}
@@ -4236,8 +4386,8 @@ function renderDashboard(state, { today, mode, isDemo }) {
     </div>`;
 }
 
-/** 상단바. active: 'dashboard' | 'report' — 주간 보고 화면도 같은 상단바를 쓴다. */
-function topbar(client, today, isDemo, active) {
+/** 상단바. active: 'dashboard' | 'report' — 주간 보고 화면도 같은 상단바를 쓴다. team이 있으면 지금 쓰는 사람을 고를 수 있다. */
+function topbar(client, today, isDemo, active, team) {
   return `
     <header class="topbar">
       <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
@@ -4251,10 +4401,24 @@ function topbar(client, today, isDemo, active) {
       </nav>
       ${isDemo ? `<span class="demo-date">시연 기준일 ${today.replaceAll('-', '.')}</span>` : ''}
       <div class="topbar-end">
+        ${userPicker(team)}
         <span class="org-label desktop-only">삼일회계법인</span>
         <span class="today">${formatKoreanDay(today)}</span>
       </div>
     </header>`;
+}
+
+// 지금 쓰는 사람: 팀원끼리 같은 화면에서 바꿔 쓸 수 있다 (데이터는 브라우저마다 따로 저장)
+function userPicker(team) {
+  const members = team?.members?.length ? team.members : team?.me ? [team.me] : [];
+  if (!members.length) return '';
+  return `
+    <label class="me-picker" title="지금 쓰는 사람 · 요청 감사인과 메일 서명에 들어가요">
+      <span class="me-dot" aria-hidden="true">${esc((team.me || members[0]).slice(0, 1))}</span>
+      <select data-action-change="switch-user" aria-label="지금 쓰는 사람">
+        ${members.map((m) => `<option value="${esc(m)}" ${m === team.me ? 'selected' : ''}>${esc(m)}</option>`).join('')}
+      </select>
+    </label>`;
 }
 
 function insightSection(ins, sum) {
@@ -4279,6 +4443,26 @@ function insightSection(ins, sum) {
         <div><dt>보완 요청</dt><dd>${sum.needsFix}건</dd></div>
         <div><dt>미완료</dt><dd>${sum.open}건 <small>/ ${sum.total}</small></dd></div>
     </dl>`;
+}
+
+// 요청 감사인 필터: 전체 / 내 요청 / 팀원. 건수는 미완료 기준.
+function requesterFilter(who, members, me, openItems) {
+  const count = (name) => openItems.filter((x) => x.requester === name).length;
+  const btn = (value, caption, label) => `
+    <button type="button" data-action="set-who" data-who="${esc(value)}" aria-pressed="${who === value}">
+      <span class="seg-caption">${caption}</span><span class="seg-label">${label}</span>
+    </button>`;
+  const others = members.filter((m) => m !== me);
+  return `
+    <section class="mode-bar who-bar">
+      <div class="mode-title">요청 감사인</div>
+      <div class="segmented" role="group" aria-label="요청 감사인">
+        ${btn('all', '팀 전체', `전체 ${openItems.length}`)}
+        ${me ? btn('me', esc(me), `내 요청 ${count(me)}`) : ''}
+        ${others.map((m) => btn(m, '팀원', `${esc(m)} ${count(m)}`)).join('')}
+      </div>
+      <div class="mode-hint">${who === 'all' ? '팀 전체가 요청 중인 자료예요.' : '고른 감사인이 요청한 자료만 보여요.'}</div>
+    </section>`;
 }
 
 function modeToggle(mode, hint) {
@@ -4527,9 +4711,9 @@ const { esc } = __m_views_html;
 
 
 /**
- * @param form { clientName, engagement, errors }
+ * @param form { clientName, engagement, myName, myTitle, members, manager, errors }
  */
-function renderEmpty({ clientName = '', engagement = '', errors = {} } = {}) {
+function renderEmpty({ clientName = '', engagement = '', myName = '', myTitle = '', members = '', manager = '', errors = {} } = {}) {
   return `
     <div class="page empty">
       <header class="topbar">
@@ -4560,6 +4744,24 @@ function renderEmpty({ clientName = '', engagement = '', errors = {} } = {}) {
             <span class="f-label">감사명</span>
             <input type="text" name="engagement" value="${esc(engagement)}" placeholder="예: 2026 기말감사" autocomplete="off">
             ${errors.engagement ? `<span class="f-error">${esc(errors.engagement)}</span>` : ''}
+          </label>
+          <div class="empty-team-title">감사팀 <small>요청 감사인과 메일 서명에 쓰여요</small></div>
+          <label class="f ${errors.myName ? 'has-error' : ''}">
+            <span class="f-label">내 이름</span>
+            <input type="text" name="myName" value="${esc(myName)}" placeholder="예: 장재혁" autocomplete="name">
+            ${errors.myName ? `<span class="f-error">${esc(errors.myName)}</span>` : ''}
+          </label>
+          <label class="f">
+            <span class="f-label">직급 <small>선택</small></span>
+            <input type="text" name="myTitle" value="${esc(myTitle)}" placeholder="예: 회계사" autocomplete="off">
+          </label>
+          <label class="f">
+            <span class="f-label">팀원 <small>선택 · 쉼표로 구분</small></span>
+            <input type="text" name="members" value="${esc(members)}" placeholder="예: 김서윤 회계사, 박도윤 회계사" autocomplete="off">
+          </label>
+          <label class="f">
+            <span class="f-label">담당 매니저 <small>선택 · 매니저 참조 메일의 참조</small></span>
+            <input type="text" name="manager" value="${esc(manager)}" placeholder="예: 이서연 매니저" autocomplete="off">
           </label>
         </form>
 
@@ -4661,7 +4863,7 @@ function renderCalendar(state, { today, isDemo, month, selected, form, filter = 
 
   return `
     <div class="page calendar">
-      ${topbar(state.client, today, isDemo, 'calendar')}
+      ${topbar(state.client, today, isDemo, 'calendar', state.team)}
 
       <section class="cal-head">
         <div>
@@ -4798,6 +5000,7 @@ const { timingChip, timingBanner } = __m_views_timing;
 const { mailDates } = __m_lib_calendar;
 const { mailField, mailDateDock } = __m_views_calendar;
 const { templateOf } = __m_lib_pbcTemplate;
+const { signMail, currentUser } = __m_lib_team;
 const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
 // 2. 단건 독촉 — 레퍼런스 2 / 2-1 / 2-2 / 2-3 / 2-M
 // 데스크톱은 대시보드 위 오른쪽 패널, 모바일(720px 이하)은 전체 화면.
@@ -4813,7 +5016,7 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
   const history = item.nudges || [];
   const last = history[history.length - 1];
   const recommended = recommendTone(item);
-  const mail = buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone });
+  const mail = signMail(buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone }), currentUser(state));
   const timing = sendTiming(clock, item.neededOn);
   const dates = mailDates([item], today);
 
@@ -5002,6 +5205,7 @@ const { formatMD } = __m_lib_dates;
 const { leftText } = __m_lib_priority;
 const { TONES, toneIndex } = __m_lib_tone;
 const { buildBundleMail } = __m_lib_bundle;
+const { signMail, currentUser } = __m_lib_team;
 const { sendTiming } = __m_lib_timing;
 const { timingChip, timingBanner } = __m_views_timing;
 const { mailDates } = __m_lib_calendar;
@@ -5021,7 +5225,7 @@ function renderBundle(state, { sorted, clock, tone, copied, toast }) {
   const person = state.people[owner] || {};
   const count = sorted.length;
   const t = TONES[toneIndex(tone)];
-  const mail = buildBundleMail({ sorted, person, client: state.client, manager: state.team?.manager, tone });
+  const mail = signMail(buildBundleMail({ sorted, person, client: state.client, manager: state.team?.manager, tone }), currentUser(state));
   const timing = sendTiming(clock, top.neededOn);
   const dates = mailDates(sorted, clock.date);
   const nudged = person.nudges
@@ -5142,6 +5346,7 @@ const __m_views_fix = (() => {
 const { formatMD, formatMDW } = __m_lib_dates;
 const { withDays, leftText } = __m_lib_priority;
 const { FIX_REASONS, fixReasonLabel, fixDetail, buildFixMail } = __m_lib_fix;
+const { signMail, currentUser } = __m_lib_team;
 const { esc, ICON, STATUS_LABEL } = __m_views_html;
 const { mailDates } = __m_lib_calendar;
 const { mailField, mailDateDock } = __m_views_calendar;
@@ -5156,7 +5361,7 @@ const { mailField, mailDateDock } = __m_views_calendar;
 function renderFix(state, { today, itemId, reason, copied, toast }) {
   const item = withDays(state.items.find((x) => x.id === itemId), today);
   const person = state.people[item.owner] || {};
-  const mail = buildFixMail({ item, person, client: state.client, today, reason });
+  const mail = signMail(buildFixMail({ item, person, client: state.client, today, reason }), currentUser(state));
   const dates = mailDates([item], today, { replyBy: false });
   const label = fixReasonLabel(reason);
   const lastFix = (item.fixes || [])[item.fixes?.length - 1];
@@ -5279,6 +5484,7 @@ const { formatMD, formatMDW, daysBetween } = __m_lib_dates;
 const { riskOf, leftText } = __m_lib_priority;
 const { parsePaste, markDuplicates, rowErrorText, leftOf, normalizeDate } = __m_lib_add;
 const { PBC_TEMPLATES, TEMPLATE_ORDER, templateForName, defaultBasisDate } = __m_lib_pbcTemplate;
+const { currentUser, teamMembers } = __m_lib_team;
 const { esc, ICON, RISK_LABEL } = __m_views_html;
 // 6. 자료 추가 — 레퍼런스 6 / 6-1
 // 데스크톱은 가운데 모달, 모바일(720px 이하)은 전체 화면.
@@ -5363,6 +5569,7 @@ function singleForm(state, today, form, errors) {
           ${owners.length ? `<div class="recent-owners"><span>최근 담당자</span>${chips}</div>` : ''}
         </div>
         ${field('요청일', 'requestedOn', form.requestedOn ?? today, { type: 'date', error: errors.requestedOn })}
+        ${requesterField(state, form)}
         <div class="need-note">새 자료는 ‘미회신’으로 시작해요. 받은 뒤에는 자료 화면에서 상태를 바꿔요.</div>
       </div>
 
@@ -5407,6 +5614,18 @@ function templatePreview(state, today, form, errors) {
       <div class="tpl-line"><span>확인 포인트</span>${t.checks.map(esc).join(' · ')}</div>
       <button type="button" class="btn btn-sub tpl-copy" data-action="copy-template">${ICON.copy}엑셀용 요청 양식 복사</button>
     </div>`;
+}
+
+// 요청 감사인: 지금 쓰는 사람이 기본값, 팀원 중에서 바꿀 수 있다
+function requesterField(state, form) {
+  const members = teamMembers(state);
+  if (!members.length) return '';
+  const value = form.requester || currentUser(state);
+  return `
+    <label class="f">
+      <span class="f-label">요청 감사인 <small>독촉 진행 상황을 감사인별로 볼 수 있어요</small></span>
+      <select name="requester">${members.map((m) => `<option value="${esc(m)}" ${m === value ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
+    </label>`;
 }
 
 // 필요일을 고르면 남은 날과 위험도를 미리 보여준다.
@@ -5640,6 +5859,7 @@ const { topbar } = __m_views_dashboard;
 const { confirmOverview } = __m_views_overview;
 const { trackOverview } = __m_lib_followup;
 const { attachCell } = __m_views_attach;
+const { requesterSummary, teamMembers } = __m_lib_team;
 // 7. 주간 현황 보고 — 레퍼런스 7
 // 대시보드와 같은 상단바 아래에 요약 카드(왼쪽)와 담당자별 현황·자료 목록(오른쪽)을 보여준다.
 
@@ -5655,7 +5875,7 @@ function renderReport(state, report, { today, isDemo, query = '' }) {
 
   return `
     <div class="page report">
-      ${topbar(state.client, today, isDemo, 'report')}
+      ${topbar(state.client, today, isDemo, 'report', state.team)}
 
       <section class="report-head">
         <div>
@@ -5715,6 +5935,8 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
+        ${requesterBlock(report.rows, teamMembers(state))}
+
         <div class="report-block">
           <div class="it-headline">
             <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
@@ -5729,6 +5951,27 @@ function body(report, lines, state, query) {
     </div>`;
 }
 
+/** 감사인별 현황: 팀원마다 요청 중·긴급·완료. 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 연다. */
+function requesterBlock(rows, members) {
+  if (!members.length) return '';
+  const list = requesterSummary(rows, members);
+  return `
+        <div class="report-block">
+          <h2>감사인별 현황 <span>· 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 봐요</span></h2>
+          <div class="owner-table req-table">
+            <div class="ot-row ot-head"><div>요청 감사인</div><div>요청 중</div><div>긴급·지연</div><div>완료</div><div>가장 가까운 필요일</div></div>
+            ${list.map((r) => `
+              <div class="ot-row">
+                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}</div>
+                <div><b>${r.open}건</b></div>
+                <div class="${r.urgent ? 'is-urgent' : ''}">${r.urgent ? `${r.urgent}건` : '—'}</div>
+                <div>${r.done ? `${r.done}건` : '—'}</div>
+                <div>${r.nearest ? `${formatMDW(r.nearest.neededOn)} <small>· ${leftText(r.nearest.left)}</small>` : '—'}</div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+}
+
 /** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */
 function itemTableBody(allRows, query) {
   const rows = filterRows(allRows, query);
@@ -5739,7 +5982,7 @@ function itemTableBody(allRows, query) {
             ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
-                <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a></div>
+                <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a>${r.requester ? `<small class="it-req">요청 ${esc(r.requester)}</small>` : ''}</div>
                 <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
@@ -5798,7 +6041,7 @@ function renderOwner(state, detail, { today, isDemo }) {
 
   return `
     <div class="page report owner-page">
-      ${topbar(state.client, today, isDemo, 'report')}
+      ${topbar(state.client, today, isDemo, 'report', state.team)}
 
       <section class="report-head">
         <div>
@@ -6007,7 +6250,7 @@ function renderConfirm(state, { today, isDemo, type, setup, setupErrors, pasteTe
   const t = CONF_TYPES[type];
   return `
     <div class="page confirm">
-      ${topbar(state.client, today, isDemo, 'confirm')}
+      ${topbar(state.client, today, isDemo, 'confirm', state.team)}
 
       <section class="report-head confirm-head">
         <div>
@@ -6482,6 +6725,7 @@ const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress,
 const { formatMD } = __m_lib_dates;
 const { validateTransition, canTransition } = __m_lib_status;
 const { validateEngagement } = __m_lib_engagement;
+const { validateTeam, buildTeam, currentUser, switchUser, signMail } = __m_lib_team;
 const { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
 const { renderDashboard } = __m_views_dashboard;
 const { renderEmpty } = __m_views_empty;
@@ -6520,7 +6764,9 @@ let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
-let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 화면 입력값
+const EMPTY_FORM = { clientName: '', engagement: '', myName: '', myTitle: '', members: '', manager: '', errors: {} };
+let emptyForm = { ...EMPTY_FORM }; // 첫 실행 화면 입력값
+let who = 'all';    // 대시보드 요청 감사인 필터: 'all' | 'me' | 팀원 이름
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
@@ -6599,7 +6845,7 @@ function render() {
     }
   }
 
-  let html = renderDashboard(state, { today, mode, isDemo });
+  let html = renderDashboard(state, { today, mode, isDemo, who });
 
   const id = routeParam('compose');
   const item = id && state.items.find((x) => x.id === id && x.status !== 'done');
@@ -6805,21 +7051,29 @@ function setFollow(fn) {
 
 const actions = {
   'set-mode': (el) => { mode = el.dataset.mode; render(); },
-  'load-sample': () => { state = sampleState(); save(state); render(); },
+  'set-who': (el) => { who = el.dataset.who; render(); },
+  // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
+  'show-requester': (el) => {
+    who = el.dataset.who === currentUser(state) ? 'me' : el.dataset.who;
+    location.hash = '';
+    render();
+  },
+  'load-sample': () => { state = sampleState(); save(state); who = 'all'; render(); },
 
   // 첫 실행: 클라이언트명·감사명을 넣고 빈 state로 시작 → 자료 추가 화면으로
   'start-blank': (el) => {
     const form = document.getElementById('engagement-form');
-    emptyForm = { clientName: form.clientName.value, engagement: form.engagement.value, errors: {} };
-    emptyForm.errors = validateEngagement(emptyForm);
+    emptyForm = Object.fromEntries(Object.keys(EMPTY_FORM).filter((k) => k !== 'errors').map((k) => [k, form[k]?.value ?? '']));
+    emptyForm.errors = { ...validateEngagement(emptyForm), ...validateTeam(emptyForm) };
     if (Object.keys(emptyForm.errors).length) {
       render();
       app.querySelector('.empty-form .has-error input')?.focus();
       return;
     }
-    state = createEmptyState(emptyForm);
+    state = createEmptyState({ ...emptyForm, team: buildTeam(emptyForm) });
     save(state);
-    emptyForm = { clientName: '', engagement: '', errors: {} };
+    emptyForm = { ...EMPTY_FORM };
+    who = 'all';
     location.hash = el.dataset.target === 'paste' ? '#/add/paste' : '#/add';
     render();
   },
@@ -6917,10 +7171,10 @@ const actions = {
   'copy-mail': () => {
     const today = currentToday();
     const item = withDays(state.items.find((x) => x.id === compose.itemId), today);
-    const mail = buildMail({
+    const mail = signMail(buildMail({
       item, person: state.people[item.owner], client: state.client,
       manager: state.team?.manager, today, tone: compose.tone,
-    });
+    }), currentUser(state));
     return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
   },
   'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; render(); },
@@ -6982,7 +7236,8 @@ const actions = {
     const today = currentToday();
     const parsed = markDuplicates(parsePaste(add.pasteText, today), state.items);
     if (!parsed.rows.length || parsed.errorCount) return;
-    state = addItems(state, parsed.rows.map((r) => r.value));
+    const me = currentUser(state);
+    state = addItems(state, parsed.rows.map((r) => (me ? { ...r.value, item: { ...r.value.item, requester: me } } : r.value)));
     save(state);
     add = null;
     closeDrawer();
@@ -6991,7 +7246,7 @@ const actions = {
   'copy-fix': () => {
     const today = currentToday();
     const item = withDays(state.items.find((x) => x.id === fix.itemId), today);
-    const mail = buildFixMail({ item, person: state.people[item.owner], client: state.client, today, reason: fix.reason });
+    const mail = signMail(buildFixMail({ item, person: state.people[item.owner], client: state.client, today, reason: fix.reason }), currentUser(state));
     const reason = fix.reason;
     return copyForDrawer(fix, { text: fixMailToText(mail) },
       (s, on, text, copy) => copyAndRecordFix(s, { itemId: item.id, reason, on, text }, copy));
@@ -7027,7 +7282,8 @@ const actions = {
     if (!setup || !parsed.parties.length || parsed.errorCount) return;
     const letters = buildLetters(conf.type, parsed.parties, setup,
       { startNo: nextDocNo(state.items, conf.type), bankBlank: conf.bankBlank });
-    state = addItems(state, toRegistryValues(letters, setup));
+    const me = currentUser(state);
+    state = addItems(state, toRegistryValues(letters, setup).map((v) => (me ? { ...v, item: { ...v.item, requester: me } } : v)));
     // 다음 작성 때 회사·감사인 정보를 다시 입력하지 않도록 기억한다 (날짜는 매번 새로)
     const { issuedOn, replyBy, ...keep } = setup;
     state = { ...state, confirmSetup: keep };
@@ -7150,10 +7406,10 @@ const actions = {
   },
   'copy-bundle': () => {
     const sorted = bundleItems(state.items, bundle.owner, currentToday());
-    const mail = buildBundleMail({
+    const mail = signMail(buildBundleMail({
       sorted, person: state.people[bundle.owner], client: state.client,
       manager: state.team?.manager, tone: bundle.tone,
-    });
+    }), currentUser(state));
     return copyForDrawer(bundle, { itemIds: sorted.map((x) => x.id), text: bundleMailToText(mail) });
   },
 };
@@ -7270,6 +7526,14 @@ app.addEventListener('change', (e) => {
     toast(value > 0 ? `수행중요성을 ${value.toLocaleString('ko-KR')}원으로 정했어요.` : '수행중요성을 지웠어요.');
     return;
   }
+  if (e.target.dataset.actionChange === 'switch-user') {
+    state = switchUser(state, e.target.value);
+    save(state);
+    if (who === e.target.value) who = 'me';
+    render();
+    toast(`지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
+    return;
+  }
   if (e.target.dataset.actionChange === 'attach-pick') {
     pickFiles(e.target.files);
     return;
@@ -7318,7 +7582,7 @@ app.addEventListener('change', (e) => {
 function readAddForm() {
   const form = document.getElementById('add-form');
   if (!form) return add?.form || {};
-  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure', 'basisDate', 'template']
+  return Object.fromEntries(['name', 'ownerName', 'ownerTitle', 'dept', 'requestedOn', 'neededOn', 'procedure', 'basisDate', 'template', 'requester']
     .map((k) => [k, form[k]?.value ?? '']));
 }
 
@@ -7357,6 +7621,8 @@ app.addEventListener('submit', (e) => {
   }
   const source = add.source;
   if (source) value.item.sourceId = source.itemId; // 어느 외부조회 건의 증빙인지
+  const requester = add.form.requester || currentUser(state);
+  if (requester) value.item.requester = requester;
   const tpl = PBC_TEMPLATES[add.form.template] || templateForName(value.item.name);
   if (tpl) {
     value.item.template = tpl.key;

@@ -1491,3 +1491,22 @@ a.tl-label { text-decoration: none; color: inherit; cursor: pointer; transition:
 a.tl-label:hover, a.tl-label:focus-visible { transform: scale(1.08); border-color: var(--orange); box-shadow: 0 4px 12px rgba(0, 0, 0, .12); outline: none; }
 a.tl-label:hover b, a.tl-label:focus-visible b { color: var(--orange-dark); }
 @media (prefers-reduced-motion: reduce) { a.tl-label { transition: none; } }
+
+/* ---------- 감사팀: 첫 화면 · 상단바 사용자 · 요청 감사인 ---------- */
+.empty-team-title { grid-column: 1 / -1; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft); font-size: 14px; font-weight: 700; color: var(--ink); }
+.empty-team-title small { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+.me-picker { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 4px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.me-dot { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--orange); color: #fff; font-size: 12px; font-weight: 700; }
+.me-picker select { border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); padding-right: 2px; cursor: pointer; }
+.me-picker select:focus { outline: none; }
+.me-picker:focus-within { outline: 2px solid var(--orange); outline-offset: 1px; }
+.who-bar .segmented button { min-height: 40px; }
+.it-req { display: block; font-size: 11.5px; color: var(--ink-3); }
+.req-table .ot-row { grid-template-columns: minmax(0, 1.4fr) 80px 90px 70px minmax(0, 1.4fr); }
+button.owner-link { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; cursor: pointer; }
+.add-col select, .f select[name="requester"] { height: 42px; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 10px; font: inherit; background: #fff; }
+@media (max-width: 720px) {
+  .who-bar .segmented { grid-template-columns: 1fr 1fr; }
+  .me-picker select { max-width: 110px; }
+  .req-table .ot-row { grid-template-columns: 1fr 1fr; }
+}

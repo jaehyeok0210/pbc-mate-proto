@@ -16,7 +16,7 @@ export function renderConfirm(state, { today, isDemo, type, setup, setupErrors, 
   const t = CONF_TYPES[type];
   return `
     <div class="page confirm">
-      ${topbar(state.client, today, isDemo, 'confirm')}
+      ${topbar(state.client, today, isDemo, 'confirm', state.team)}
 
       <section class="report-head confirm-head">
         <div>

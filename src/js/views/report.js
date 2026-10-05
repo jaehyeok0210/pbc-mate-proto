@@ -9,6 +9,7 @@ import { topbar } from './dashboard.js';
 import { confirmOverview } from './overview.js';
 import { trackOverview } from '../lib/followup.js';
 import { attachCell } from './attach.js';
+import { requesterSummary, teamMembers } from '../lib/team.js';
 
 /**
  * @param state  앱 상태
@@ -21,7 +22,7 @@ export function renderReport(state, report, { today, isDemo, query = '' }) {
 
   return `
     <div class="page report">
-      ${topbar(state.client, today, isDemo, 'report')}
+      ${topbar(state.client, today, isDemo, 'report', state.team)}
 
       <section class="report-head">
         <div>
@@ -81,6 +82,8 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
+        ${requesterBlock(report.rows, teamMembers(state))}
+
         <div class="report-block">
           <div class="it-headline">
             <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
@@ -95,6 +98,27 @@ function body(report, lines, state, query) {
     </div>`;
 }
 
+/** 감사인별 현황: 팀원마다 요청 중·긴급·완료. 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 연다. */
+function requesterBlock(rows, members) {
+  if (!members.length) return '';
+  const list = requesterSummary(rows, members);
+  return `
+        <div class="report-block">
+          <h2>감사인별 현황 <span>· 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 봐요</span></h2>
+          <div class="owner-table req-table">
+            <div class="ot-row ot-head"><div>요청 감사인</div><div>요청 중</div><div>긴급·지연</div><div>완료</div><div>가장 가까운 필요일</div></div>
+            ${list.map((r) => `
+              <div class="ot-row">
+                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}</div>
+                <div><b>${r.open}건</b></div>
+                <div class="${r.urgent ? 'is-urgent' : ''}">${r.urgent ? `${r.urgent}건` : '—'}</div>
+                <div>${r.done ? `${r.done}건` : '—'}</div>
+                <div>${r.nearest ? `${formatMDW(r.nearest.neededOn)} <small>· ${leftText(r.nearest.left)}</small>` : '—'}</div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+}
+
 /** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */
 export function itemTableBody(allRows, query) {
   const rows = filterRows(allRows, query);
@@ -105,7 +129,7 @@ export function itemTableBody(allRows, query) {
             ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
-                <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a></div>
+                <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a>${r.requester ? `<small class="it-req">요청 ${esc(r.requester)}</small>` : ''}</div>
                 <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>

@@ -5,6 +5,7 @@ import {
   withDays, isOpen, sortItems, groupByOwner, summarize, insight, leftText,
 } from '../lib/priority.js';
 import { isBundleEligible } from '../lib/bundle.js';
+import { currentUser, teamMembers, filterByRequester } from '../lib/team.js';
 import { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL } from './html.js';
 
 const MODE_TEXT = {
@@ -20,17 +21,33 @@ const MODE_TEXT = {
   },
 };
 
-export function renderDashboard(state, { today, mode, isDemo }) {
-  const all = state.items.map((x) => withDays(x, today));
+export function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
+  const me = currentUser(state);
+  const members = teamMembers(state);
+  const scope = members.length ? who : 'all';
+  const everyOpen = state.items.filter((x) => x.status !== 'done');
+  const all = filterByRequester(state.items, scope, me).map((x) => withDays(x, today));
   const sorted = sortItems(all.filter(isOpen), mode);
   const done = all.filter((x) => !isOpen(x));
   const text = MODE_TEXT[mode];
+  const filter = members.length ? requesterFilter(scope, members, me, everyOpen) : '';
+
+  if (!sorted.length && scope !== 'all' && everyOpen.length) {
+    return `
+      <div class="page dashboard">
+        ${topbar(state.client, today, isDemo, 'dashboard', state.team)}
+        ${filter}
+        <section class="all-done">${ICON.done}<h1>${scope === 'me' ? '내가 요청 중인 자료가 없어요' : `${esc(scope)}님이 요청 중인 자료가 없어요`}</h1>
+          <p>‘전체’를 누르면 팀 전체 자료를 볼 수 있어요.</p></section>
+      </div>`;
+  }
 
   return `
     <div class="page dashboard">
-      ${topbar(state.client, today, isDemo, 'dashboard')}
+      ${topbar(state.client, today, isDemo, 'dashboard', state.team)}
       ${sorted.length ? `
         ${insightSection(insight(sorted[0], mode), summarize(all))}
+        ${filter}
         ${modeToggle(mode, text.hint)}
         ${timeline(sorted, today)}
         ${ownerCards(groupByOwner(sorted), state.people, done, text)}
@@ -39,8 +56,8 @@ export function renderDashboard(state, { today, mode, isDemo }) {
     </div>`;
 }
 
-/** 상단바. active: 'dashboard' | 'report' — 주간 보고 화면도 같은 상단바를 쓴다. */
-export function topbar(client, today, isDemo, active) {
+/** 상단바. active: 'dashboard' | 'report' — 주간 보고 화면도 같은 상단바를 쓴다. team이 있으면 지금 쓰는 사람을 고를 수 있다. */
+export function topbar(client, today, isDemo, active, team) {
   return `
     <header class="topbar">
       <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
@@ -54,10 +71,24 @@ export function topbar(client, today, isDemo, active) {
       </nav>
       ${isDemo ? `<span class="demo-date">시연 기준일 ${today.replaceAll('-', '.')}</span>` : ''}
       <div class="topbar-end">
+        ${userPicker(team)}
         <span class="org-label desktop-only">삼일회계법인</span>
         <span class="today">${formatKoreanDay(today)}</span>
       </div>
     </header>`;
+}
+
+// 지금 쓰는 사람: 팀원끼리 같은 화면에서 바꿔 쓸 수 있다 (데이터는 브라우저마다 따로 저장)
+function userPicker(team) {
+  const members = team?.members?.length ? team.members : team?.me ? [team.me] : [];
+  if (!members.length) return '';
+  return `
+    <label class="me-picker" title="지금 쓰는 사람 · 요청 감사인과 메일 서명에 들어가요">
+      <span class="me-dot" aria-hidden="true">${esc((team.me || members[0]).slice(0, 1))}</span>
+      <select data-action-change="switch-user" aria-label="지금 쓰는 사람">
+        ${members.map((m) => `<option value="${esc(m)}" ${m === team.me ? 'selected' : ''}>${esc(m)}</option>`).join('')}
+      </select>
+    </label>`;
 }
 
 function insightSection(ins, sum) {
@@ -82,6 +113,26 @@ function insightSection(ins, sum) {
         <div><dt>보완 요청</dt><dd>${sum.needsFix}건</dd></div>
         <div><dt>미완료</dt><dd>${sum.open}건 <small>/ ${sum.total}</small></dd></div>
     </dl>`;
+}
+
+// 요청 감사인 필터: 전체 / 내 요청 / 팀원. 건수는 미완료 기준.
+function requesterFilter(who, members, me, openItems) {
+  const count = (name) => openItems.filter((x) => x.requester === name).length;
+  const btn = (value, caption, label) => `
+    <button type="button" data-action="set-who" data-who="${esc(value)}" aria-pressed="${who === value}">
+      <span class="seg-caption">${caption}</span><span class="seg-label">${label}</span>
+    </button>`;
+  const others = members.filter((m) => m !== me);
+  return `
+    <section class="mode-bar who-bar">
+      <div class="mode-title">요청 감사인</div>
+      <div class="segmented" role="group" aria-label="요청 감사인">
+        ${btn('all', '팀 전체', `전체 ${openItems.length}`)}
+        ${me ? btn('me', esc(me), `내 요청 ${count(me)}`) : ''}
+        ${others.map((m) => btn(m, '팀원', `${esc(m)} ${count(m)}`)).join('')}
+      </div>
+      <div class="mode-hint">${who === 'all' ? '팀 전체가 요청 중인 자료예요.' : '고른 감사인이 요청한 자료만 보여요.'}</div>
+    </section>`;
 }
 
 function modeToggle(mode, hint) {

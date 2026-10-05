@@ -34,7 +34,7 @@ export function renderCalendar(state, { today, isDemo, month, selected, form, fi
 
   return `
     <div class="page calendar">
-      ${topbar(state.client, today, isDemo, 'calendar')}
+      ${topbar(state.client, today, isDemo, 'calendar', state.team)}
 
       <section class="cal-head">
         <div>

@@ -4,9 +4,9 @@
 import { esc } from './html.js';
 
 /**
- * @param form { clientName, engagement, errors }
+ * @param form { clientName, engagement, myName, myTitle, members, manager, errors }
  */
-export function renderEmpty({ clientName = '', engagement = '', errors = {} } = {}) {
+export function renderEmpty({ clientName = '', engagement = '', myName = '', myTitle = '', members = '', manager = '', errors = {} } = {}) {
   return `
     <div class="page empty">
       <header class="topbar">
@@ -37,6 +37,24 @@ export function renderEmpty({ clientName = '', engagement = '', errors = {} } = 
             <span class="f-label">감사명</span>
             <input type="text" name="engagement" value="${esc(engagement)}" placeholder="예: 2026 기말감사" autocomplete="off">
             ${errors.engagement ? `<span class="f-error">${esc(errors.engagement)}</span>` : ''}
+          </label>
+          <div class="empty-team-title">감사팀 <small>요청 감사인과 메일 서명에 쓰여요</small></div>
+          <label class="f ${errors.myName ? 'has-error' : ''}">
+            <span class="f-label">내 이름</span>
+            <input type="text" name="myName" value="${esc(myName)}" placeholder="예: 장재혁" autocomplete="name">
+            ${errors.myName ? `<span class="f-error">${esc(errors.myName)}</span>` : ''}
+          </label>
+          <label class="f">
+            <span class="f-label">직급 <small>선택</small></span>
+            <input type="text" name="myTitle" value="${esc(myTitle)}" placeholder="예: 회계사" autocomplete="off">
+          </label>
+          <label class="f">
+            <span class="f-label">팀원 <small>선택 · 쉼표로 구분</small></span>
+            <input type="text" name="members" value="${esc(members)}" placeholder="예: 김서윤 회계사, 박도윤 회계사" autocomplete="off">
+          </label>
+          <label class="f">
+            <span class="f-label">담당 매니저 <small>선택 · 매니저 참조 메일의 참조</small></span>
+            <input type="text" name="manager" value="${esc(manager)}" placeholder="예: 이서연 매니저" autocomplete="off">
           </label>
         </form>
 
