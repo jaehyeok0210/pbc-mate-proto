@@ -1575,6 +1575,9 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .preview-sheet .sheet-foot .btn svg { width: 14px; height: 14px; }
 @media (max-width: 720px) { .sheet.preview-sheet { height: 92%; } .preview-sheet .sheet-body { padding: 10px 16px; } }
 
+.cal-scope { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 2px 8px; border-radius: 3px; background: var(--peach-light); color: var(--orange-dark); font-size: 12.5px; font-weight: 600; }
+.cal-scope svg { width: 12px; height: 12px; }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -2297,7 +2300,7 @@ const { addDays, daysBetween, formatMD } = __m_lib_dates;
 const { withDays, isOpen } = __m_lib_priority;
 // 일정: 자료 필요일(자동) + 사용자가 만든 일정(events)을 한 달력에서 관리한다.
 //
-// state.events = [{ id, title, date, itemId?, note?, progress? }]   // 사용자가 만든 일정
+// state.events = [{ id, title, date, itemId?, note?, progress?, by? }]   // 사용자가 만든 일정 (by: 만든 감사인, 없으면 팀 공통)
 //   progress: 'planned'(진행예정, 기본) | 'doing'(진행중) | 'done'(완료)
 // 달력 항목(entry)은 두 종류:
 //   need:<itemId>  — 자료의 필요일. 옮기면 item.neededOn이 바뀐다.
@@ -2398,12 +2401,12 @@ function nextEventId(state) {
 }
 
 /** 사용자 일정 추가. 같은 자료·같은 날짜·같은 제목이 이미 있으면 그대로 둔다(중복 방지). */
-function addEvent(state, { title, date, itemId = null, note = '' }) {
+function addEvent(state, { title, date, itemId = null, note = '', by = '' }) {
   const t = String(title ?? '').trim();
   if (!t || !date) return { state, added: false };
   const dup = (state.events || []).some((e) => e.title === t && e.date === date && (e.itemId || null) === itemId);
   if (dup) return { state, added: false };
-  const event = { id: nextEventId(state), title: t, date, ...(itemId && { itemId }), ...(note && { note }) };
+  const event = { id: nextEventId(state), title: t, date, ...(itemId && { itemId }), ...(note && { note }), ...(by && { by }) };
   return { state: { ...state, events: [...(state.events || []), event] }, added: true, event };
 }
 
@@ -4058,7 +4061,24 @@ function signMail(mail, signer) {
   };
 }
 
-return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, managerName, isManager, requesterMembers, defaultRequester, switchUser, filterByRequester, requesterSummary, signMail };
+/**
+ * 일정 탭에 보일 범위. 회계사는 자기가 요청한(담당하는) 자료의 필요일과 자기 일정만,
+ * 매니저(또는 팀 정보가 없는 예전 데이터)는 전체.
+ * 사용자 일정: 만든 사람(by)이 나이거나, 내 자료에 연결된 일정이거나, 만든 사람이 없는 팀 공통 일정.
+ * @returns {{ items, events, scope: 'all'|'mine', me }}
+ */
+function calendarScope(state) {
+  const me = currentUser(state);
+  if (!me || isManager(state) || !teamMembers(state).length) {
+    return { items: state.items, events: state.events || [], scope: 'all', me };
+  }
+  const items = state.items.filter((x) => x.requester === me);
+  const mine = new Set(items.map((x) => x.id));
+  const events = (state.events || []).filter((e) => !e.by || e.by === me || (e.itemId && mine.has(e.itemId)));
+  return { items, events, scope: 'mine', me };
+}
+
+return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, managerName, isManager, requesterMembers, defaultRequester, switchUser, filterByRequester, requesterSummary, signMail, calendarScope };
 })();
 
 // ---- lib/timing.js
@@ -4279,9 +4299,11 @@ function sampleState() {
       baseDate: '2026-12-31',
     },
     events: [
-      { id: 'e1', title: '재고실사 차이 원인 회사 미팅', date: d(-3), progress: 'done' },
+      // by: 만든 감사인 (일정 탭은 회계사마다 자기 일정만, 매니저는 전체). by가 없으면 팀 공통 일정
+      { id: 'e1', title: '재고실사 차이 원인 회사 미팅', date: d(-3), progress: 'done', by: ME },
       { id: 'e2', title: '외부조회 회신 현황 매니저 리뷰', date: d(1), progress: 'planned' },
-      { id: 'e3', title: '채권 평가 조서 작성', date: d(18), progress: 'planned' },
+      { id: 'e3', title: '채권 평가 조서 작성', date: d(18), progress: 'planned', by: ME },
+      { id: 'e4', title: '유형자산 재요청 자료 확인', date: d(2), progress: 'planned', by: KIM },
     ],
     items: [
       { id: 'i2', requester: KIM, name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-9), neededOn: d(12), status: 'fix',
@@ -4533,11 +4555,11 @@ const MODE_TEXT = {
 };
 
 function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
-  // 매니저는 자료를 직접 요청하지 않으므로 요청 감사인 필터 없이 팀 전체를 본다
+  // 매니저는 자료를 직접 요청하지 않으므로 '내 요청' 없이 전체 / 실무진별로 거른다 (기본은 전체)
   const manager = isManager(state);
   const me = manager ? '' : currentUser(state);
-  const members = manager ? [] : requesterMembers(state);
-  const scope = members.length ? who : 'all';
+  const members = requesterMembers(state);
+  const scope = members.length && !(manager && who === 'me') ? who : 'all';
   const everyOpen = state.items.filter((x) => x.status !== 'done');
   const all = filterByRequester(state.items, scope, me).map((x) => withDays(x, today));
   const sorted = sortItems(all.filter(isOpen), mode);
@@ -5082,9 +5104,10 @@ const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 /**
  * @param state 앱 상태
- * @param opts  { today, isDemo, month: 'YYYY-MM', selected: 'YYYY-MM-DD', form: { title, errors }, filter: 'all'|'done'|'doing'|'planned' }
+ * @param opts  { today, isDemo, month: 'YYYY-MM', selected: 'YYYY-MM-DD', form: { title, errors }, filter: 'all'|'done'|'doing'|'planned', scopeNote }
+ *   scopeNote: 누구의 일정을 보여주는지 (회계사는 자기 자료만, 매니저는 전체)
  */
-function renderCalendar(state, { today, isDemo, month, selected, form, filter = 'all' }) {
+function renderCalendar(state, { today, isDemo, month, selected, form, filter = 'all', scopeNote = '' }) {
   const all = calendarEntries(state, today);
   const entries = filter === 'all' ? all : all.filter((e) => e.progress === filter);
   const grid = monthGrid(month);
@@ -5110,6 +5133,7 @@ function renderCalendar(state, { today, isDemo, month, selected, form, filter = 
       <section class="cal-head">
         <div>
           <h1>${monthLabel(month)}</h1>
+          ${scopeNote ? `<div class="cal-scope">${ICON.help}${esc(scopeNote)}</div>` : ''}
           <p class="cal-sub">이번 달 필요일 ${inMonth.filter((e) => e.kind === 'need').length}건 · 일정 ${inMonth.filter((e) => e.kind === 'event').length}건 · 항목을 끌어 다른 날에 놓으면 날짜가 바뀌어요</p>
         </div>
         <div class="cal-nav">
@@ -6995,7 +7019,7 @@ const { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } = __m
 const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } = __m_lib_calendar;
 const { formatMD } = __m_lib_dates;
 const { validateTransition, canTransition } = __m_lib_status;
-const { currentUser, switchUser, signMail, defaultRequester, isManager } = __m_lib_team;
+const { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope } = __m_lib_team;
 const { searchEngagements, engagementById, validateStart, teamFromEngagement } = __m_lib_engagements;
 const { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
 const { renderDashboard } = __m_views_dashboard;
@@ -7078,7 +7102,12 @@ function render() {
   if (location.hash === '#/calendar') {
     compose = bundle = fix = add = sheet = null;
     if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
-    app.innerHTML = renderCalendar(state, { today, isDemo, ...cal }) + attachOverlay();
+    // 회계사는 자기가 요청한 자료의 일정만, 매니저는 팀 전체
+    const scoped = calendarScope(state);
+    const scopeNote = !scoped.me ? '' : scoped.scope === 'all'
+      ? (isManager(state) ? `매니저 화면 · 팀 전체 일정이 보여요` : '')
+      : `${scoped.me}${josa(scoped.me, '이', '가')} 요청한 자료와 내 일정만 보여요 · 팀 공통 일정 포함`;
+    app.innerHTML = renderCalendar({ ...state, items: scoped.items, events: scoped.events }, { today, isDemo, ...cal, scopeNote }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -7783,7 +7812,7 @@ function readSheetDates() {
 
 // 메일 속 날짜를 캘린더 일정으로 추가 (드롭·탭 공통)
 function addMailDate({ title, date, itemId }) {
-  const result = addEvent(state, { title, date, itemId: itemId || null });
+  const result = addEvent(state, { title, date, itemId: itemId || null, by: currentUser(state) });
   if (!result.added) { toast('이미 캘린더에 있는 일정이에요.'); return; }
   state = result.state;
   save(state);
@@ -7875,9 +7904,10 @@ app.addEventListener('change', (e) => {
     if (isManager(state)) who = 'all';
     else if (who === e.target.value) who = 'me';
     render();
+    const who2 = `${currentUser(state)}${josa(currentUser(state), '으로', '로')}`;
     toast(isManager(state)
-      ? `${currentUser(state)}(으)로 바꿨어요. 매니저 화면에서는 팀 전체 자료가 보여요.`
-      : `지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
+      ? `${who2} 바꿨어요. 매니저 화면은 팀 전체 자료로 시작하고, 실무진별로 거를 수 있어요.`
+      : `지금 쓰는 사람을 ${who2} 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
     return;
   }
   if (e.target.dataset.actionChange === 'attach-pick') {
@@ -7943,7 +7973,7 @@ app.addEventListener('submit', (e) => {
     app.querySelector('.cal-add input')?.focus();
     return;
   }
-  const result = addEvent(state, { title, date: cal.selected });
+  const result = addEvent(state, { title, date: cal.selected, by: currentUser(state) });
   if (result.added) { state = result.state; save(state); }
   cal.form = { title: '', errors: {} };
   render();

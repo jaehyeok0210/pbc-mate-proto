@@ -115,3 +115,20 @@ export function signMail(mail, signer) {
     ...(mail.outro && { outro: sign(mail.outro) }),
   };
 }
+
+/**
+ * 일정 탭에 보일 범위. 회계사는 자기가 요청한(담당하는) 자료의 필요일과 자기 일정만,
+ * 매니저(또는 팀 정보가 없는 예전 데이터)는 전체.
+ * 사용자 일정: 만든 사람(by)이 나이거나, 내 자료에 연결된 일정이거나, 만든 사람이 없는 팀 공통 일정.
+ * @returns {{ items, events, scope: 'all'|'mine', me }}
+ */
+export function calendarScope(state) {
+  const me = currentUser(state);
+  if (!me || isManager(state) || !teamMembers(state).length) {
+    return { items: state.items, events: state.events || [], scope: 'all', me };
+  }
+  const items = state.items.filter((x) => x.requester === me);
+  const mine = new Set(items.map((x) => x.id));
+  const events = (state.events || []).filter((e) => !e.by || e.by === me || (e.itemId && mine.has(e.itemId)));
+  return { items, events, scope: 'mine', me };
+}

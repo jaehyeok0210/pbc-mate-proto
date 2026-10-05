@@ -17,7 +17,7 @@ import { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } from
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
 import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
-import { currentUser, switchUser, signMail, defaultRequester, isManager } from './lib/team.js';
+import { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
 import { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -97,7 +97,12 @@ function render() {
   if (location.hash === '#/calendar') {
     compose = bundle = fix = add = sheet = null;
     if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
-    app.innerHTML = renderCalendar(state, { today, isDemo, ...cal }) + attachOverlay();
+    // 회계사는 자기가 요청한 자료의 일정만, 매니저는 팀 전체
+    const scoped = calendarScope(state);
+    const scopeNote = !scoped.me ? '' : scoped.scope === 'all'
+      ? (isManager(state) ? `매니저 화면 · 팀 전체 일정이 보여요` : '')
+      : `${scoped.me}${josa(scoped.me, '이', '가')} 요청한 자료와 내 일정만 보여요 · 팀 공통 일정 포함`;
+    app.innerHTML = renderCalendar({ ...state, items: scoped.items, events: scoped.events }, { today, isDemo, ...cal, scopeNote }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -802,7 +807,7 @@ function readSheetDates() {
 
 // 메일 속 날짜를 캘린더 일정으로 추가 (드롭·탭 공통)
 function addMailDate({ title, date, itemId }) {
-  const result = addEvent(state, { title, date, itemId: itemId || null });
+  const result = addEvent(state, { title, date, itemId: itemId || null, by: currentUser(state) });
   if (!result.added) { toast('이미 캘린더에 있는 일정이에요.'); return; }
   state = result.state;
   save(state);
@@ -894,9 +899,10 @@ app.addEventListener('change', (e) => {
     if (isManager(state)) who = 'all';
     else if (who === e.target.value) who = 'me';
     render();
+    const who2 = `${currentUser(state)}${josa(currentUser(state), '으로', '로')}`;
     toast(isManager(state)
-      ? `${currentUser(state)}(으)로 바꿨어요. 매니저 화면에서는 팀 전체 자료가 보여요.`
-      : `지금 쓰는 사람을 ${currentUser(state)}(으)로 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
+      ? `${who2} 바꿨어요. 매니저 화면은 팀 전체 자료로 시작하고, 실무진별로 거를 수 있어요.`
+      : `지금 쓰는 사람을 ${who2} 바꿨어요. 새 요청과 메일 서명에 이 이름이 들어가요.`);
     return;
   }
   if (e.target.dataset.actionChange === 'attach-pick') {
@@ -962,7 +968,7 @@ app.addEventListener('submit', (e) => {
     app.querySelector('.cal-add input')?.focus();
     return;
   }
-  const result = addEvent(state, { title, date: cal.selected });
+  const result = addEvent(state, { title, date: cal.selected, by: currentUser(state) });
   if (result.added) { state = result.state; save(state); }
   cal.form = { title: '', errors: {} };
   render();

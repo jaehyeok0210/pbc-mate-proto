@@ -89,3 +89,21 @@ test('매니저: 요청 감사인에서 빠지고, 매니저로 바꾸면 새 �
   assert.equal(defaultRequester(mgr), '');
   assert.ok(s.items.every((x) => x.requester !== '이서연 매니저'), '예시에 매니저가 요청한 자료 없음');
 });
+
+test('일정 범위: 회계사는 자기 자료·자기 일정·팀 공통 일정만, 매니저는 전체', async () => {
+  const { calendarScope } = await import('../src/js/lib/team.js');
+  const s = sampleState();
+  const me = calendarScope(s);
+  assert.equal(me.scope, 'mine');
+  assert.ok(me.items.length > 0 && me.items.every((x) => x.requester === '장재혁 회계사'));
+  assert.deepEqual(me.events.map((e) => e.id), ['e1', 'e2', 'e3'], '김서윤의 e4는 빠지고 공통 e2는 보임');
+  const kim = calendarScope(switchUser(s, '김서윤 회계사'));
+  assert.deepEqual(kim.events.map((e) => e.id), ['e2', 'e4']);
+  assert.ok(kim.items.every((x) => x.requester === '김서윤 회계사'));
+  const mgr = calendarScope(switchUser(s, '이서연 매니저'));
+  assert.equal(mgr.scope, 'all');
+  assert.equal(mgr.items.length, s.items.length);
+  assert.equal(mgr.events.length, s.events.length);
+  // 팀 정보 없는 예전 데이터는 전체
+  assert.equal(calendarScope({ items: s.items, events: [] }).scope, 'all');
+});

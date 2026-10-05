@@ -22,11 +22,11 @@ const MODE_TEXT = {
 };
 
 export function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
-  // 매니저는 자료를 직접 요청하지 않으므로 요청 감사인 필터 없이 팀 전체를 본다
+  // 매니저는 자료를 직접 요청하지 않으므로 '내 요청' 없이 전체 / 실무진별로 거른다 (기본은 전체)
   const manager = isManager(state);
   const me = manager ? '' : currentUser(state);
-  const members = manager ? [] : requesterMembers(state);
-  const scope = members.length ? who : 'all';
+  const members = requesterMembers(state);
+  const scope = members.length && !(manager && who === 'me') ? who : 'all';
   const everyOpen = state.items.filter((x) => x.status !== 'done');
   const all = filterByRequester(state.items, scope, me).map((x) => withDays(x, today));
   const sorted = sortItems(all.filter(isOpen), mode);

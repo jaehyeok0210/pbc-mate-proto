@@ -107,9 +107,11 @@ export function sampleState() {
       baseDate: '2026-12-31',
     },
     events: [
-      { id: 'e1', title: '재고실사 차이 원인 회사 미팅', date: d(-3), progress: 'done' },
+      // by: 만든 감사인 (일정 탭은 회계사마다 자기 일정만, 매니저는 전체). by가 없으면 팀 공통 일정
+      { id: 'e1', title: '재고실사 차이 원인 회사 미팅', date: d(-3), progress: 'done', by: ME },
       { id: 'e2', title: '외부조회 회신 현황 매니저 리뷰', date: d(1), progress: 'planned' },
-      { id: 'e3', title: '채권 평가 조서 작성', date: d(18), progress: 'planned' },
+      { id: 'e3', title: '채권 평가 조서 작성', date: d(18), progress: 'planned', by: ME },
+      { id: 'e4', title: '유형자산 재요청 자료 확인', date: d(2), progress: 'planned', by: KIM },
     ],
     items: [
       { id: 'i2', requester: KIM, name: '유형자산 증감내역', owner: '최도윤 차장', requestedOn: d(-9), neededOn: d(12), status: 'fix',
