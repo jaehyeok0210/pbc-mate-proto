@@ -13,7 +13,7 @@ import { parseNow, clockOf } from './lib/timing.js';
 import { validateItem, parsePaste, markDuplicates, duplicateMessage, normalizeDate } from './lib/add.js';
 import { PBC_TEMPLATES, templateForName, templateOf, defaultBasisDate, requestSheetTsv, receiptSuggestion } from './lib/pbcTemplate.js';
 import { josa } from './lib/korean.js';
-import { buildReport, reportToText, reportToCsv, csvFileName } from './lib/report.js';
+import { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } from './lib/report.js';
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
 import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
@@ -25,7 +25,8 @@ import { renderCompose } from './views/compose.js';
 import { renderBundle } from './views/bundle.js';
 import { renderFix } from './views/fix.js';
 import { renderAdd, pastePreview, pasteSubmit } from './views/add.js';
-import { renderReport } from './views/report.js';
+import { renderReport, itemTableBody } from './views/report.js';
+import { renderOwner } from './views/owner.js';
 import { renderStatusSheet } from './views/status.js';
 import { renderCalendar } from './views/calendar.js';
 import { renderConfirm, partiesPreview, outputSection } from './views/confirm.js';
@@ -56,6 +57,8 @@ let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 �
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
+let reportQuery = ''; // 주간 보고 자료 목록 검색어
+let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
@@ -112,9 +115,21 @@ function render() {
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = sheet = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo }) + attachOverlay();
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
+  }
+
+  // 담당자 상세: 주간 보고에서 담당자를 누르면 여는 전체 화면
+  const ownerName = routeParam('owner');
+  if (ownerName) {
+    compose = bundle = fix = add = sheet = null;
+    const detail = ownerDetail(state, ownerName, today);
+    if (detail) {
+      app.innerHTML = renderOwner(state, detail, { today, isDemo }) + attachOverlay();
+      document.body.classList.remove('has-drawer');
+      return;
+    }
   }
 
   let html = renderDashboard(state, { today, mode, isDemo });
@@ -221,6 +236,14 @@ async function copyText(text) {
 }
 
 function closeDrawer() {
+  // 담당자 상세에서 연 패널이면 그 화면으로 돌아간다
+  if (drawerReturn) {
+    const back = drawerReturn;
+    drawerReturn = null;
+    location.hash = back;
+    render();
+    return;
+  }
   // 샌드박스(iframe)에서는 pushState가 막힐 수 있어 해시를 비우는 방식으로 대신한다.
   try { history.pushState(null, '', location.pathname + location.search); }
   catch { location.hash = ''; }
@@ -889,6 +912,11 @@ app.addEventListener('submit', (e) => {
 
 // 붙여넣기: 입력할 때마다 미리보기와 저장 버튼만 갱신한다 (textarea 포커스 유지).
 app.addEventListener('input', (e) => {
+  if (e.target.dataset.actionInput === 'report-search') {
+    reportQuery = e.target.value;
+    app.querySelector('.item-table').innerHTML = itemTableBody(buildReport(state, currentToday()).rows, reportQuery);
+    return;
+  }
   if (e.target.dataset.actionInput === 'follow-signoff') {
     fu.signoff[e.target.dataset.field] = e.target.value;
     return;
@@ -921,6 +949,10 @@ app.addEventListener('input', (e) => {
 });
 
 app.addEventListener('click', (e) => {
+  // 담당자 상세의 '독촉하기' 등: 패널을 닫으면 이 화면으로 돌아오도록 기억한다
+  const ret = e.target.closest('[data-return]');
+  if (ret) drawerReturn = ret.dataset.return;
+  else if (e.target.closest('a[href^="#"]')) drawerReturn = null;
   const el = e.target.closest('[data-action]');
   if (!el) return;
   e.preventDefault();

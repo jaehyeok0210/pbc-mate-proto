@@ -3,7 +3,7 @@
 
 import { formatMD, formatMDW } from '../lib/dates.js';
 import { leftText } from '../lib/priority.js';
-import { weekLabel, summaryLines } from '../lib/report.js';
+import { weekLabel, summaryLines, filterRows } from '../lib/report.js';
 import { esc, ICON, STATUS_LABEL } from './html.js';
 import { topbar } from './dashboard.js';
 import { confirmOverview } from './overview.js';
@@ -13,9 +13,9 @@ import { attachCell } from './attach.js';
 /**
  * @param state  앱 상태
  * @param report buildReport() 결과
- * @param opts   { today, isDemo }
+ * @param opts   { today, isDemo, query }  query: 자료 목록 검색어
  */
-export function renderReport(state, report, { today, isDemo }) {
+export function renderReport(state, report, { today, isDemo, query = '' }) {
   const { counts, received, owners, rows } = report;
   const lines = summaryLines(report);
 
@@ -35,11 +35,11 @@ export function renderReport(state, report, { today, isDemo }) {
           </div>` : ''}
       </section>
 
-      ${counts.total ? body(report, lines, state) : empty()}
+      ${counts.total ? body(report, lines, state, query) : empty()}
     </div>`;
 }
 
-function body(report, lines, state) {
+function body(report, lines, state, query) {
   const { counts, received, owners, rows } = report;
   return `
     <div class="report-grid">
@@ -67,12 +67,12 @@ function body(report, lines, state) {
         ${confirmOverview(trackOverview(state.items, state.materiality?.performance), state.materiality)}
 
         <div class="report-block">
-          <h2>담당자별 현황</h2>
+          <h2>담당자별 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
           <div class="owner-table">
             <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 독촉</div></div>
             ${owners.map((o) => `
               <div class="ot-row">
-                <div class="ot-owner"><b>${esc(o.owner)}</b>${o.dept ? `<small>${esc(o.dept)}</small>` : ''}</div>
+                <div class="ot-owner"><a class="owner-link" href="#/owner/${encodeURIComponent(o.owner)}">${esc(o.owner)}${ICON.chevron}</a>${o.dept ? `<small>${esc(o.dept)}</small>` : ''}</div>
                 <div><b>${o.open}건</b></div>
                 <div class="${o.urgent ? 'is-urgent' : ''}">${o.urgent ? `${o.urgent}건` : '—'}</div>
                 <div>${formatMDW(o.nearest)} <small>· ${leftText(o.nearestLeft)}</small></div>
@@ -82,23 +82,36 @@ function body(report, lines, state) {
         </div>
 
         <div class="report-block">
-          <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
-          <div class="item-table">
+          <div class="it-headline">
+            <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
+            <label class="it-search">
+              ${ICON.search}
+              <input type="search" data-action-input="report-search" value="${esc(query)}" placeholder="자료명 검색" aria-label="자료명 검색" autocomplete="off">
+            </label>
+          </div>
+          <div class="item-table">${itemTableBody(rows, query)}</div>
+        </div>
+      </section>
+    </div>`;
+}
+
+/** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */
+export function itemTableBody(allRows, query) {
+  const rows = filterRows(allRows, query);
+  return `
             <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div><div>첨부자료</div></div>
+            ${query ? `<div class="it-count">‘${esc(query)}’ 검색 결과 ${rows.length}건 / 전체 ${allRows.length}건</div>` : ''}
+            ${rows.length ? '' : '<div class="it-empty">검색 결과가 없어요. 자료명의 일부만 입력해 보세요.</div>'}
             ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
-                <div>${esc(r.owner)}</div>
+                <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a></div>
                 <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>
                 <div class="it-att">${attachCell(r)}</div>
-              </div>`).join('')}
-          </div>
-        </div>
-      </section>
-    </div>`;
+              </div>`).join('')}`;
 }
 
 function stat(label, value, sub, cls = '') {

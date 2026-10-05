@@ -1450,6 +1450,49 @@ a.m-bundle { text-decoration: none; }
 .att-add:hover { border-color: var(--orange); color: var(--orange-dark); }
 .it-row.is-done .att-link { color: var(--ink-2); }
 
+/* ---------- 주간 보고: 담당자 링크·검색 / 담당자 상세 ---------- */
+.owner-link { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; color: var(--ink); text-decoration: none; }
+.owner-link svg { width: 11px; height: 11px; color: var(--ink-3); }
+.owner-link:hover { color: var(--orange-dark); text-decoration: underline; text-underline-offset: 3px; }
+.owner-link:hover svg { color: var(--orange); }
+.owner-link.is-plain { font-weight: 400; color: inherit; }
+.it-headline { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.it-search { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; min-width: 220px; }
+.it-search:focus-within { outline: 2px solid var(--orange); outline-offset: -1px; }
+.it-search svg { width: 14px; height: 14px; color: var(--ink-3); }
+.it-search input { border: 0; outline: 0; font: inherit; font-size: 13.5px; flex-grow: 1; min-width: 0; background: none; }
+.it-count { padding: 8px 16px; font-size: 12.5px; color: var(--ink-3); background: var(--fill-2); border-top: 1px solid var(--line-soft); }
+.it-empty { padding: 24px 16px; text-align: center; font-size: 13.5px; color: var(--ink-3); border-top: 1px solid var(--line-soft); }
+
+.owner-back { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink-3); text-decoration: none; margin-bottom: 6px; }
+.owner-back svg { width: 12px; height: 12px; }
+.owner-back:hover { color: var(--orange-dark); }
+.owner-page .stat-value { font-size: 28px; }
+.owner-items .it-row { grid-template-columns: minmax(0, 1.6fr) 100px 90px 150px 80px minmax(0, 1fr) 96px; }
+.it-go .btn { height: 32px; padding: 0 10px; font-size: 12.5px; width: 100%; }
+.muted-text { color: var(--ink-3); }
+.oh-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); }
+.oh-list li { display: grid; grid-template-columns: 40px 20px minmax(0, 1fr); gap: 8px; align-items: start; padding: 9px 12px; font-size: 13px; }
+.oh-list li + li { border-top: 1px solid var(--line-soft); }
+.oh-date { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.oh-icon svg { width: 13px; height: 13px; margin-top: 3px; color: var(--ink-3); }
+.oh-fix .oh-icon svg { color: var(--fix-fg); }
+.oh-received .oh-icon svg, .oh-closed .oh-icon svg { color: var(--low-fg); }
+.oh-text { display: flex; flex-direction: column; min-width: 0; }
+.oh-text b { font-weight: 600; color: var(--ink); }
+.oh-text small { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 720px) {
+  .it-search { min-width: 0; width: 100%; }
+  .owner-items .it-row { grid-template-columns: 1fr auto; }
+  .owner-items .it-row > div:nth-child(n) { grid-column: auto; grid-row: auto; }
+  .owner-items .it-row > div:nth-child(1) { grid-column: 1; }
+  .owner-items .it-row > div:nth-child(2) { grid-column: 2; grid-row: 1; justify-self: end; }
+  .owner-items .it-row > div:nth-child(3), .owner-items .it-row > div:nth-child(5) { grid-column: 1; font-size: 13px; color: var(--ink-3); }
+  .owner-items .it-row > div:nth-child(4) { grid-column: 2; grid-row: 2 / 4; justify-self: end; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .owner-items .it-row > div:nth-child(6), .owner-items .it-row > div:nth-child(7) { grid-column: 1 / -1; }
+  .owner-items .it-row > div:nth-child(3)::before, .owner-items .it-row > div:nth-child(5)::before, .owner-items .it-row > div:nth-child(6)::before { content: none; }
+}
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -3588,7 +3631,76 @@ function csvFileName(report) {
   return `pbc-현황-${report.today}.csv`;
 }
 
-return { weekRange, weekLabel, buildReport, summaryLines, reportToText, reportToCsv, csvFileName };
+// ---------- 자료 목록 검색 ----------
+
+const normText = (s) => String(s ?? '').replace(/\s+/g, '').toLowerCase();
+
+/** 자료명으로 거르기 (띄어쓰기·대소문자 무시). 검색어가 비면 그대로. */
+function filterRows(rows, query) {
+  const q = normText(query);
+  return q ? rows.filter((r) => normText(r.name).includes(q)) : rows;
+}
+
+// ---------- 담당자 상세 ----------
+
+const TONE_NAME = { angel: '천사', polite: '정중', firm: '단호', cc: '매니저 참조' };
+const FIX_NAME = { date: '기준일 상이', sign: '서명 누락', missing: '일부 항목 누락', file: '파일 오류' };
+const CONF_NAME = { bank: '은행조회서', arap: '채권채무조회서', legal: '변호사조회서', inventory: '제3자보관재고자산조회서' };
+
+/**
+ * 한 담당자(회사 담당자 또는 외부조회 조회처)의 상세.
+ * @returns {null | {
+ *   owner, dept, isCounterparty,
+ *   counts: { total, open, urgent, done },
+ *   nudges, lastNudgedOn, bundlable,           // 묶음 독촉 가능한 건수
+ *   rows: 주간 보고 행 + { nudgeCount, kindLabel, bookAmount }[],  // 미완료(필요일순) → 완료
+ *   history: { on, kind: 'nudge'|'fix'|'received'|'closed', text, itemName }[]  // 최근 순
+ * }}
+ */
+function ownerDetail(state, owner, today) {
+  const items = state.items.filter((x) => x.owner === owner);
+  if (!items.length) return null;
+  const byId = new Map(items.map((x) => [x.id, x]));
+  const rows = buildReport(state, today).rows.filter((r) => r.owner === owner).map((r) => {
+    const x = byId.get(r.id);
+    return {
+      ...r,
+      nudgeCount: (x.nudges || []).length,
+      kindLabel: x.kind === 'confirmation' ? CONF_NAME[x.confType] : 'PBC 자료',
+      bookAmount: x.bookAmount ?? null,
+    };
+  });
+  const open = rows.filter((r) => r.status !== 'done');
+
+  const history = [];
+  for (const x of items) {
+    for (const n of x.nudges || []) history.push({ on: n.on, kind: 'nudge', text: `독촉 메일 · ${TONE_NAME[n.tone] || n.tone}`, itemName: x.name });
+    for (const f of x.fixes || []) history.push({ on: f.on, kind: 'fix', text: `보완 요청 · ${FIX_NAME[f.reason] || f.reason}`, itemName: x.name });
+    if (x.received?.on) history.push({ on: x.received.on, kind: 'received', text: '자료 수령', itemName: x.name });
+    if (x.follow?.closedOn) history.push({ on: x.follow.closedOn, kind: 'closed', text: '후속 절차 완료', itemName: x.name });
+  }
+  history.sort((a, b) => (a.on < b.on ? 1 : a.on > b.on ? -1 : 0));
+
+  const person = state.people[owner] || {};
+  return {
+    owner,
+    dept: person.dept || '',
+    isCounterparty: items.some((x) => x.kind === 'confirmation'),
+    counts: {
+      total: rows.length,
+      open: open.length,
+      urgent: open.filter((r) => r.risk === 'late' || r.risk === 'high').length,
+      done: rows.length - open.length,
+    },
+    nudges: person.nudges || 0,
+    lastNudgedOn: person.lastNudgedOn ?? null,
+    bundlable: items.filter((x) => x.status !== 'done' && x.status !== 'fix' && x.status !== 'follow').length,
+    rows,
+    history,
+  };
+}
+
+return { weekRange, weekLabel, buildReport, summaryLines, reportToText, reportToCsv, csvFileName, filterRows, ownerDetail };
 })();
 
 // ---- lib/status.js
@@ -4061,6 +4173,7 @@ const ICON = {
   arrow: svg('<path d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"/>', 1.8),
   download: svg('<path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13h10"/>', 1.8),
   follow: svg('<path d="M2.5 8h5M7.5 8l3.5-3.5M7.5 8l3.5 3.5M11 4.5h2.5M11 11.5h2.5"/>', 1.8),
+  search: svg('<circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5L14 14"/>', 1.8),
   copy: svg('<rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>', 1.8),
 };
 
@@ -5510,7 +5623,7 @@ return { renderAttach, attachCell };
 const __m_views_report = (() => {
 const { formatMD, formatMDW } = __m_lib_dates;
 const { leftText } = __m_lib_priority;
-const { weekLabel, summaryLines } = __m_lib_report;
+const { weekLabel, summaryLines, filterRows } = __m_lib_report;
 const { esc, ICON, STATUS_LABEL } = __m_views_html;
 const { topbar } = __m_views_dashboard;
 const { confirmOverview } = __m_views_overview;
@@ -5523,9 +5636,9 @@ const { attachCell } = __m_views_attach;
 /**
  * @param state  앱 상태
  * @param report buildReport() 결과
- * @param opts   { today, isDemo }
+ * @param opts   { today, isDemo, query }  query: 자료 목록 검색어
  */
-function renderReport(state, report, { today, isDemo }) {
+function renderReport(state, report, { today, isDemo, query = '' }) {
   const { counts, received, owners, rows } = report;
   const lines = summaryLines(report);
 
@@ -5545,11 +5658,11 @@ function renderReport(state, report, { today, isDemo }) {
           </div>` : ''}
       </section>
 
-      ${counts.total ? body(report, lines, state) : empty()}
+      ${counts.total ? body(report, lines, state, query) : empty()}
     </div>`;
 }
 
-function body(report, lines, state) {
+function body(report, lines, state, query) {
   const { counts, received, owners, rows } = report;
   return `
     <div class="report-grid">
@@ -5577,12 +5690,12 @@ function body(report, lines, state) {
         ${confirmOverview(trackOverview(state.items, state.materiality?.performance), state.materiality)}
 
         <div class="report-block">
-          <h2>담당자별 현황</h2>
+          <h2>담당자별 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
           <div class="owner-table">
             <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 독촉</div></div>
             ${owners.map((o) => `
               <div class="ot-row">
-                <div class="ot-owner"><b>${esc(o.owner)}</b>${o.dept ? `<small>${esc(o.dept)}</small>` : ''}</div>
+                <div class="ot-owner"><a class="owner-link" href="#/owner/${encodeURIComponent(o.owner)}">${esc(o.owner)}${ICON.chevron}</a>${o.dept ? `<small>${esc(o.dept)}</small>` : ''}</div>
                 <div><b>${o.open}건</b></div>
                 <div class="${o.urgent ? 'is-urgent' : ''}">${o.urgent ? `${o.urgent}건` : '—'}</div>
                 <div>${formatMDW(o.nearest)} <small>· ${leftText(o.nearestLeft)}</small></div>
@@ -5592,23 +5705,36 @@ function body(report, lines, state) {
         </div>
 
         <div class="report-block">
-          <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
-          <div class="item-table">
+          <div class="it-headline">
+            <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
+            <label class="it-search">
+              ${ICON.search}
+              <input type="search" data-action-input="report-search" value="${esc(query)}" placeholder="자료명 검색" aria-label="자료명 검색" autocomplete="off">
+            </label>
+          </div>
+          <div class="item-table">${itemTableBody(rows, query)}</div>
+        </div>
+      </section>
+    </div>`;
+}
+
+/** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */
+function itemTableBody(allRows, query) {
+  const rows = filterRows(allRows, query);
+  return `
             <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div><div>첨부자료</div></div>
+            ${query ? `<div class="it-count">‘${esc(query)}’ 검색 결과 ${rows.length}건 / 전체 ${allRows.length}건</div>` : ''}
+            ${rows.length ? '' : '<div class="it-empty">검색 결과가 없어요. 자료명의 일부만 입력해 보세요.</div>'}
             ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
-                <div>${esc(r.owner)}</div>
+                <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a></div>
                 <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>
                 <div class="it-att">${attachCell(r)}</div>
-              </div>`).join('')}
-          </div>
-        </div>
-      </section>
-    </div>`;
+              </div>`).join('')}`;
 }
 
 function stat(label, value, sub, cls = '') {
@@ -5631,7 +5757,105 @@ function empty() {
     </section>`;
 }
 
-return { renderReport };
+return { renderReport, itemTableBody };
+})();
+
+// ---- views/owner.js
+const __m_views_owner = (() => {
+const { formatMD, formatMDW } = __m_lib_dates;
+const { leftText } = __m_lib_priority;
+const { esc, ICON, STATUS_LABEL } = __m_views_html;
+const { topbar } = __m_views_dashboard;
+const { attachCell } = __m_views_attach;
+// 담당자 상세 — 주간 보고의 담당자별 현황에서 담당자를 누르면 연다 (#/owner/<담당자>).
+// 이 담당자에게 요청한 자료, 바로 할 일(독촉·보완·후속 절차), 독촉·수령 이력을 한 화면에.
+
+
+const won = (n) => `${Number(n).toLocaleString('ko-KR')}원`;
+const HISTORY_ICON = { nudge: 'mail', fix: 'fix', received: 'done', closed: 'done' };
+
+/**
+ * @param state  앱 상태
+ * @param detail ownerDetail() 결과
+ * @param opts   { today, isDemo }
+ */
+function renderOwner(state, detail, { today, isDemo }) {
+  const d = detail;
+  const back = `#/owner/${encodeURIComponent(d.owner)}`; // 패널을 닫으면 이 화면으로 돌아온다
+  const bundle = d.bundlable > 1
+    ? `<a class="btn btn-cta" href="#/bundle/${encodeURIComponent(d.owner)}" data-return="${esc(back)}">${ICON.mail}${d.bundlable}건 묶어서 독촉</a>` : '';
+
+  return `
+    <div class="page report owner-page">
+      ${topbar(state.client, today, isDemo, 'report')}
+
+      <section class="report-head">
+        <div>
+          <a class="owner-back" href="#/report">${ICON.back}주간 보고</a>
+          <h1>${esc(d.owner)} <span>· ${esc(d.dept || (d.isCounterparty ? '조회처' : '담당자'))}${d.isCounterparty ? ' · 외부조회 조회처' : ''}</span></h1>
+        </div>
+        ${bundle ? `<div class="report-actions">${bundle}</div>` : ''}
+      </section>
+
+      <div class="report-grid">
+        <aside class="report-side">
+          <div class="stat-grid">
+            ${stat('미완료', `${d.counts.open}건`, `전체 ${d.counts.total}건`)}
+            ${stat('긴급·지연', `${d.counts.urgent}건`, '지연 · 2일 이내', d.counts.urgent ? 'is-late' : '')}
+            ${stat('완료', `${d.counts.done}건`, '')}
+            ${stat('독촉', `${d.nudges}회`, d.lastNudgedOn ? `마지막 ${formatMD(d.lastNudgedOn)}` : '아직 없음')}
+          </div>
+          <div class="report-block owner-history">
+            <h2>이력 <span>· 최근 순</span></h2>
+            ${d.history.length ? `<ol class="oh-list">${d.history.map((h) => `
+              <li class="oh-${h.kind}">
+                <span class="oh-date">${formatMD(h.on)}</span>
+                <span class="oh-icon">${ICON[HISTORY_ICON[h.kind]]}</span>
+                <span class="oh-text"><b>${esc(h.text)}</b><small>${esc(h.itemName)}</small></span>
+              </li>`).join('')}</ol>` : '<p class="pp-empty">아직 기록된 이력이 없어요.</p>'}
+          </div>
+        </aside>
+
+        <section class="report-main">
+          <div class="report-block">
+            <h2>요청한 자료 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
+            <div class="item-table owner-items">
+              <div class="it-row it-head"><div>자료명</div><div>상태</div><div>필요일</div><div>남은 날</div><div>독촉</div><div>첨부자료</div><div></div></div>
+              ${d.rows.map((r) => `
+                <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
+                  <div class="it-name">${esc(r.name)}<small>${esc(r.kindLabel)}${r.bookAmount ? ` · 장부 ${won(r.bookAmount)}` : ''}${r.fixReason ? ` · ${esc(r.fixReason)}` : ''}</small>${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
+                  <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
+                  <div>${formatMDW(r.neededOn)}</div>
+                  <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
+                  <div>${r.nudgeCount ? `${r.nudgeCount}회` : '—'}${r.lastNudgedOn ? `<small class="muted-text"> · ${formatMD(r.lastNudgedOn)}</small>` : ''}</div>
+                  <div class="it-att">${attachCell(r)}</div>
+                  <div class="it-go">${rowAction(r, back)}</div>
+                </div>`).join('')}
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>`;
+}
+
+function rowAction(r, back) {
+  const id = encodeURIComponent(r.id);
+  if (r.status === 'done') return '';
+  if (r.status === 'fix') return `<a class="btn btn-sub" href="#/fix/${id}" data-return="${esc(back)}">보완 재요청</a>`;
+  if (r.status === 'follow') return `<a class="btn btn-sub" href="#/follow/${id}" data-return="${esc(back)}">후속 절차</a>`;
+  return `<a class="btn btn-sub" href="#/compose/${id}" data-return="${esc(back)}">독촉하기</a>`;
+}
+
+function stat(label, value, sub, cls = '') {
+  return `
+    <div class="stat ${cls}">
+      <div class="stat-label">${label}</div>
+      <div class="stat-value">${value}</div>
+      ${sub ? `<div class="stat-sub">${sub}</div>` : ''}
+    </div>`;
+}
+
+return { renderOwner };
 })();
 
 // ---- views/status.js
@@ -6242,7 +6466,7 @@ const { parseNow, clockOf } = __m_lib_timing;
 const { validateItem, parsePaste, markDuplicates, duplicateMessage, normalizeDate } = __m_lib_add;
 const { PBC_TEMPLATES, templateForName, templateOf, defaultBasisDate, requestSheetTsv, receiptSuggestion } = __m_lib_pbcTemplate;
 const { josa } = __m_lib_korean;
-const { buildReport, reportToText, reportToCsv, csvFileName } = __m_lib_report;
+const { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } = __m_lib_report;
 const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } = __m_lib_calendar;
 const { formatMD } = __m_lib_dates;
 const { validateTransition, canTransition } = __m_lib_status;
@@ -6254,7 +6478,8 @@ const { renderCompose } = __m_views_compose;
 const { renderBundle } = __m_views_bundle;
 const { renderFix } = __m_views_fix;
 const { renderAdd, pastePreview, pasteSubmit } = __m_views_add;
-const { renderReport } = __m_views_report;
+const { renderReport, itemTableBody } = __m_views_report;
+const { renderOwner } = __m_views_owner;
 const { renderStatusSheet } = __m_views_status;
 const { renderCalendar } = __m_views_calendar;
 const { renderConfirm, partiesPreview, outputSection } = __m_views_confirm;
@@ -6288,6 +6513,8 @@ let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 �
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
+let reportQuery = ''; // 주간 보고 자료 목록 검색어
+let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
@@ -6344,9 +6571,21 @@ function render() {
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = sheet = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo }) + attachOverlay();
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
+  }
+
+  // 담당자 상세: 주간 보고에서 담당자를 누르면 여는 전체 화면
+  const ownerName = routeParam('owner');
+  if (ownerName) {
+    compose = bundle = fix = add = sheet = null;
+    const detail = ownerDetail(state, ownerName, today);
+    if (detail) {
+      app.innerHTML = renderOwner(state, detail, { today, isDemo }) + attachOverlay();
+      document.body.classList.remove('has-drawer');
+      return;
+    }
   }
 
   let html = renderDashboard(state, { today, mode, isDemo });
@@ -6453,6 +6692,14 @@ async function copyText(text) {
 }
 
 function closeDrawer() {
+  // 담당자 상세에서 연 패널이면 그 화면으로 돌아간다
+  if (drawerReturn) {
+    const back = drawerReturn;
+    drawerReturn = null;
+    location.hash = back;
+    render();
+    return;
+  }
   // 샌드박스(iframe)에서는 pushState가 막힐 수 있어 해시를 비우는 방식으로 대신한다.
   try { history.pushState(null, '', location.pathname + location.search); }
   catch { location.hash = ''; }
@@ -7121,6 +7368,11 @@ app.addEventListener('submit', (e) => {
 
 // 붙여넣기: 입력할 때마다 미리보기와 저장 버튼만 갱신한다 (textarea 포커스 유지).
 app.addEventListener('input', (e) => {
+  if (e.target.dataset.actionInput === 'report-search') {
+    reportQuery = e.target.value;
+    app.querySelector('.item-table').innerHTML = itemTableBody(buildReport(state, currentToday()).rows, reportQuery);
+    return;
+  }
   if (e.target.dataset.actionInput === 'follow-signoff') {
     fu.signoff[e.target.dataset.field] = e.target.value;
     return;
@@ -7153,6 +7405,10 @@ app.addEventListener('input', (e) => {
 });
 
 app.addEventListener('click', (e) => {
+  // 담당자 상세의 '독촉하기' 등: 패널을 닫으면 이 화면으로 돌아오도록 기억한다
+  const ret = e.target.closest('[data-return]');
+  if (ret) drawerReturn = ret.dataset.return;
+  else if (e.target.closest('a[href^="#"]')) drawerReturn = null;
   const el = e.target.closest('[data-action]');
   if (!el) return;
   e.preventDefault();
