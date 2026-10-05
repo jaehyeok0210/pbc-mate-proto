@@ -21,7 +21,7 @@ import { sampleDoc } from './lib/sampleDocs.js';
 import { renderScan } from './scan.js';
 import { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope, pickRequester, requesterMembers } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
-import { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
+import { SAMPLE_FILES, upgradeSampleAttachments, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty, lookupResults } from './views/empty.js';
 import { renderCompose } from './views/compose.js';
@@ -50,6 +50,15 @@ const todayParam = params.get('today') || nowParam?.date || null;
 
 const app = document.getElementById('app');
 let state = load();
+// 예전에 불러온 예시 첨부(텍스트)를 지금의 문서 이미지로 바꾼다
+{
+  const up = upgradeSampleAttachments(state);
+  if (up.changed.length) {
+    state = up.state;
+    save(state);
+    for (const id of up.changed) deleteFile(id).catch(() => {});
+  }
+}
 let mode = 'need';
 let compose = null; // 단건 독촉 화면 상태: { itemId, tone, copied, toast }
 let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast }

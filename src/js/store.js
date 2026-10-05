@@ -65,6 +65,27 @@ export const SAMPLE_FILES = [
 ];
 
 /**
+ * 예전 버전에서 불러온 예시 자료의 첨부 정보(이름·형식)를 지금 예시로 맞춘다.
+ * 직접 올린 파일은 건드리지 않는다. 바뀐 첨부 id를 함께 돌려줘 저장된 파일 내용도 다시 만들게 한다.
+ * @returns {{ state, changed: string[] }}
+ */
+export function upgradeSampleAttachments(state) {
+  if (!state?.items) return { state, changed: [] };
+  const current = new Map(sampleState().items.flatMap((x) => x.attachments || []).map((a) => [a.id, a]));
+  const changed = [];
+  const items = state.items.map((x) => {
+    if (!x.attachments?.some((a) => current.has(a.id) && current.get(a.id).name !== a.name)) return x;
+    return { ...x, attachments: x.attachments.map((a) => {
+      const now = current.get(a.id);
+      if (!now || now.name === a.name) return a;
+      changed.push(a.id);
+      return { ...a, name: now.name, size: now.size, type: now.type };
+    }) };
+  });
+  return changed.length ? { state: { ...state, items }, changed } : { state, changed };
+}
+
+/**
  * 예시 자료. 시연 기준일(DEMO_DATE, 2027-01-14 목) 기준 상대 날짜로 만든다.
  * 기능마다 보여줄 장면이 하나씩 있도록 구성했다.
  *   PBC 6건  : 미회신·독촉 중(재고실사) / 묶음 독촉(김민지 대리 3건) / 일부 수령(특수관계자) /

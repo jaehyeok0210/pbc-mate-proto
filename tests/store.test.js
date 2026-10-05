@@ -76,3 +76,20 @@ test('앱 예시 데이터: 시연 기준일은 결산일 이후 1월, 12/31 기
   const lefts = s.items.filter((x) => x.status !== 'done' && x.neededOn >= APP_DATE).map((x) => x.neededOn);
   assert.equal(new Set(lefts).size, lefts.length);
 });
+
+test('예전 예시 첨부(텍스트)는 지금 예시의 이름·형식으로 바꾸고, 직접 올린 파일은 그대로 둔다', async () => {
+  const { upgradeSampleAttachments, sampleState: current } = await import('../src/js/store.js');
+  const s = current();
+  const old = { ...s, items: s.items.map((x) => (x.id === 'i6'
+    ? { ...x, attachments: [{ id: 'sample-f3', name: '2025 법인세 신고서 사본(예시).txt', size: 210, type: 'text/plain', addedOn: 'x' },
+      { id: 'f-mine', name: '내 파일.pdf', size: 10, type: 'application/pdf', addedOn: 'x' }] }
+    : x)) };
+  const up = upgradeSampleAttachments(old);
+  assert.deepEqual(up.changed, ['sample-f3']);
+  const att = up.state.items.find((x) => x.id === 'i6').attachments;
+  assert.equal(att[0].type, 'image/png');
+  assert.equal(att[0].addedOn, 'x', '첨부한 날은 유지');
+  assert.equal(att[1].name, '내 파일.pdf');
+  assert.equal(upgradeSampleAttachments(current()).changed.length, 0, '이미 최신이면 그대로');
+  assert.equal(upgradeSampleAttachments(null).changed.length, 0);
+});
