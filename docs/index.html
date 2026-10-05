@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<title>PBC Mate</title>
+<title>PwC 메이트</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap">
 <style>
 /* Artifact 단일 파일 빌드 — 원본은 src/styles.css. 호스트 테마와 무관하게 밝은 문서형 화면으로 고정한다. */
 :root { color-scheme: light; }
 html, body { font-family: 'Pretendard Variable', Pretendard, 'Noto Sans KR', -apple-system, 'Apple SD Gothic Neo', sans-serif; }
-/* PBC Mate — 삼일회계법인 맞춤 사내 업무도구 스타일 (PwC 계열 컬러·블록 모티프, 공식 로고는 쓰지 않음).
+/* PwC 메이트 — 삼일회계법인 맞춤 사내 업무도구 스타일 (PwC 계열 컬러·블록 모티프, 공식 로고는 쓰지 않음).
    정보 구조는 reference/pbc-mate-ui-reference.html 기준. */
 
 /* ---------- 디자인 토큰 ---------- */
@@ -1584,12 +1584,15 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .req-table .ot-owner { display: flex; align-items: center; gap: 6px; flex-direction: row; }
 .me-tag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: var(--orange); color: #fff; }
 
-/* 왼쪽 위 PBC Mate: 누르면 대시보드 */
+/* 왼쪽 위 PwC 메이트: 누르면 대시보드 */
 a.brand { color: inherit; text-decoration: none; }
 a.brand:hover { color: var(--orange-dark); }
 
 .preview-sheet .sheet-foot .btn[disabled] { opacity: .45; cursor: not-allowed; }
 .pv-none small { max-width: 360px; }
+
+/* 첫 화면: 과제용 시연 프로토타입 안내 */
+.empty-main .empty-disclaimer { margin-top: 6px; font-size: 12px; color: var(--ink-3); }
 
 </style>
 <div id="app"></div>
@@ -4489,7 +4492,7 @@ function scanEffect(ctx, draw, seed) {
   g.addColorStop(0.96, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.08)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   // 시연용 표시 (작게)
-  text(ctx, 'PBC Mate 시연용 예시 문서 · 가공의 자료', W / 2, H - 34, { px: 15, align: 'center', color: 'rgba(90,90,90,0.75)', serif: false });
+  text(ctx, 'PwC 메이트 시연용 예시 문서 · 가공의 자료', W / 2, H - 34, { px: 15, align: 'center', color: 'rgba(90,90,90,0.75)', serif: false });
 }
 
 /** 문서 내용 → PNG Blob */
@@ -4933,7 +4936,7 @@ function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
 function topbar(client, today, isDemo, active, team) {
   return `
     <header class="topbar">
-      <a class="brand" href="#" title="대시보드로"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</a>
+      <a class="brand" href="#" title="대시보드로"><span class="brand-mark" aria-hidden="true"></span>PwC 메이트</a>
       <span class="chip">${esc(client.name)} · ${esc(client.engagement)}</span>
       <nav class="tabs">
         <a class="tab ${active === 'dashboard' ? 'is-active' : ''}" href="#">대시보드</a>
@@ -5263,7 +5266,7 @@ function renderEmpty({ lookupOpen = false, query = '', results = null, selectedI
   return `
     <div class="page empty">
       <header class="topbar">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PwC 메이트</div>
         <span class="chip">${picked ? `${esc(picked.client)} · ${esc(picked.engagement)}` : '클라이언트를 조회해 주세요'}</span>
       </header>
 
@@ -5279,6 +5282,7 @@ function renderEmpty({ lookupOpen = false, query = '', results = null, selectedI
         </div>
         <h1>요청한 자료를 필요일 기준으로 챙겨드려요</h1>
         <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 요청 메일 초안까지 만들어요.</p>
+        <p class="empty-disclaimer">삼일PwC 입사 전 과제로 만든 시연용 프로토타입이에요. PwC 공식 서비스가 아니에요.</p>
 
         <form class="empty-form" id="engagement-form" novalidate>
           <div class="f eng-lookup ${errors.client ? 'has-error' : ''}">
@@ -7659,7 +7663,7 @@ async function sampleFileBlob(f, item) {
   if (doc) {
     try { return await renderScan(doc, f.id.length * 31 + item.id.charCodeAt(1)); } catch { /* 아래 텍스트로 */ }
   }
-  const text = `${f.name}\n\nPBC Mate 시연용 예시 첨부파일입니다. 실제 자료가 아닙니다.\n자료: ${item.name}\n담당: ${item.owner}\n`;
+  const text = `${f.name}\n\nPwC 메이트 시연용 예시 첨부파일입니다. 실제 자료가 아닙니다.\n자료: ${item.name}\n담당: ${item.owner}\n`;
   return new Blob([text], { type: 'text/plain' });
 }
 
