@@ -17,8 +17,8 @@ import { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } from
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
 import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
-import { validateEngagement } from './lib/engagement.js';
-import { validateTeam, buildTeam, currentUser, switchUser, signMail } from './lib/team.js';
+import { currentUser, switchUser, signMail } from './lib/team.js';
+import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
 import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
@@ -54,7 +54,7 @@ let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
-const EMPTY_FORM = { clientName: '', engagement: '', myName: '', myTitle: '', members: '', manager: '', errors: {} };
+const EMPTY_FORM = { query: '', results: null, selectedId: null, myName: '', myTitle: '', errors: {} };
 let emptyForm = { ...EMPTY_FORM }; // 첫 실행 화면 입력값
 let who = 'all';    // 대시보드 요청 감사인 필터: 'all' | 'me' | 팀원 이름
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
@@ -353,19 +353,46 @@ const actions = {
   // 첫 실행: 클라이언트명·감사명을 넣고 빈 state로 시작 → 자료 추가 화면으로
   'start-blank': (el) => {
     const form = document.getElementById('engagement-form');
-    emptyForm = Object.fromEntries(Object.keys(EMPTY_FORM).filter((k) => k !== 'errors').map((k) => [k, form[k]?.value ?? '']));
-    emptyForm.errors = { ...validateEngagement(emptyForm), ...validateTeam(emptyForm) };
+    readEmptyForm();
+    emptyForm.errors = validateStart(emptyForm);
     if (Object.keys(emptyForm.errors).length) {
       render();
       app.querySelector('.empty-form .has-error input')?.focus();
       return;
     }
-    state = createEmptyState({ ...emptyForm, team: buildTeam(emptyForm) });
+    const eng = engagementById(emptyForm.selectedId);
+    state = createEmptyState({ clientName: eng.client, engagement: eng.engagement, team: teamFromEngagement(eng, emptyForm.myName, emptyForm.myTitle) });
     save(state);
     emptyForm = { ...EMPTY_FORM };
     who = 'all';
     location.hash = el.dataset.target === 'paste' ? '#/add/paste' : '#/add';
     render();
+  },
+
+  // 첫 화면: 감사 계약 조회
+  'eng-search': () => {
+    readEmptyForm();
+    emptyForm.results = searchEngagements(emptyForm.query);
+    emptyForm.selectedId = null;
+    emptyForm.errors = {};
+    // 한 건뿐이면 바로 고른다
+    if (emptyForm.results.length === 1) emptyForm.selectedId = emptyForm.results[0].id;
+    render();
+    (emptyForm.selectedId ? app.querySelector('[name="myName"]') : app.querySelector('.eng-item'))?.focus();
+  },
+  'eng-pick': (el) => {
+    readEmptyForm();
+    emptyForm.selectedId = el.dataset.id;
+    emptyForm.errors = { ...emptyForm.errors, client: undefined };
+    delete emptyForm.errors.client;
+    render();
+    app.querySelector('[name="myName"]')?.focus();
+  },
+  'eng-clear': () => {
+    readEmptyForm();
+    emptyForm.selectedId = null;
+    render();
+    app.querySelector('[name="clientQuery"]')?.focus();
   },
 
   // 자료 상태 변경 시트
@@ -720,6 +747,15 @@ function applyReceiptCheck() {
   render();
 }
 
+// 첫 화면 입력값을 상태에 옮겨 둔다 (다시 그려도 입력이 남도록)
+function readEmptyForm() {
+  const form = document.getElementById('engagement-form');
+  if (!form) return;
+  emptyForm.query = form.clientQuery?.value ?? emptyForm.query;
+  emptyForm.myName = form.myName?.value ?? emptyForm.myName;
+  emptyForm.myTitle = form.myTitle?.value ?? emptyForm.myTitle;
+}
+
 // 시트의 기준일 입력값을 상태에 옮겨 둔다 (다시 그려도 입력이 남도록)
 function readSheetDates() {
   const root = document.querySelector('.sheet');
@@ -985,6 +1021,12 @@ app.addEventListener('click', (e) => {
 window.addEventListener('hashchange', render);
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
+  // 첫 화면 클라이언트명에서 Enter → 조회
+  if (e.key === 'Enter' && e.target.dataset?.enter === 'eng-search') {
+    e.preventDefault();
+    actions['eng-search']();
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (att) { att = null; render(); return; }
   if (sheet) { sheet = null; render(); return; }

@@ -1493,8 +1493,6 @@ a.tl-label:hover b, a.tl-label:focus-visible b { color: var(--orange-dark); }
 @media (prefers-reduced-motion: reduce) { a.tl-label { transition: none; } }
 
 /* ---------- 감사팀: 첫 화면 · 상단바 사용자 · 요청 감사인 ---------- */
-.empty-team-title { grid-column: 1 / -1; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft); font-size: 14px; font-weight: 700; color: var(--ink); }
-.empty-team-title small { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
 .me-picker { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 4px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
 .me-dot { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--orange); color: #fff; font-size: 12px; font-weight: 700; }
 .me-picker select { border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); padding-right: 2px; cursor: pointer; }
@@ -1518,3 +1516,23 @@ button.owner-link { border: 0; background: none; padding: 0; font: inherit; font
 @media (max-width: 1240px) { .topbar .tab { padding: 0 7px; } .topbar .tab.is-active::after { left: 7px; right: 7px; } .demo-date { font-size: 11px; } }
 @media (max-width: 1120px) { .topbar .chip { display: none; } }
 @media (max-width: 720px) { .topbar .chip { display: inline-block; max-width: none; } }
+
+/* ---------- 첫 화면: 감사 계약 조회 ---------- */
+.eng-lookup { grid-column: 1 / -1; }
+.eng-search { display: flex; gap: 8px; }
+.eng-search input { flex-grow: 1; min-width: 0; }
+.eng-search .btn { height: 42px; flex-shrink: 0; }
+.eng-results { grid-column: 1 / -1; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); max-height: 240px; overflow-y: auto; }
+.eng-results.is-empty { padding: 12px 14px; font-size: 13px; color: var(--ink-3); background: var(--fill-2); }
+.eng-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 0; background: #fff; text-align: left; cursor: pointer; }
+.eng-item + .eng-item { border-top: 1px solid var(--line-soft); }
+.eng-item:hover, .eng-item:focus-visible { background: var(--peach-light); outline: none; }
+.eng-name { font-size: 14px; color: var(--ink-2); }
+.eng-name b { color: var(--ink); }
+.eng-item small { font-size: 12px; color: var(--ink-3); }
+.eng-picked { grid-column: 1 / -1; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--orange); border-radius: var(--radius); background: var(--peach-light); }
+.eng-picked dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 13.5px; }
+.eng-picked dl div { display: contents; }
+.eng-picked dt { color: var(--ink-3); }
+.eng-picked dd { margin: 0; font-weight: 600; color: var(--ink); }
+.eng-picked .link { flex-shrink: 0; font-size: 12.5px; }

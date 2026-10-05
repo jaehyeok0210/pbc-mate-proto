@@ -1505,8 +1505,6 @@ a.tl-label:hover b, a.tl-label:focus-visible b { color: var(--orange-dark); }
 @media (prefers-reduced-motion: reduce) { a.tl-label { transition: none; } }
 
 /* ---------- 감사팀: 첫 화면 · 상단바 사용자 · 요청 감사인 ---------- */
-.empty-team-title { grid-column: 1 / -1; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line-soft); font-size: 14px; font-weight: 700; color: var(--ink); }
-.empty-team-title small { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
 .me-picker { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 4px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
 .me-dot { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--orange); color: #fff; font-size: 12px; font-weight: 700; }
 .me-picker select { border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); padding-right: 2px; cursor: pointer; }
@@ -1530,6 +1528,26 @@ button.owner-link { border: 0; background: none; padding: 0; font: inherit; font
 @media (max-width: 1240px) { .topbar .tab { padding: 0 7px; } .topbar .tab.is-active::after { left: 7px; right: 7px; } .demo-date { font-size: 11px; } }
 @media (max-width: 1120px) { .topbar .chip { display: none; } }
 @media (max-width: 720px) { .topbar .chip { display: inline-block; max-width: none; } }
+
+/* ---------- 첫 화면: 감사 계약 조회 ---------- */
+.eng-lookup { grid-column: 1 / -1; }
+.eng-search { display: flex; gap: 8px; }
+.eng-search input { flex-grow: 1; min-width: 0; }
+.eng-search .btn { height: 42px; flex-shrink: 0; }
+.eng-results { grid-column: 1 / -1; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); max-height: 240px; overflow-y: auto; }
+.eng-results.is-empty { padding: 12px 14px; font-size: 13px; color: var(--ink-3); background: var(--fill-2); }
+.eng-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 0; background: #fff; text-align: left; cursor: pointer; }
+.eng-item + .eng-item { border-top: 1px solid var(--line-soft); }
+.eng-item:hover, .eng-item:focus-visible { background: var(--peach-light); outline: none; }
+.eng-name { font-size: 14px; color: var(--ink-2); }
+.eng-name b { color: var(--ink); }
+.eng-item small { font-size: 12px; color: var(--ink-3); }
+.eng-picked { grid-column: 1 / -1; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--orange); border-radius: var(--radius); background: var(--peach-light); }
+.eng-picked dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 13.5px; }
+.eng-picked dl div { display: contents; }
+.eng-picked dt { color: var(--ink-3); }
+.eng-picked dd { margin: 0; font-weight: 600; color: var(--ink); }
+.eng-picked .link { flex-shrink: 0; font-size: 12.5px; }
 
 </style>
 <div id="app"></div>
@@ -2932,6 +2950,62 @@ function validateEngagement({ clientName, engagement }) {
 }
 
 return { validateEngagement };
+})();
+
+// ---- lib/engagements.js
+const __m_lib_engagements = (() => {
+
+// 감사 계약 조회: 첫 화면에서 클라이언트명으로 조회해 감사명·팀원·담당 매니저를 불러온다.
+// 실제로는 법인 시스템에서 가져와야 하지만, 서버가 없는 프로토타입이라 가상의 계약 목록을 둔다.
+// (연결할 때는 searchEngagements만 바꾸면 된다.)
+
+const ENGAGEMENTS = [
+  { id: 'e1', client: '㈜한빛전자', engagement: '2026 기말감사', manager: '이서연 매니저', members: ['장재혁 회계사', '김서윤 회계사'] },
+  { id: 'e2', client: '㈜한빛전자', engagement: '2026 반기검토', manager: '이서연 매니저', members: ['김서윤 회계사', '박도윤 회계사'] },
+  { id: 'e3', client: '동해에너지㈜', engagement: '2026 기말감사', manager: '최민준 매니저', members: ['정하늘 회계사', '오지훈 회계사', '장재혁 회계사'] },
+  { id: 'e4', client: '㈜새봄바이오', engagement: '2026 기말감사', manager: '강태오 매니저', members: ['한유진 회계사', '윤가람 회계사'] },
+  { id: 'e5', client: '한결유통㈜', engagement: '2026 내부회계관리제도 감사', manager: '이서연 매니저', members: ['박도윤 회계사', '서민재 회계사'] },
+  { id: 'e6', client: '㈜미래모빌리티', engagement: '2026 기말감사', manager: '최민준 매니저', members: ['오지훈 회계사', '윤가람 회계사'] },
+];
+
+/** '㈜한빛전자' → '한빛전자' (㈜·(주)·주식회사·띄어쓰기 무시) */
+const key = (s) => String(s ?? '').replace(/㈜|\(주\)|주식회사|\s+/g, '').toLowerCase();
+
+/** 클라이언트명 일부로 조회. 빈 검색어면 빈 목록. */
+function searchEngagements(query, list = ENGAGEMENTS) {
+  const q = key(query);
+  return q ? list.filter((e) => key(e.client).includes(q)) : [];
+}
+
+function engagementById(id, list = ENGAGEMENTS) {
+  return list.find((e) => e.id === id) || null;
+}
+
+/** 시작 검증: 조회한 계약을 골랐는지, 내 이름을 넣었는지 */
+function validateStart({ selectedId, myName }) {
+  const errors = {};
+  if (!engagementById(selectedId)) errors.client = '클라이언트명으로 조회한 뒤 감사 계약을 골라 주세요.';
+  if (!String(myName ?? '').trim()) errors.myName = '내 이름을 입력해 주세요. 요청 감사인과 메일 서명에 들어가요.';
+  return errors;
+}
+
+/**
+ * 고른 계약 + 내 이름·직급 → state.team.
+ * 내 이름이 팀원 목록에 있으면(직급 없이 이름만 넣어도) 그 사람으로, 없으면 맨 앞에 더한다.
+ * 매니저는 팀원 맨 뒤.
+ */
+function teamFromEngagement(eng, myName, myTitle) {
+  const name = String(myName ?? '').trim().replace(/\s+/g, ' ');
+  const title = String(myTitle ?? '').trim();
+  const label = [name, title].filter(Boolean).join(' ');
+  const pool = [...eng.members, eng.manager];
+  const found = pool.find((m) => m === label) || pool.find((m) => m.split(' ')[0] === name && (!title || m === label));
+  const me = found || label;
+  const members = [...new Set([me, ...eng.members, eng.manager])];
+  return { manager: { name: eng.manager, dept: '감사팀' }, members, me };
+}
+
+return { ENGAGEMENTS, searchEngagements, engagementById, validateStart, teamFromEngagement };
 })();
 
 // ---- lib/fix.js
@@ -4713,20 +4787,22 @@ return { renderDashboard, topbar };
 
 // ---- views/empty.js
 const __m_views_empty = (() => {
-const { esc } = __m_views_html;
+const { engagementById } = __m_lib_engagements;
+const { esc, ICON } = __m_views_html;
 // 8. 빈 상태 · 첫 실행 — 레퍼런스 8
-// 예시 자료로 시작하거나, 클라이언트명·감사명을 넣고 직접 시작한다.
+// 예시 자료로 시작하거나, 클라이언트를 조회해 감사 계약을 고르고 내 이름을 넣어 직접 시작한다.
 
 
 /**
- * @param form { clientName, engagement, myName, myTitle, members, manager, errors }
+ * @param form { query, results: 조회 결과 | null(조회 전), selectedId, myName, myTitle, errors }
  */
-function renderEmpty({ clientName = '', engagement = '', myName = '', myTitle = '', members = '', manager = '', errors = {} } = {}) {
+function renderEmpty({ query = '', results = null, selectedId = null, myName = '', myTitle = '', errors = {} } = {}) {
+  const picked = engagementById(selectedId);
   return `
     <div class="page empty">
       <header class="topbar">
         <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
-        <span class="chip">클라이언트 이름을 정해주세요</span>
+        <span class="chip">${picked ? `${esc(picked.client)} · ${esc(picked.engagement)}` : '클라이언트를 조회해 주세요'}</span>
       </header>
 
       <main class="empty-main">
@@ -4743,17 +4819,16 @@ function renderEmpty({ clientName = '', engagement = '', myName = '', myTitle = 
         <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 재촉 메일 초안까지 만들어요.</p>
 
         <form class="empty-form" id="engagement-form" novalidate>
-          <label class="f ${errors.clientName ? 'has-error' : ''}">
-            <span class="f-label">클라이언트명</span>
-            <input type="text" name="clientName" value="${esc(clientName)}" placeholder="예: ㈜한빛전자" autocomplete="organization">
-            ${errors.clientName ? `<span class="f-error">${esc(errors.clientName)}</span>` : ''}
-          </label>
-          <label class="f ${errors.engagement ? 'has-error' : ''}">
-            <span class="f-label">감사명</span>
-            <input type="text" name="engagement" value="${esc(engagement)}" placeholder="예: 2026 기말감사" autocomplete="off">
-            ${errors.engagement ? `<span class="f-error">${esc(errors.engagement)}</span>` : ''}
-          </label>
-          <div class="empty-team-title">감사팀 <small>요청 감사인과 메일 서명에 쓰여요</small></div>
+          <div class="f eng-lookup ${errors.client ? 'has-error' : ''}">
+            <span class="f-label">클라이언트명 <small>조회하면 감사명·팀원·담당 매니저가 채워져요</small></span>
+            <div class="eng-search">
+              <input type="text" name="clientQuery" value="${esc(query)}" placeholder="예: 한빛전자" autocomplete="off" data-enter="eng-search">
+              <button type="button" class="btn btn-sub" data-action="eng-search">조회하기</button>
+            </div>
+            ${errors.client ? `<span class="f-error">${esc(errors.client)}</span>` : ''}
+          </div>
+          ${picked ? pickedCard(picked) : resultList(results, query)}
+
           <label class="f ${errors.myName ? 'has-error' : ''}">
             <span class="f-label">내 이름</span>
             <input type="text" name="myName" value="${esc(myName)}" placeholder="예: 장재혁" autocomplete="name">
@@ -4762,14 +4837,6 @@ function renderEmpty({ clientName = '', engagement = '', myName = '', myTitle = 
           <label class="f">
             <span class="f-label">직급 <small>선택</small></span>
             <input type="text" name="myTitle" value="${esc(myTitle)}" placeholder="예: 회계사" autocomplete="off">
-          </label>
-          <label class="f">
-            <span class="f-label">팀원 <small>선택 · 쉼표로 구분</small></span>
-            <input type="text" name="members" value="${esc(members)}" placeholder="예: 김서윤 회계사, 박도윤 회계사" autocomplete="off">
-          </label>
-          <label class="f">
-            <span class="f-label">담당 매니저 <small>선택 · 매니저 참조 메일의 참조</small></span>
-            <input type="text" name="manager" value="${esc(manager)}" placeholder="예: 이서연 매니저" autocomplete="off">
           </label>
         </form>
 
@@ -4785,6 +4852,36 @@ function renderEmpty({ clientName = '', engagement = '', myName = '', myTitle = 
         ${step(2, '남은 날로 위험도 확인', '2일 이내 · 3~7일 · 8일 이상으로 나눠 보여드려요.')}
         ${step(3, '초안 복사해 아웃룩에', '담당자별로 묶고, 톤을 고른 뒤 복사만 하면 돼요.')}
       </section>
+    </div>`;
+}
+
+// 조회 결과: 감사 계약마다 감사명·매니저·팀원
+function resultList(results, query) {
+  if (results === null) return '';
+  if (!results.length) {
+    return `<div class="eng-results is-empty">‘${esc(query)}’로 조회된 감사 계약이 없어요. 회사 이름의 일부만 넣어 보세요.</div>`;
+  }
+  return `
+    <div class="eng-results" role="listbox" aria-label="조회된 감사 계약">
+      ${results.map((e) => `
+        <button type="button" class="eng-item" data-action="eng-pick" data-id="${esc(e.id)}" role="option">
+          <span class="eng-name"><b>${esc(e.client)}</b> · ${esc(e.engagement)}</span>
+          <small>담당 매니저 ${esc(e.manager)} · 팀원 ${e.members.map(esc).join(', ')}</small>
+        </button>`).join('')}
+    </div>`;
+}
+
+// 고른 감사 계약: 자동으로 채워진 값
+function pickedCard(e) {
+  return `
+    <div class="eng-picked">
+      <dl>
+        <div><dt>클라이언트</dt><dd>${esc(e.client)}</dd></div>
+        <div><dt>감사명</dt><dd>${esc(e.engagement)}</dd></div>
+        <div><dt>담당 매니저</dt><dd>${esc(e.manager)}</dd></div>
+        <div><dt>팀원</dt><dd>${e.members.map(esc).join(', ')}</dd></div>
+      </dl>
+      <button type="button" class="link" data-action="eng-clear">다시 조회</button>
     </div>`;
 }
 
@@ -6732,8 +6829,8 @@ const { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } = __m
 const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } = __m_lib_calendar;
 const { formatMD } = __m_lib_dates;
 const { validateTransition, canTransition } = __m_lib_status;
-const { validateEngagement } = __m_lib_engagement;
-const { validateTeam, buildTeam, currentUser, switchUser, signMail } = __m_lib_team;
+const { currentUser, switchUser, signMail } = __m_lib_team;
+const { searchEngagements, engagementById, validateStart, teamFromEngagement } = __m_lib_engagements;
 const { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
 const { renderDashboard } = __m_views_dashboard;
 const { renderEmpty } = __m_views_empty;
@@ -6772,7 +6869,7 @@ let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
-const EMPTY_FORM = { clientName: '', engagement: '', myName: '', myTitle: '', members: '', manager: '', errors: {} };
+const EMPTY_FORM = { query: '', results: null, selectedId: null, myName: '', myTitle: '', errors: {} };
 let emptyForm = { ...EMPTY_FORM }; // 첫 실행 화면 입력값
 let who = 'all';    // 대시보드 요청 감사인 필터: 'all' | 'me' | 팀원 이름
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
@@ -7071,19 +7168,46 @@ const actions = {
   // 첫 실행: 클라이언트명·감사명을 넣고 빈 state로 시작 → 자료 추가 화면으로
   'start-blank': (el) => {
     const form = document.getElementById('engagement-form');
-    emptyForm = Object.fromEntries(Object.keys(EMPTY_FORM).filter((k) => k !== 'errors').map((k) => [k, form[k]?.value ?? '']));
-    emptyForm.errors = { ...validateEngagement(emptyForm), ...validateTeam(emptyForm) };
+    readEmptyForm();
+    emptyForm.errors = validateStart(emptyForm);
     if (Object.keys(emptyForm.errors).length) {
       render();
       app.querySelector('.empty-form .has-error input')?.focus();
       return;
     }
-    state = createEmptyState({ ...emptyForm, team: buildTeam(emptyForm) });
+    const eng = engagementById(emptyForm.selectedId);
+    state = createEmptyState({ clientName: eng.client, engagement: eng.engagement, team: teamFromEngagement(eng, emptyForm.myName, emptyForm.myTitle) });
     save(state);
     emptyForm = { ...EMPTY_FORM };
     who = 'all';
     location.hash = el.dataset.target === 'paste' ? '#/add/paste' : '#/add';
     render();
+  },
+
+  // 첫 화면: 감사 계약 조회
+  'eng-search': () => {
+    readEmptyForm();
+    emptyForm.results = searchEngagements(emptyForm.query);
+    emptyForm.selectedId = null;
+    emptyForm.errors = {};
+    // 한 건뿐이면 바로 고른다
+    if (emptyForm.results.length === 1) emptyForm.selectedId = emptyForm.results[0].id;
+    render();
+    (emptyForm.selectedId ? app.querySelector('[name="myName"]') : app.querySelector('.eng-item'))?.focus();
+  },
+  'eng-pick': (el) => {
+    readEmptyForm();
+    emptyForm.selectedId = el.dataset.id;
+    emptyForm.errors = { ...emptyForm.errors, client: undefined };
+    delete emptyForm.errors.client;
+    render();
+    app.querySelector('[name="myName"]')?.focus();
+  },
+  'eng-clear': () => {
+    readEmptyForm();
+    emptyForm.selectedId = null;
+    render();
+    app.querySelector('[name="clientQuery"]')?.focus();
   },
 
   // 자료 상태 변경 시트
@@ -7438,6 +7562,15 @@ function applyReceiptCheck() {
   render();
 }
 
+// 첫 화면 입력값을 상태에 옮겨 둔다 (다시 그려도 입력이 남도록)
+function readEmptyForm() {
+  const form = document.getElementById('engagement-form');
+  if (!form) return;
+  emptyForm.query = form.clientQuery?.value ?? emptyForm.query;
+  emptyForm.myName = form.myName?.value ?? emptyForm.myName;
+  emptyForm.myTitle = form.myTitle?.value ?? emptyForm.myTitle;
+}
+
 // 시트의 기준일 입력값을 상태에 옮겨 둔다 (다시 그려도 입력이 남도록)
 function readSheetDates() {
   const root = document.querySelector('.sheet');
@@ -7703,6 +7836,12 @@ app.addEventListener('click', (e) => {
 window.addEventListener('hashchange', render);
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
+  // 첫 화면 클라이언트명에서 Enter → 조회
+  if (e.key === 'Enter' && e.target.dataset?.enter === 'eng-search') {
+    e.preventDefault();
+    actions['eng-search']();
+    return;
+  }
   if (e.key !== 'Escape') return;
   if (att) { att = null; render(); return; }
   if (sheet) { sheet = null; render(); return; }

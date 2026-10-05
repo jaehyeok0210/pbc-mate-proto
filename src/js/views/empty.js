@@ -1,17 +1,19 @@
 // 8. 빈 상태 · 첫 실행 — 레퍼런스 8
-// 예시 자료로 시작하거나, 클라이언트명·감사명을 넣고 직접 시작한다.
+// 예시 자료로 시작하거나, 클라이언트를 조회해 감사 계약을 고르고 내 이름을 넣어 직접 시작한다.
 
-import { esc } from './html.js';
+import { engagementById } from '../lib/engagements.js';
+import { esc, ICON } from './html.js';
 
 /**
- * @param form { clientName, engagement, myName, myTitle, members, manager, errors }
+ * @param form { query, results: 조회 결과 | null(조회 전), selectedId, myName, myTitle, errors }
  */
-export function renderEmpty({ clientName = '', engagement = '', myName = '', myTitle = '', members = '', manager = '', errors = {} } = {}) {
+export function renderEmpty({ query = '', results = null, selectedId = null, myName = '', myTitle = '', errors = {} } = {}) {
+  const picked = engagementById(selectedId);
   return `
     <div class="page empty">
       <header class="topbar">
         <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
-        <span class="chip">클라이언트 이름을 정해주세요</span>
+        <span class="chip">${picked ? `${esc(picked.client)} · ${esc(picked.engagement)}` : '클라이언트를 조회해 주세요'}</span>
       </header>
 
       <main class="empty-main">
@@ -28,17 +30,16 @@ export function renderEmpty({ clientName = '', engagement = '', myName = '', myT
         <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 재촉 메일 초안까지 만들어요.</p>
 
         <form class="empty-form" id="engagement-form" novalidate>
-          <label class="f ${errors.clientName ? 'has-error' : ''}">
-            <span class="f-label">클라이언트명</span>
-            <input type="text" name="clientName" value="${esc(clientName)}" placeholder="예: ㈜한빛전자" autocomplete="organization">
-            ${errors.clientName ? `<span class="f-error">${esc(errors.clientName)}</span>` : ''}
-          </label>
-          <label class="f ${errors.engagement ? 'has-error' : ''}">
-            <span class="f-label">감사명</span>
-            <input type="text" name="engagement" value="${esc(engagement)}" placeholder="예: 2026 기말감사" autocomplete="off">
-            ${errors.engagement ? `<span class="f-error">${esc(errors.engagement)}</span>` : ''}
-          </label>
-          <div class="empty-team-title">감사팀 <small>요청 감사인과 메일 서명에 쓰여요</small></div>
+          <div class="f eng-lookup ${errors.client ? 'has-error' : ''}">
+            <span class="f-label">클라이언트명 <small>조회하면 감사명·팀원·담당 매니저가 채워져요</small></span>
+            <div class="eng-search">
+              <input type="text" name="clientQuery" value="${esc(query)}" placeholder="예: 한빛전자" autocomplete="off" data-enter="eng-search">
+              <button type="button" class="btn btn-sub" data-action="eng-search">조회하기</button>
+            </div>
+            ${errors.client ? `<span class="f-error">${esc(errors.client)}</span>` : ''}
+          </div>
+          ${picked ? pickedCard(picked) : resultList(results, query)}
+
           <label class="f ${errors.myName ? 'has-error' : ''}">
             <span class="f-label">내 이름</span>
             <input type="text" name="myName" value="${esc(myName)}" placeholder="예: 장재혁" autocomplete="name">
@@ -47,14 +48,6 @@ export function renderEmpty({ clientName = '', engagement = '', myName = '', myT
           <label class="f">
             <span class="f-label">직급 <small>선택</small></span>
             <input type="text" name="myTitle" value="${esc(myTitle)}" placeholder="예: 회계사" autocomplete="off">
-          </label>
-          <label class="f">
-            <span class="f-label">팀원 <small>선택 · 쉼표로 구분</small></span>
-            <input type="text" name="members" value="${esc(members)}" placeholder="예: 김서윤 회계사, 박도윤 회계사" autocomplete="off">
-          </label>
-          <label class="f">
-            <span class="f-label">담당 매니저 <small>선택 · 매니저 참조 메일의 참조</small></span>
-            <input type="text" name="manager" value="${esc(manager)}" placeholder="예: 이서연 매니저" autocomplete="off">
           </label>
         </form>
 
@@ -70,6 +63,36 @@ export function renderEmpty({ clientName = '', engagement = '', myName = '', myT
         ${step(2, '남은 날로 위험도 확인', '2일 이내 · 3~7일 · 8일 이상으로 나눠 보여드려요.')}
         ${step(3, '초안 복사해 아웃룩에', '담당자별로 묶고, 톤을 고른 뒤 복사만 하면 돼요.')}
       </section>
+    </div>`;
+}
+
+// 조회 결과: 감사 계약마다 감사명·매니저·팀원
+function resultList(results, query) {
+  if (results === null) return '';
+  if (!results.length) {
+    return `<div class="eng-results is-empty">‘${esc(query)}’로 조회된 감사 계약이 없어요. 회사 이름의 일부만 넣어 보세요.</div>`;
+  }
+  return `
+    <div class="eng-results" role="listbox" aria-label="조회된 감사 계약">
+      ${results.map((e) => `
+        <button type="button" class="eng-item" data-action="eng-pick" data-id="${esc(e.id)}" role="option">
+          <span class="eng-name"><b>${esc(e.client)}</b> · ${esc(e.engagement)}</span>
+          <small>담당 매니저 ${esc(e.manager)} · 팀원 ${e.members.map(esc).join(', ')}</small>
+        </button>`).join('')}
+    </div>`;
+}
+
+// 고른 감사 계약: 자동으로 채워진 값
+function pickedCard(e) {
+  return `
+    <div class="eng-picked">
+      <dl>
+        <div><dt>클라이언트</dt><dd>${esc(e.client)}</dd></div>
+        <div><dt>감사명</dt><dd>${esc(e.engagement)}</dd></div>
+        <div><dt>담당 매니저</dt><dd>${esc(e.manager)}</dd></div>
+        <div><dt>팀원</dt><dd>${e.members.map(esc).join(', ')}</dd></div>
+      </dl>
+      <button type="button" class="link" data-action="eng-clear">다시 조회</button>
     </div>`;
 }
 
