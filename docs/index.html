@@ -716,7 +716,7 @@ a.m-bundle { text-decoration: none; }
 .owner-table, .item-table { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .ot-row, .it-row { display: grid; gap: 12px; padding: 10px 16px; align-items: center; border-top: 1px solid var(--line-soft); font-size: 14px; }
 .ot-row { grid-template-columns: minmax(0, 1.4fr) 80px 90px minmax(0, 1.4fr) 100px; }
-.it-row { grid-template-columns: minmax(0, 1.6fr) 110px 110px 70px 170px 90px; }
+.it-row { grid-template-columns: minmax(0, 1.5fr) 110px 100px 60px 160px 70px minmax(0, 1.1fr); }
 .ot-head, .it-head { background: var(--fill); font-size: 12px; font-weight: 700; color: var(--ink-2); border-top: 0; border-bottom: 1px solid var(--line); padding-top: 9px; padding-bottom: 9px; }
 .ot-row > div, .it-row > div { min-width: 0; }
 .ot-owner b, .it-name { font-weight: 700; color: var(--ink); }
@@ -1104,6 +1104,8 @@ a.m-bundle { text-decoration: none; }
   .it-row > div:nth-child(5) { grid-column: 2; grid-row: 2 / 4; justify-self: end; align-self: center; flex-direction: column; align-items: flex-end; gap: 4px; }
   .it-row > div:nth-child(6) { grid-column: 1; font-size: 12.5px; color: var(--ink-3); }
   .it-row > div:nth-child(6)::before { content: '최근 독촉 '; }
+  .it-row > div:nth-child(7) { grid-column: 1 / -1; }
+  .it-row > div.it-att:empty, .it-head > div:nth-child(7) { display: none; }
 
   /* 상태 변경 시트: 아래에서 올라오는 시트 */
   .sheet { left: 0; top: auto; bottom: 0; transform: none; width: 100%; max-width: 100%; max-height: 92%; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
@@ -1420,10 +1422,75 @@ a.m-bundle { text-decoration: none; }
 .row-action svg { width: 12px; height: 12px; }
 .row-action:hover { border-color: var(--orange); color: var(--orange-dark); }
 
+/* ---------- 첨부자료 ---------- */
+.sheet.attach .sheet-body { display: flex; flex-direction: column; gap: 10px; }
+.attach-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 16px; border: 1.5px dashed var(--line); border-radius: var(--radius); background: var(--fill-2); text-align: center; cursor: pointer; }
+.attach-drop svg { width: 20px; height: 20px; color: var(--orange); }
+.attach-drop b { font-size: 14px; color: var(--ink); }
+.attach-drop small { font-size: 12px; color: var(--ink-3); }
+.attach-drop:hover, .attach-drop.is-over { border-color: var(--orange); background: var(--peach-light); }
+.attach-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); }
+.attach-list li { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; font-size: 13px; }
+.attach-list li + li { border-top: 1px solid var(--line-soft); }
+.attach-name { flex-grow: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink); }
+.attach-list small { color: var(--ink-3); flex-shrink: 0; }
+.attach-list .icon-btn { width: 28px; height: 28px; }
+.attach-rejected { font-size: 12.5px; color: var(--high-fg); background: var(--high-bg); padding: 8px 10px; border-radius: var(--radius); }
+.att-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.att-file { display: inline-flex; align-items: center; max-width: 100%; border: 1px solid var(--line); border-radius: 3px; background: #fff; }
+.att-link { display: inline-flex; align-items: center; gap: 4px; min-width: 0; padding: 2px 6px; border: 0; background: none; font-size: 12px; font-weight: 600; color: var(--ink); }
+.att-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-link svg { width: 11px; height: 11px; color: var(--orange); flex-shrink: 0; }
+.att-link:hover span { text-decoration: underline; }
+.att-remove { display: inline-flex; padding: 3px 5px; border: 0; border-left: 1px solid var(--line-soft); background: none; color: var(--ink-3); }
+.att-remove svg { width: 9px; height: 9px; }
+.att-remove:hover { color: var(--high-fg); }
+.att-add { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border: 1px dashed var(--line); border-radius: 3px; background: none; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+.att-add svg { width: 10px; height: 10px; }
+.att-add:hover { border-color: var(--orange); color: var(--orange-dark); }
+.it-row.is-done .att-link { color: var(--ink-2); }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
 <script>
+// ---- files.js
+const __m_files = (() => {
+
+// 첨부 파일 내용을 브라우저 IndexedDB에 저장한다 (localStorage는 용량이 작아 파일에 맞지 않는다).
+// 이 브라우저에만 남고 다른 사람·기기와 공유되지 않는다. 막힌 환경에서는 Promise가 실패한다.
+
+const DB_NAME = 'pbc-mate-files';
+const STORE = 'files';
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function run(mode, fn) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, mode);
+    const result = fn(tx.objectStore(STORE));
+    tx.oncomplete = () => { db.close(); resolve(result?.result); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error); };
+  });
+}
+
+const putFile = (id, blob) => run('readwrite', (s) => s.put(blob, id));
+const getFile = (id) => run('readonly', (s) => s.get(id));
+const deleteFile = (id) => run('readwrite', (s) => s.delete(id));
+const clearFiles = () => run('readwrite', (s) => s.clear());
+
+return { putFile, getFile, deleteFile, clearFiles };
+})();
+
 // ---- lib/dates.js
 const __m_lib_dates = (() => {
 
@@ -1635,6 +1702,60 @@ function leftOf(value, baseDate) {
 }
 
 return { normalizeDate, ownerName, validateItem, splitCells, parsePaste, findExisting, duplicateMessage, markDuplicates, rowErrorText, leftOf };
+})();
+
+// ---- lib/attach.js
+const __m_lib_attach = (() => {
+
+// 완료한 자료에 받은 파일을 첨부한다. 파일 내용은 브라우저 저장소(files.js, IndexedDB)에,
+// 자료에는 목록만 둔다: item.attachments = [{ id, name, size, type, addedOn }]
+// 순수 함수만 둔다.
+
+const MAX_FILE_BYTES = 20 * 1024 * 1024; // 한 파일 20MB까지
+
+/** 1536 → '1.5KB' */
+function formatSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return `${n}B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)}KB`;
+  return `${(n / 1024 / 1024).toFixed(1)}MB`;
+}
+
+/**
+ * 고른 파일 검사. files: [{ name, size }]
+ * - 빈 파일, 너무 큰 파일은 뺀다
+ * - 이 자료에 이미 같은 이름으로 첨부한 파일, 이번에 고른 것 안에서 같은 이름도 뺀다
+ * @returns {{ ok: object[], rejected: { name, reason }[] }}
+ */
+function checkFiles(files, existing = [], maxBytes = MAX_FILE_BYTES) {
+  const names = new Set(existing.map((a) => a.name));
+  const ok = [];
+  const rejected = [];
+  for (const f of files) {
+    if (!f.size) rejected.push({ name: f.name, reason: '빈 파일' });
+    else if (f.size > maxBytes) rejected.push({ name: f.name, reason: `${formatSize(maxBytes)} 초과` });
+    else if (names.has(f.name)) rejected.push({ name: f.name, reason: '이미 첨부한 파일' });
+    else { names.add(f.name); ok.push(f); }
+  }
+  return { ok, rejected };
+}
+
+/** 첨부 목록을 더한 새 자료 */
+function addAttachments(item, metas) {
+  return { ...item, attachments: [...(item.attachments || []), ...metas] };
+}
+
+/** 첨부 하나를 뺀 새 자료 */
+function removeAttachment(item, fileId) {
+  return { ...item, attachments: (item.attachments || []).filter((a) => a.id !== fileId) };
+}
+
+/** 저장소 키. 같은 밀리초에 여러 개를 올려도 겹치지 않게 순번을 붙인다. */
+function newFileId(now = Date.now(), seq = 0) {
+  return `f${now.toString(36)}${seq.toString(36)}`;
+}
+
+return { MAX_FILE_BYTES, formatSize, checkFiles, addAttachments, removeAttachment, newFileId };
 })();
 
 // ---- lib/korean.js
@@ -3375,6 +3496,7 @@ function buildReport(state, today) {
     riskLabel: isOpen(x) ? RISK[x.risk] : '',
     lastNudgedOn: lastOf(x.nudges)?.on ?? null,
     fixReason: x.status === 'fix' && x.fix?.reason ? fixReasonLabel(x.fix.reason) : null,
+    attachments: x.attachments || [], // 완료한 자료에 첨부한 파일 목록
     // 외부조회 후속 절차를 마친 건: 수행자·검토자 (감사기준서 230)
     signoff: x.follow?.signoff
       ? `수행 ${x.follow.signoff.preparer}${x.follow.signoff.reviewer ? ` · 검토 ${x.follow.signoff.reviewer}` : ' · 검토 전'}`
@@ -5318,6 +5440,72 @@ function confirmOverview(o, materiality) {
 return { confirmOverview };
 })();
 
+// ---- views/attach.js
+const __m_views_attach = (() => {
+const { formatSize, MAX_FILE_BYTES } = __m_lib_attach;
+const { esc, ICON } = __m_views_html;
+// 완료 처리 후 뜨는 파일 첨부 창. 주간 보고의 '+ 첨부'로도 연다.
+
+
+/**
+ * @param item  첨부할 자료
+ * @param view  { pending: File[], rejected: { name, reason }[], justDone: boolean, saving: boolean }
+ */
+function renderAttach(item, { pending, rejected, justDone, saving }) {
+  const existing = item.attachments || [];
+  return `
+    <div class="sheet-dim" data-action="attach-close"></div>
+    <div class="sheet attach" role="dialog" aria-modal="true" aria-labelledby="attach-title">
+      <div class="sheet-head">
+        <div>
+          <div class="eyebrow">${justDone ? '완료 처리했어요 · 받은 파일을 남겨 두세요' : '첨부자료'}</div>
+          <h3 id="attach-title">${esc(item.name)}</h3>
+          <div class="sheet-current">${esc(item.owner)}${existing.length ? ` · 이미 ${existing.length}개 첨부` : ''}</div>
+        </div>
+        <button type="button" class="icon-btn btn-sub" data-action="attach-close" aria-label="닫기">${ICON.close}</button>
+      </div>
+
+      <div class="sheet-body">
+        <label class="attach-drop" for="attach-input">
+          ${ICON.download}
+          <b>파일을 끌어다 놓거나 눌러서 고르세요</b>
+          <small>여러 개 가능 · 한 파일 ${formatSize(MAX_FILE_BYTES)}까지 · PDF, 엑셀, 이미지 등</small>
+          <input id="attach-input" type="file" multiple data-action-change="attach-pick" hidden>
+        </label>
+
+        ${pending.length ? `
+          <ul class="attach-list">
+            ${pending.map((f, i) => `
+              <li><span class="attach-name">${esc(f.name)}</span><small>${formatSize(f.size)}</small>
+                <button type="button" class="icon-btn" data-action="attach-unpick" data-index="${i}" aria-label="${esc(f.name)} 빼기">${ICON.close}</button></li>`).join('')}
+          </ul>` : ''}
+        ${rejected.length ? `<div class="attach-rejected">${rejected.map((r) => `${esc(r.name)} — ${esc(r.reason)}`).join('<br>')}</div>` : ''}
+        <div class="sheet-note">파일은 이 브라우저에만 저장돼요. 주간 보고의 자료 목록 ‘첨부자료’ 칸에서 다시 열 수 있어요.</div>
+      </div>
+
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-sub" data-action="attach-close">${justDone ? '나중에 첨부' : '닫기'}</button>
+        <button type="button" class="btn btn-cta" data-action="attach-save" ${pending.length && !saving ? '' : 'disabled'}>${saving ? '저장 중…' : pending.length ? `${pending.length}개 첨부하기` : '첨부하기'}</button>
+      </footer>
+    </div>`;
+}
+
+/** 주간 보고 자료 목록의 '첨부자료' 칸 */
+function attachCell(row) {
+  const files = row.attachments || [];
+  const list = files.map((a) => `
+    <span class="att-file">
+      <button type="button" class="att-link" data-action="open-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" title="${esc(a.name)} · ${formatSize(a.size)}">${ICON.download}<span>${esc(a.name)}</span></button>
+      <button type="button" class="att-remove" data-action="remove-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" aria-label="${esc(a.name)} 첨부 삭제">${ICON.close}</button>
+    </span>`).join('');
+  const add = row.status === 'done'
+    ? `<button type="button" class="att-add" data-action="attach-open" data-item="${esc(row.id)}">${ICON.plus}첨부</button>` : '';
+  return list || add ? `<div class="att-cell">${list}${add}</div>` : '—';
+}
+
+return { renderAttach, attachCell };
+})();
+
 // ---- views/report.js
 const __m_views_report = (() => {
 const { formatMD, formatMDW } = __m_lib_dates;
@@ -5327,6 +5515,7 @@ const { esc, ICON, STATUS_LABEL } = __m_views_html;
 const { topbar } = __m_views_dashboard;
 const { confirmOverview } = __m_views_overview;
 const { trackOverview } = __m_lib_followup;
+const { attachCell } = __m_views_attach;
 // 7. 주간 현황 보고 — 레퍼런스 7
 // 대시보드와 같은 상단바 아래에 요약 카드(왼쪽)와 담당자별 현황·자료 목록(오른쪽)을 보여준다.
 
@@ -5405,7 +5594,7 @@ function body(report, lines, state) {
         <div class="report-block">
           <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
           <div class="item-table">
-            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div></div>
+            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div><div>첨부자료</div></div>
             ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
@@ -5414,6 +5603,7 @@ function body(report, lines, state) {
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>
+                <div class="it-att">${attachCell(r)}</div>
               </div>`).join('')}
           </div>
         </div>
@@ -6069,6 +6259,9 @@ const { renderStatusSheet } = __m_views_status;
 const { renderCalendar } = __m_views_calendar;
 const { renderConfirm, partiesPreview, outputSection } = __m_views_confirm;
 const { renderFollow } = __m_views_follow;
+const { renderAttach } = __m_views_attach;
+const { checkFiles, addAttachments, removeAttachment, newFileId } = __m_lib_attach;
+const { putFile, getFile, deleteFile, clearFiles } = __m_files;
 const { startFollow, completeFollow, clampVerified, evidenceRequests, validateSignoff, FOLLOW_TYPES } = __m_lib_followup;
 const { CONF_TYPES, defaultSetup, validateSetup, parseConfirmations, buildLetters, toRegistryValues, nextDocNo } = __m_lib_confirmation;
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
@@ -6095,6 +6288,7 @@ let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 �
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
+let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
 function currentToday() {
@@ -6128,7 +6322,7 @@ function render() {
   if (location.hash === '#/calendar') {
     compose = bundle = fix = add = sheet = null;
     if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
-    app.innerHTML = renderCalendar(state, { today, isDemo, ...cal });
+    app.innerHTML = renderCalendar(state, { today, isDemo, ...cal }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -6142,7 +6336,7 @@ function render() {
         setup: { ...defaultSetup(state.client, today), ...(state.confirmSetup || {}), issuedOn: today, replyBy: defaultSetup(state.client, today).replyBy },
       };
     }
-    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) });
+    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -6150,7 +6344,7 @@ function render() {
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = sheet = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo });
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -6222,7 +6416,7 @@ function render() {
 
   const focusedTone = document.activeElement?.dataset?.tone;
   const focusedReason = document.activeElement?.dataset?.reason;
-  app.innerHTML = html;
+  app.innerHTML = html + attachOverlay();
   document.body.classList.toggle('has-drawer', Boolean(item || b || fix || add || fu));
   // 톤·사유를 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
   if (focusedTone) {
@@ -6283,6 +6477,27 @@ async function copyForDrawer(view, { itemIds, text }, record) {
   render();
   clearTimeout(drawerToastTimer);
   drawerToastTimer = setTimeout(() => { view.toast = false; render(); }, 2800);
+}
+
+// ---------- 파일 첨부 ----------
+
+function attachOverlay() {
+  const item = att && state?.items.find((x) => x.id === att.itemId);
+  if (!item) { att = null; return ''; }
+  return renderAttach(item, att);
+}
+
+function openAttach(itemId, justDone) {
+  att = { itemId, pending: [], rejected: [], justDone, saving: false };
+  render();
+}
+
+function pickFiles(fileList) {
+  const item = state.items.find((x) => x.id === att.itemId);
+  const { ok, rejected } = checkFiles([...att.pending, ...fileList], item.attachments || []);
+  att.pending = ok;
+  att.rejected = rejected;
+  render();
 }
 
 // 외부조회서: 손댄 칸의 오류만 보여준다 (처음 열었을 때 빨간 칸이 가득하지 않게)
@@ -6421,6 +6636,7 @@ const actions = {
     const name = `‘${item.name}’${josa(item.name, '을', '를')}`;
     if (change.status === 'done') {
       closeDrawer();
+      openAttach(item.id, true);
       toast(`${name} 완료로 처리했어요.`);
     } else if (change.status === 'fix') {
       location.hash = `#/fix/${encodeURIComponent(item.id)}`;
@@ -6623,7 +6839,56 @@ const actions = {
     save(state);
     fu = null;
     closeDrawer();
+    openAttach(item.id, true);
     toast(`${item.counterparty} 후속 절차를 완료했어요. ${done.follow.conclusion}`);
+  },
+  // 파일 첨부
+  'attach-open': (el) => openAttach(el.dataset.item, false),
+  'attach-close': () => { att = null; render(); },
+  'attach-unpick': (el) => { att.pending.splice(Number(el.dataset.index), 1); att.rejected = []; render(); },
+  'attach-save': async () => {
+    if (!att.pending.length || att.saving) return;
+    att.saving = true;
+    render();
+    const now = Date.now();
+    const metas = [];
+    try {
+      for (const [i, f] of att.pending.entries()) {
+        const id = newFileId(now, i);
+        await putFile(id, f);
+        metas.push({ id, name: f.name, size: f.size, type: f.type, addedOn: currentToday() });
+      }
+    } catch {
+      att.saving = false;
+      render();
+      toast('파일을 저장하지 못했어요. 브라우저 저장 공간이나 개인정보 보호 설정을 확인해 주세요.');
+      return;
+    }
+    setItem(att.itemId, (x) => addAttachments(x, metas));
+    att = null;
+    render();
+    toast(`${metas.length}개 파일을 첨부했어요. 주간 보고 자료 목록에서 열 수 있어요.`);
+  },
+  'open-attachment': async (el) => {
+    const item = state.items.find((x) => x.id === el.dataset.item);
+    const meta = item?.attachments?.find((a) => a.id === el.dataset.file);
+    let blob;
+    try { blob = await getFile(el.dataset.file); } catch { blob = null; }
+    if (!blob) { toast('이 브라우저에서 파일을 찾지 못했어요. 다른 브라우저에서 첨부했거나 저장 데이터가 지워졌을 수 있어요.'); return; }
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: meta?.name || 'attachment' });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+  'remove-attachment': async (el) => {
+    const { item: itemId, file } = el.dataset;
+    const name = state.items.find((x) => x.id === itemId)?.attachments?.find((a) => a.id === file)?.name;
+    try { await deleteFile(file); } catch { /* 저장소에 없어도 목록에서는 뺀다 */ }
+    setItem(itemId, (x) => removeAttachment(x, file));
+    render();
+    toast(`‘${name}’ 첨부를 삭제했어요.`);
   },
   'copy-bundle': () => {
     const sorted = bundleItems(state.items, bundle.owner, currentToday());
@@ -6721,6 +6986,21 @@ app.addEventListener('drop', (e) => {
   }
 });
 
+// 파일 첨부 창: 파일을 끌어다 놓기
+app.addEventListener('dragover', (e) => {
+  const zone = e.target.closest?.('.attach-drop');
+  if (!zone || !e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();
+  zone.classList.add('is-over');
+});
+app.addEventListener('dragleave', (e) => e.target.closest?.('.attach-drop')?.classList.remove('is-over'));
+app.addEventListener('drop', (e) => {
+  const zone = e.target.closest?.('.attach-drop');
+  if (!zone || !e.dataTransfer?.files?.length) return;
+  e.preventDefault();
+  pickFiles(e.dataTransfer.files);
+});
+
 // 일정 패널의 날짜 입력으로 이동 (모바일·키보드)
 app.addEventListener('change', (e) => {
   if (e.target.dataset.actionChange === 'cal-move') moveCalendarEntry(e.target.dataset.entry, e.target.value);
@@ -6730,6 +7010,10 @@ app.addEventListener('change', (e) => {
     save(state);
     render();
     toast(value > 0 ? `수행중요성을 ${value.toLocaleString('ko-KR')}원으로 정했어요.` : '수행중요성을 지웠어요.');
+    return;
+  }
+  if (e.target.dataset.actionChange === 'attach-pick') {
+    pickFiles(e.target.files);
     return;
   }
   const fuAction = e.target.dataset.actionChange;
@@ -6879,12 +7163,13 @@ window.addEventListener('hashchange', render);
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (att) { att = null; render(); return; }
   if (sheet) { sheet = null; render(); return; }
   if (compose || bundle || fix || add || fu) actions['close-drawer']();
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = cal = conf = fu = null; render(); } };
+window.pbc = { reset() { clear(); clearFiles().catch(() => {}); state = null; compose = bundle = fix = add = sheet = cal = conf = fu = att = null; render(); } };
 
 render();
 

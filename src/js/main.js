@@ -30,6 +30,9 @@ import { renderStatusSheet } from './views/status.js';
 import { renderCalendar } from './views/calendar.js';
 import { renderConfirm, partiesPreview, outputSection } from './views/confirm.js';
 import { renderFollow } from './views/follow.js';
+import { renderAttach } from './views/attach.js';
+import { checkFiles, addAttachments, removeAttachment, newFileId } from './lib/attach.js';
+import { putFile, getFile, deleteFile, clearFiles } from './files.js';
 import { startFollow, completeFollow, clampVerified, evidenceRequests, validateSignoff, FOLLOW_TYPES } from './lib/followup.js';
 import {
   CONF_TYPES, defaultSetup, validateSetup, parseConfirmations, buildLetters, toRegistryValues, nextDocNo,
@@ -53,6 +56,7 @@ let emptyForm = { clientName: '', engagement: '', errors: {} }; // 첫 실행 �
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
+let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
 function currentToday() {
@@ -86,7 +90,7 @@ function render() {
   if (location.hash === '#/calendar') {
     compose = bundle = fix = add = sheet = null;
     if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
-    app.innerHTML = renderCalendar(state, { today, isDemo, ...cal });
+    app.innerHTML = renderCalendar(state, { today, isDemo, ...cal }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -100,7 +104,7 @@ function render() {
         setup: { ...defaultSetup(state.client, today), ...(state.confirmSetup || {}), issuedOn: today, replyBy: defaultSetup(state.client, today).replyBy },
       };
     }
-    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) });
+    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -108,7 +112,7 @@ function render() {
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = sheet = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo });
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -180,7 +184,7 @@ function render() {
 
   const focusedTone = document.activeElement?.dataset?.tone;
   const focusedReason = document.activeElement?.dataset?.reason;
-  app.innerHTML = html;
+  app.innerHTML = html + attachOverlay();
   document.body.classList.toggle('has-drawer', Boolean(item || b || fix || add || fu));
   // 톤·사유를 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
   if (focusedTone) {
@@ -241,6 +245,27 @@ async function copyForDrawer(view, { itemIds, text }, record) {
   render();
   clearTimeout(drawerToastTimer);
   drawerToastTimer = setTimeout(() => { view.toast = false; render(); }, 2800);
+}
+
+// ---------- 파일 첨부 ----------
+
+function attachOverlay() {
+  const item = att && state?.items.find((x) => x.id === att.itemId);
+  if (!item) { att = null; return ''; }
+  return renderAttach(item, att);
+}
+
+function openAttach(itemId, justDone) {
+  att = { itemId, pending: [], rejected: [], justDone, saving: false };
+  render();
+}
+
+function pickFiles(fileList) {
+  const item = state.items.find((x) => x.id === att.itemId);
+  const { ok, rejected } = checkFiles([...att.pending, ...fileList], item.attachments || []);
+  att.pending = ok;
+  att.rejected = rejected;
+  render();
 }
 
 // 외부조회서: 손댄 칸의 오류만 보여준다 (처음 열었을 때 빨간 칸이 가득하지 않게)
@@ -379,6 +404,7 @@ const actions = {
     const name = `‘${item.name}’${josa(item.name, '을', '를')}`;
     if (change.status === 'done') {
       closeDrawer();
+      openAttach(item.id, true);
       toast(`${name} 완료로 처리했어요.`);
     } else if (change.status === 'fix') {
       location.hash = `#/fix/${encodeURIComponent(item.id)}`;
@@ -581,7 +607,56 @@ const actions = {
     save(state);
     fu = null;
     closeDrawer();
+    openAttach(item.id, true);
     toast(`${item.counterparty} 후속 절차를 완료했어요. ${done.follow.conclusion}`);
+  },
+  // 파일 첨부
+  'attach-open': (el) => openAttach(el.dataset.item, false),
+  'attach-close': () => { att = null; render(); },
+  'attach-unpick': (el) => { att.pending.splice(Number(el.dataset.index), 1); att.rejected = []; render(); },
+  'attach-save': async () => {
+    if (!att.pending.length || att.saving) return;
+    att.saving = true;
+    render();
+    const now = Date.now();
+    const metas = [];
+    try {
+      for (const [i, f] of att.pending.entries()) {
+        const id = newFileId(now, i);
+        await putFile(id, f);
+        metas.push({ id, name: f.name, size: f.size, type: f.type, addedOn: currentToday() });
+      }
+    } catch {
+      att.saving = false;
+      render();
+      toast('파일을 저장하지 못했어요. 브라우저 저장 공간이나 개인정보 보호 설정을 확인해 주세요.');
+      return;
+    }
+    setItem(att.itemId, (x) => addAttachments(x, metas));
+    att = null;
+    render();
+    toast(`${metas.length}개 파일을 첨부했어요. 주간 보고 자료 목록에서 열 수 있어요.`);
+  },
+  'open-attachment': async (el) => {
+    const item = state.items.find((x) => x.id === el.dataset.item);
+    const meta = item?.attachments?.find((a) => a.id === el.dataset.file);
+    let blob;
+    try { blob = await getFile(el.dataset.file); } catch { blob = null; }
+    if (!blob) { toast('이 브라우저에서 파일을 찾지 못했어요. 다른 브라우저에서 첨부했거나 저장 데이터가 지워졌을 수 있어요.'); return; }
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: meta?.name || 'attachment' });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+  'remove-attachment': async (el) => {
+    const { item: itemId, file } = el.dataset;
+    const name = state.items.find((x) => x.id === itemId)?.attachments?.find((a) => a.id === file)?.name;
+    try { await deleteFile(file); } catch { /* 저장소에 없어도 목록에서는 뺀다 */ }
+    setItem(itemId, (x) => removeAttachment(x, file));
+    render();
+    toast(`‘${name}’ 첨부를 삭제했어요.`);
   },
   'copy-bundle': () => {
     const sorted = bundleItems(state.items, bundle.owner, currentToday());
@@ -679,6 +754,21 @@ app.addEventListener('drop', (e) => {
   }
 });
 
+// 파일 첨부 창: 파일을 끌어다 놓기
+app.addEventListener('dragover', (e) => {
+  const zone = e.target.closest?.('.attach-drop');
+  if (!zone || !e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();
+  zone.classList.add('is-over');
+});
+app.addEventListener('dragleave', (e) => e.target.closest?.('.attach-drop')?.classList.remove('is-over'));
+app.addEventListener('drop', (e) => {
+  const zone = e.target.closest?.('.attach-drop');
+  if (!zone || !e.dataTransfer?.files?.length) return;
+  e.preventDefault();
+  pickFiles(e.dataTransfer.files);
+});
+
 // 일정 패널의 날짜 입력으로 이동 (모바일·키보드)
 app.addEventListener('change', (e) => {
   if (e.target.dataset.actionChange === 'cal-move') moveCalendarEntry(e.target.dataset.entry, e.target.value);
@@ -688,6 +778,10 @@ app.addEventListener('change', (e) => {
     save(state);
     render();
     toast(value > 0 ? `수행중요성을 ${value.toLocaleString('ko-KR')}원으로 정했어요.` : '수행중요성을 지웠어요.');
+    return;
+  }
+  if (e.target.dataset.actionChange === 'attach-pick') {
+    pickFiles(e.target.files);
     return;
   }
   const fuAction = e.target.dataset.actionChange;
@@ -837,11 +931,12 @@ window.addEventListener('hashchange', render);
 window.addEventListener('popstate', render);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (att) { att = null; render(); return; }
   if (sheet) { sheet = null; render(); return; }
   if (compose || bundle || fix || add || fu) actions['close-drawer']();
 });
 
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); state = null; compose = bundle = fix = add = sheet = cal = conf = fu = null; render(); } };
+window.pbc = { reset() { clear(); clearFiles().catch(() => {}); state = null; compose = bundle = fix = add = sheet = cal = conf = fu = att = null; render(); } };
 
 render();

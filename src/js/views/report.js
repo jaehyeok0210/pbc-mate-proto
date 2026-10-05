@@ -8,6 +8,7 @@ import { esc, ICON, STATUS_LABEL } from './html.js';
 import { topbar } from './dashboard.js';
 import { confirmOverview } from './overview.js';
 import { trackOverview } from '../lib/followup.js';
+import { attachCell } from './attach.js';
 
 /**
  * @param state  앱 상태
@@ -83,7 +84,7 @@ function body(report, lines, state) {
         <div class="report-block">
           <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
           <div class="item-table">
-            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div></div>
+            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div><div>첨부자료</div></div>
             ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
@@ -92,6 +93,7 @@ function body(report, lines, state) {
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>
+                <div class="it-att">${attachCell(r)}</div>
               </div>`).join('')}
           </div>
         </div>
