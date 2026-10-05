@@ -116,13 +116,13 @@ function timeline(sorted, today) {
     const pos = Math.max(0, x.left) / span;
     const side = i % 2 === 0 ? 'above' : 'below';
     const anchor = pos > 0.85 ? 'end' : 'start';
-    const extra = x.status === 'fix' ? ' · 보완 요청' : '';
+    const extra = x.status === 'fix' ? ' · 보완 요청' : x.status === 'follow' ? ' · 후속 절차' : '';
     return `
       <div class="tl-mark risk-${x.risk} ${side} anchor-${anchor}" style="left:${pct(x.left)}">
         <span class="tl-stem"></span><span class="tl-dot"></span>
-        <span class="tl-label ${x.risk === 'high' || x.risk === 'late' ? 'is-urgent' : ''} ${x.status === 'fix' ? 'is-fix' : ''}">
+        <a class="tl-label ${x.risk === 'high' || x.risk === 'late' ? 'is-urgent' : ''} ${x.status === 'fix' ? 'is-fix' : ''}" href="${itemHref(x)}" title="${esc(x.name)} · ${esc(x.owner)} — 눌러서 열기">
           <b>${esc(x.name)}</b><span>${formatMD(x.neededOn)} · ${leftText(x.left)}${extra}</span>
-        </span>
+        </a>
       </div>`;
   }).join('');
 

@@ -1493,6 +1493,17 @@ a.m-bundle { text-decoration: none; }
   .owner-items .it-row > div:nth-child(3)::before, .owner-items .it-row > div:nth-child(5)::before, .owner-items .it-row > div:nth-child(6)::before { content: none; }
 }
 
+/* 필요일 타임라인: 박스에 올리면 살짝 커지고 맨 앞으로, 누르면 자료 화면(독촉·보완·후속 절차) */
+a.tl-label { text-decoration: none; color: inherit; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.above a.tl-label { transform-origin: left bottom; }
+.below a.tl-label { transform-origin: left top; }
+.anchor-end.above a.tl-label { transform-origin: right bottom; }
+.anchor-end.below a.tl-label { transform-origin: right top; }
+.tl-mark:hover, .tl-mark:focus-within { z-index: 5; }
+a.tl-label:hover, a.tl-label:focus-visible { transform: scale(1.08); border-color: var(--orange); box-shadow: 0 4px 12px rgba(0, 0, 0, .12); outline: none; }
+a.tl-label:hover b, a.tl-label:focus-visible b { color: var(--orange-dark); }
+@media (prefers-reduced-motion: reduce) { a.tl-label { transition: none; } }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -4302,13 +4313,13 @@ function timeline(sorted, today) {
     const pos = Math.max(0, x.left) / span;
     const side = i % 2 === 0 ? 'above' : 'below';
     const anchor = pos > 0.85 ? 'end' : 'start';
-    const extra = x.status === 'fix' ? ' · 보완 요청' : '';
+    const extra = x.status === 'fix' ? ' · 보완 요청' : x.status === 'follow' ? ' · 후속 절차' : '';
     return `
       <div class="tl-mark risk-${x.risk} ${side} anchor-${anchor}" style="left:${pct(x.left)}">
         <span class="tl-stem"></span><span class="tl-dot"></span>
-        <span class="tl-label ${x.risk === 'high' || x.risk === 'late' ? 'is-urgent' : ''} ${x.status === 'fix' ? 'is-fix' : ''}">
+        <a class="tl-label ${x.risk === 'high' || x.risk === 'late' ? 'is-urgent' : ''} ${x.status === 'fix' ? 'is-fix' : ''}" href="${itemHref(x)}" title="${esc(x.name)} · ${esc(x.owner)} — 눌러서 열기">
           <b>${esc(x.name)}</b><span>${formatMD(x.neededOn)} · ${leftText(x.left)}${extra}</span>
-        </span>
+        </a>
       </div>`;
   }).join('');
 
