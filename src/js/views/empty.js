@@ -28,7 +28,7 @@ export function renderEmpty({ lookupOpen = false, query = '', results = null, se
           <span class="ea-today">오늘</span>
         </div>
         <h1>요청한 자료를 필요일 기준으로 챙겨드려요</h1>
-        <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 재촉 메일 초안까지 만들어요.</p>
+        <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 요청 메일 초안까지 만들어요.</p>
 
         <form class="empty-form" id="engagement-form" novalidate>
           <div class="f eng-lookup ${errors.client ? 'has-error' : ''}">

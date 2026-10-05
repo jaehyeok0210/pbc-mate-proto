@@ -165,7 +165,7 @@ const csvCell = (v) => {
 
 /** CSV (엑셀에서 한글이 깨지지 않도록 BOM 포함). 완료 자료는 남은일수를 비운다. */
 export function reportToCsv(report) {
-  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근요청일'];
+  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근재요청일'];
   const body = report.rows.map((r) => [
     r.name, r.owner, r.statusLabel, r.requestedOn, r.neededOn,
     r.status === 'done' ? '' : r.left, r.lastNudgedOn ?? '',

@@ -99,7 +99,7 @@ test('현황 복사 텍스트', () => {
 test('CSV 생성: 헤더·BOM·완료 자료는 남은일수 비움·쉼표 이스케이프', () => {
   const csv = reportToCsv(report);
   const lines = csv.split('\n');
-  assert.equal(lines[0], '﻿자료명,담당자,상태,요청일,필요일,남은일수,최근요청일');
+  assert.equal(lines[0], '﻿자료명,담당자,상태,요청일,필요일,남은일수,최근재요청일');
   assert.equal(lines[1], '은행조회서 회신,박준호 과장,미회신,2026-09-28,2026-10-02,1,2026-09-30');
   assert.equal(lines.at(-1), '법인세 신고서 사본,박준호 과장,완료,2026-09-25,2026-10-04,,');
   assert.equal(lines.length, 7);
