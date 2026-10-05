@@ -1578,6 +1578,11 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .cal-scope { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 2px 8px; border-radius: 3px; background: var(--peach-light); color: var(--orange-dark); font-size: 12.5px; font-weight: 600; }
 .cal-scope svg { width: 12px; height: 12px; }
 
+/* 감사인별 현황: 지금 쓰는 사람의 줄 */
+.req-table .ot-row.is-me { background: var(--peach-light); box-shadow: inset 3px 0 0 var(--orange); }
+.req-table .ot-owner { display: flex; align-items: center; gap: 6px; flex-direction: row; }
+.me-tag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: var(--orange); color: #fff; }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -6154,7 +6159,7 @@ const { topbar } = __m_views_dashboard;
 const { confirmOverview } = __m_views_overview;
 const { trackOverview } = __m_lib_followup;
 const { attachCell } = __m_views_attach;
-const { requesterSummary, requesterMembers } = __m_lib_team;
+const { requesterSummary, requesterMembers, currentUser } = __m_lib_team;
 // 7. 주간 현황 보고 — 레퍼런스 7
 // 대시보드와 같은 상단바 아래에 요약 카드(왼쪽)와 담당자별 현황·자료 목록(오른쪽)을 보여준다.
 
@@ -6230,7 +6235,7 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
-        ${requesterBlock(report.rows, requesterMembers(state))}
+        ${requesterBlock(report.rows, requesterMembers(state), currentUser(state))}
 
         <div class="report-block">
           <div class="it-headline">
@@ -6247,7 +6252,7 @@ function body(report, lines, state, query) {
 }
 
 /** 감사인별 현황: 팀원마다 요청 중·긴급·완료. 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 연다. */
-function requesterBlock(rows, members) {
+function requesterBlock(rows, members, me) {
   if (!members.length) return '';
   const list = requesterSummary(rows, members);
   return `
@@ -6256,8 +6261,8 @@ function requesterBlock(rows, members) {
           <div class="owner-table req-table">
             <div class="ot-row ot-head"><div>요청 감사인</div><div>요청 중</div><div>긴급·지연</div><div>완료</div><div>가장 가까운 필요일</div></div>
             ${list.map((r) => `
-              <div class="ot-row">
-                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}</div>
+              <div class="ot-row ${r.key && r.key === me ? 'is-me' : ''}">
+                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}${r.key && r.key === me ? '<span class="me-tag">나</span>' : ''}</div>
                 <div><b>${r.open}건</b></div>
                 <div class="${r.urgent ? 'is-urgent' : ''}">${r.urgent ? `${r.urgent}건` : '—'}</div>
                 <div>${r.done ? `${r.done}건` : '—'}</div>

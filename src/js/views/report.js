@@ -9,7 +9,7 @@ import { topbar } from './dashboard.js';
 import { confirmOverview } from './overview.js';
 import { trackOverview } from '../lib/followup.js';
 import { attachCell } from './attach.js';
-import { requesterSummary, requesterMembers } from '../lib/team.js';
+import { requesterSummary, requesterMembers, currentUser } from '../lib/team.js';
 
 /**
  * @param state  앱 상태
@@ -82,7 +82,7 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
-        ${requesterBlock(report.rows, requesterMembers(state))}
+        ${requesterBlock(report.rows, requesterMembers(state), currentUser(state))}
 
         <div class="report-block">
           <div class="it-headline">
@@ -99,7 +99,7 @@ function body(report, lines, state, query) {
 }
 
 /** 감사인별 현황: 팀원마다 요청 중·긴급·완료. 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 연다. */
-function requesterBlock(rows, members) {
+function requesterBlock(rows, members, me) {
   if (!members.length) return '';
   const list = requesterSummary(rows, members);
   return `
@@ -108,8 +108,8 @@ function requesterBlock(rows, members) {
           <div class="owner-table req-table">
             <div class="ot-row ot-head"><div>요청 감사인</div><div>요청 중</div><div>긴급·지연</div><div>완료</div><div>가장 가까운 필요일</div></div>
             ${list.map((r) => `
-              <div class="ot-row">
-                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}</div>
+              <div class="ot-row ${r.key && r.key === me ? 'is-me' : ''}">
+                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}${r.key && r.key === me ? '<span class="me-tag">나</span>' : ''}</div>
                 <div><b>${r.open}건</b></div>
                 <div class="${r.urgent ? 'is-urgent' : ''}">${r.urgent ? `${r.urgent}건` : '—'}</div>
                 <div>${r.done ? `${r.done}건` : '—'}</div>
