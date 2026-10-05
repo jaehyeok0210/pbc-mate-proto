@@ -62,7 +62,7 @@ export function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
 export function topbar(client, today, isDemo, active, team) {
   return `
     <header class="topbar">
-      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
+      <a class="brand" href="#" title="대시보드로"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</a>
       <span class="chip">${esc(client.name)} · ${esc(client.engagement)}</span>
       <nav class="tabs">
         <a class="tab ${active === 'dashboard' ? 'is-active' : ''}" href="#">대시보드</a>

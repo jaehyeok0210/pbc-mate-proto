@@ -1583,6 +1583,10 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .req-table .ot-owner { display: flex; align-items: center; gap: 6px; flex-direction: row; }
 .me-tag { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: var(--orange); color: #fff; }
 
+/* 왼쪽 위 PBC Mate: 누르면 대시보드 */
+a.brand { color: inherit; text-decoration: none; }
+a.brand:hover { color: var(--orange-dark); }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -4600,7 +4604,7 @@ function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
 function topbar(client, today, isDemo, active, team) {
   return `
     <header class="topbar">
-      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</div>
+      <a class="brand" href="#" title="대시보드로"><span class="brand-mark" aria-hidden="true"></span>PBC Mate</a>
       <span class="chip">${esc(client.name)} · ${esc(client.engagement)}</span>
       <nav class="tabs">
         <a class="tab ${active === 'dashboard' ? 'is-active' : ''}" href="#">대시보드</a>
