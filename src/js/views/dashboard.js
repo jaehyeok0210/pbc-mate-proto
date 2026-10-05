@@ -330,7 +330,7 @@ function ownerCards(groups, people, done, text) {
   return `
     <section class="owners desktop-only">
       <div class="section-head">
-        <h2>담당자별로 묶어 재촉하기</h2>
+        <h2>담당자별(거래처별)로 묶어 재촉하기</h2>
         <div class="section-hint">같은 담당자에게는 메일 한 통으로 · ${text.group}</div>
       </div>
       <div class="cards">${cards}</div>

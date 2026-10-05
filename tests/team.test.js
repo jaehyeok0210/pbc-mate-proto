@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, switchUser,
-  filterByRequester, requesterSummary, signMail, requesterMembers, isManager, defaultRequester,
+  filterByRequester, requesterSummary, signMail, requesterMembers, isManager, defaultRequester, pickRequester,
 } from '../src/js/lib/team.js';
 import { sampleState, createEmptyState } from '../src/js/store.js';
 import { buildMail } from '../src/js/lib/mail.js';
@@ -106,4 +106,14 @@ test('일정 범위: 회계사는 자기 자료·자기 일정·팀 공통 일�
   assert.equal(mgr.events.length, s.events.length);
   // 팀 정보 없는 예전 데이터는 전체
   assert.equal(calendarScope({ items: s.items, events: [] }).scope, 'all');
+});
+
+test('실무진 후보에서 고르기: 후보에 있으면 그대로, 없으면 지금 쓰는 사람 → 첫 실무진', () => {
+  const s = sampleState();
+  assert.equal(pickRequester(s, '김서윤 회계사'), '김서윤 회계사');
+  assert.equal(pickRequester(s, '이서연 매니저'), '장재혁 회계사', '매니저는 후보가 아님');
+  assert.equal(pickRequester(s, ''), '장재혁 회계사');
+  const asMgr = switchUser(s, '이서연 매니저');
+  assert.equal(pickRequester(asMgr, '박모르는 회계사'), requesterMembers(asMgr)[0]);
+  assert.equal(pickRequester({ items: [] }, '홍길동'), '홍길동', '팀 정보 없으면 그대로');
 });

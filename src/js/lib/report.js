@@ -148,7 +148,7 @@ export function reportToText(report) {
     `보완 요청 ${counts.fix}건`,
   ];
   if (owners.length) {
-    lines.push('', '담당자별');
+    lines.push('', '담당자별(거래처별)');
     for (const o of owners) lines.push(`- ${o.owner}: ${o.open}건${o.urgent ? ` (긴급·지연 ${o.urgent})` : ''}`);
   }
   if (urgentItems.length) {

@@ -66,6 +66,17 @@ export function defaultRequester(state) {
   return isManager(state) ? '' : currentUser(state);
 }
 
+/**
+ * 실무진 후보 중에서 고른 사람: 후보에 있으면 그대로, 아니면 지금 쓰는 사람(실무진일 때), 그것도 아니면 첫 실무진.
+ * 팀 정보가 없으면 받은 이름을 그대로 둔다. (외부조회서 회신처 담당자 기본값 등에 쓴다)
+ */
+export function pickRequester(state, name) {
+  const members = requesterMembers(state);
+  if (!members.length) return name || '';
+  if (members.includes(name)) return name;
+  return defaultRequester(state) || members[0];
+}
+
 /** 다른 팀원으로 바꾼 새 state (팀원 목록에 있는 사람만) */
 export function switchUser(state, name) {
   return teamMembers(state).includes(name) ? { ...state, team: { ...state.team, me: name } } : state;

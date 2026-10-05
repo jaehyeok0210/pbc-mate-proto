@@ -17,7 +17,7 @@ import { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } from
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
 import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
-import { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope } from './lib/team.js';
+import { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope, pickRequester, requesterMembers } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
 import { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -116,6 +116,8 @@ function render() {
         setup: { ...defaultSetup(state.client, today), ...(state.confirmSetup || {}), issuedOn: today, replyBy: defaultSetup(state.client, today).replyBy },
       };
     }
+    // 회신처 담당자는 실무진 중 한 명 (기억해 둔 이름이 후보에 없으면 지금 쓰는 사람으로)
+    conf.setup.contactName = pickRequester(state, conf.setup.contactName);
     app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
@@ -629,8 +631,9 @@ const actions = {
     if (!setup || !parsed.parties.length || parsed.errorCount) return;
     const letters = buildLetters(conf.type, parsed.parties, setup,
       { startNo: nextDocNo(state.items, conf.type), bankBlank: conf.bankBlank });
-    const me = defaultRequester(state);
-    state = addItems(state, toRegistryValues(letters, setup).map((v) => (me ? { ...v, item: { ...v.item, requester: me } } : v)));
+    // 요청 감사인 = 회신처 담당자(실무진 후보에서 고른 사람)
+    const requester = requesterMembers(state).includes(setup.contactName) ? setup.contactName : defaultRequester(state);
+    state = addItems(state, toRegistryValues(letters, setup).map((v) => (requester ? { ...v, item: { ...v.item, requester } } : v)));
     // 다음 작성 때 회사·감사인 정보를 다시 입력하지 않도록 기억한다 (날짜는 매번 새로)
     const { issuedOn, replyBy, ...keep } = setup;
     state = { ...state, confirmSetup: keep };
@@ -956,7 +959,7 @@ app.addEventListener('change', (e) => {
     conf.touched.add(e.target.name);
     const errors = confSetupErrors(currentToday());
     for (const label of app.querySelectorAll('#conf-setup .f')) {
-      const name = label.querySelector('input')?.name;
+      const name = label.querySelector('input, select')?.name;
       if (!conf.touched.has(name)) continue;
       label.classList.toggle('has-error', Boolean(errors[name]));
       label.querySelector('.f-error')?.remove();

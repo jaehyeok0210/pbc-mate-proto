@@ -68,7 +68,7 @@ function body(report, lines, state, query) {
         ${confirmOverview(trackOverview(state.items, state.materiality?.performance), state.materiality)}
 
         <div class="report-block">
-          <h2>담당자별 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
+          <h2>담당자별(거래처별) 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
           <div class="owner-table">
             <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 독촉</div></div>
             ${owners.map((o) => `
