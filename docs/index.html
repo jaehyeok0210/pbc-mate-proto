@@ -1566,8 +1566,9 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .preview-sheet .sheet-body { flex-grow: 1; display: flex; min-height: 0; padding: 12px 22px; }
 .pv-frame { flex-grow: 1; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill-2); overflow: auto; }
 .pv-frame iframe { width: 100%; height: 100%; border: 0; background: #fff; }
-.pv-image { display: grid; place-items: center; padding: 12px; }
-.pv-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pv-image { display: grid; place-items: start center; padding: 12px; }
+/* 문서 스캔처럼 세로로 긴 이미지는 폭에 맞추고 세로로 스크롤해 읽는다 */
+.pv-image img { display: block; max-width: 100%; height: auto; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
 .pv-text { margin: 0; padding: 14px 16px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); background: #fff; }
 .pv-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; color: var(--ink-3); }
 .pv-none svg { width: 22px; height: 22px; color: var(--ink-3); }
@@ -3874,6 +3875,142 @@ function ownerDetail(state, owner, today) {
 return { weekRange, weekLabel, buildReport, summaryLines, reportToText, reportToCsv, csvFileName, filterRows, ownerDetail };
 })();
 
+// ---- lib/sampleDocs.js
+const __m_lib_sampleDocs = (() => {
+
+// 시연용 예시 첨부파일의 내용 (스캔 문서처럼 그릴 수 있게 구조만 둔다).
+// 그리기는 src/js/scan.js가 한다. 금액·수량은 예시 자료(store.js)의 장부 금액과 맞춘다.
+// 모든 회사·은행·사람·번호는 가공의 것이다.
+
+const won = (n) => Number(n).toLocaleString('ko-KR');
+
+/** 은행조회서 회신 — 바다저축은행 본점 (BK-002, 장부 5억원과 일치) */
+function bankReply(item, setup) {
+  const deposits = [
+    ['보통예금', '110-482-***521', 'KRW', '-', '-', 120000000],
+    ['정기예금', '210-031-***087', 'KRW', '2027-06-30', '3.40%', 380000000],
+  ];
+  const total = deposits.reduce((s, r) => s + r[5], 0);
+  return {
+    kind: 'bank',
+    docNo: item.docNo,
+    title: '은 행 조 회 서 (회 신)',
+    to: `${setup.auditorName} 귀중 (담당: ${setup.contactName})`,
+    meta: [
+      ['조회 의뢰 회사', `${setup.companyName} (대표이사 ${setup.ceoName})`],
+      ['조회 기준일', '2026년 12월 31일'],
+      ['조회서 번호', item.docNo],
+    ],
+    lead: '귀 감사인의 조회 의뢰에 대하여 당행의 장부에 기록된 내용을 아래와 같이 회신합니다.',
+    sections: [
+      { heading: '1. 예금 잔액', cols: ['예금 종류', '계좌번호', '통화', '만기일', '이율', '잔액(원)'],
+        rows: deposits.map((r) => [...r.slice(0, 5), won(r[5])]), total: ['합계', '', '', '', '', won(total)] },
+      { heading: '2. 차입금 및 당좌차월', cols: ['종류', '약정한도', '잔액', '이율', '만기일', '담보'],
+        rows: [['해당 사항 없음', '', '', '', '', '']] },
+      { heading: '3. 담보 제공 · 지급보증 · 기타 약정', cols: ['구분', '내용'],
+        rows: [['담보 제공', '해당 사항 없음'], ['지급보증', '해당 사항 없음'], ['파생상품 · 기타 약정', '해당 사항 없음']] },
+    ],
+    remark: '상기 이외에 기준일 현재 귀사와의 거래로 당행 장부에 기록된 채권·채무는 없습니다.',
+    signed: { date: '2027년 1월 11일', org: '바다저축은행 본점 수신관리팀', person: '책임자  한 지 원 (인)', stamp: ['바다저축', '은행', '본점'] },
+    total,
+  };
+}
+
+/** 제3자 보관 재고자산 조회 회신 — ㈜한결물류 평택센터 (수량만 확인) */
+function inventoryReply(item, setup) {
+  const lines = [
+    ['P-1001', 'OLED 패널 A-15', 'EA', 8200, 8200],
+    ['P-1024', 'OLED 패널 B-13', 'EA', 5400, 5400],
+    ['M-3310', '구동 IC DR-7', 'BOX', 1260, 1260],
+    ['M-4102', '편광필름 PF-2', 'ROLL', 340, 340],
+  ];
+  return {
+    kind: 'inventory',
+    docNo: item.docNo,
+    title: '제3자 보관 재고자산 조회서 (회신)',
+    to: `${setup.auditorName} 귀중 (담당: ${setup.contactName})`,
+    meta: [
+      ['위탁 회사', setup.companyName],
+      ['보관 장소', '경기도 평택시 포승읍 평택항로 268 · 한결물류 평택센터 B동'],
+      ['조회 기준일', '2026년 12월 31일'],
+      ['조회서 번호', item.docNo],
+    ],
+    lead: '기준일 현재 당사가 위 회사를 위하여 보관 중인 재고자산의 수량을 아래와 같이 확인합니다.',
+    sections: [
+      { heading: '보관 수량 확인', cols: ['품목코드', '품목명', '단위', '회사 통지 수량', '보관 확인 수량', '차이'],
+        rows: lines.map(([code, name, unit, notified, held]) => [code, name, unit, won(notified), won(held), won(held - notified)]) },
+      { heading: '기타 확인 사항', cols: ['구분', '내용'],
+        rows: [['소유권', '상기 재고는 당사 소유가 아니며 위탁 회사의 소유임'],
+          ['담보 · 질권 설정', '해당 사항 없음'], ['출고 제한 · 보관료 미납', '해당 사항 없음']] },
+    ],
+    remark: '금액은 확인하지 않았으며 수량만 확인하였습니다.',
+    signed: { date: '2027년 1월 12일', org: '㈜한결물류 평택센터', person: '센터장  오 승 민 (인)', stamp: ['㈜한결', '물류', '평택센터'] },
+    lines,
+  };
+}
+
+/** 법인세 과세표준 및 세액신고서 사본 — 2025 사업연도 (세율 2억 이하 9%, 2억 초과~200억 19%) */
+function corporateTax(income) {
+  const base = income.net + income.add - income.deduct;
+  const low = Math.min(base, 200000000);
+  const computed = Math.round(low * 0.09 + Math.max(base - 200000000, 0) * 0.19);
+  const payable = computed - income.credit;
+  return { base, computed, payable, due: payable - income.prepaid };
+}
+
+function taxReturn(item, setup) {
+  const income = { net: 3120000000, add: 410000000, deduct: 185000000, credit: 42000000, prepaid: 280000000 };
+  const t = corporateTax(income);
+  const row = (no, label, amount) => [no, label, won(amount)];
+  return {
+    kind: 'tax',
+    title: '법인세 과세표준 및 세액신고서',
+    to: '',
+    meta: [
+      ['법인명', setup.companyName],
+      ['사업자등록번호', '124-81-*****'],
+      ['대표자', setup.ceoName],
+      ['사업연도', '2025.01.01 ~ 2025.12.31'],
+    ],
+    lead: '',
+    sections: [
+      { heading: '① 과세표준 및 세액의 계산', cols: ['코드', '구분', '금액(원)'],
+        rows: [
+          row('01', '결산서상 당기순손익', income.net),
+          row('02', '소득조정금액  익금산입', income.add),
+          row('03', '소득조정금액  손금산입', income.deduct),
+          row('04', '각 사업연도 소득금액 (01+02-03)', t.base),
+          row('10', '과세표준', t.base),
+          row('12', '산출세액', t.computed),
+          row('17', '공제감면세액', income.credit),
+          row('20', '총부담세액', t.payable),
+          row('22', '기납부세액 (중간예납)', income.prepaid),
+          row('25', '차감 납부할 세액', t.due),
+        ] },
+    ],
+    remark: '「법인세법」 제60조에 따라 위와 같이 신고합니다.',
+    signed: { date: '2026년 3월 31일', org: `신고인  ${setup.companyName}`, person: `대표이사  ${setup.ceoName.split('').join(' ')} (인)`, stamp: null },
+    receipt: ['전자신고 접수', '2026.03.31', '접수번호 1203-2026-***41'],
+    tax: t,
+  };
+}
+
+/** 예시 첨부 id → 문서 내용 */
+const SAMPLE_DOC_BUILDERS = {
+  'sample-f1': bankReply,
+  'sample-f2': inventoryReply,
+  'sample-f3': taxReturn,
+};
+
+/** 예시 첨부의 문서 내용. 해당 없으면 null */
+function sampleDoc(fileId, item, setup) {
+  const build = SAMPLE_DOC_BUILDERS[fileId];
+  return build && item && setup ? build(item, setup) : null;
+}
+
+return { corporateTax, SAMPLE_DOC_BUILDERS, sampleDoc };
+})();
+
 // ---- lib/status.js
 const __m_lib_status = (() => {
 const { FIX_REASONS, fixSummary } = __m_lib_fix;
@@ -4211,6 +4348,163 @@ function sendTiming(clock, neededOn) {
 return { parseNow, clockOf, isOffHours, nextBusinessDay, sendTiming };
 })();
 
+// ---- scan.js
+const __m_scan = (() => {
+
+// 예시 첨부 문서를 스캔본처럼 그려 PNG Blob으로 만든다 (브라우저 전용, canvas).
+// 내용은 lib/sampleDocs.js. 미리 만든 이미지를 넣지 않아 배포 파일이 커지지 않는다.
+
+const W = 1240;           // A4 150dpi 폭
+const H = 1754;
+const M = 110;            // 좌우 여백
+const INK = '#23262b';
+const SERIF = "'Noto Serif KR', 'Noto Serif CJK KR', 'Batang', 'AppleMyungjo', serif";
+const SANS = "'Noto Sans KR', 'Noto Sans CJK KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
+
+// 같은 결과가 나오게 고정 시드 난수 (스캔 얼룩·점)
+function rng(seed) {
+  let s = seed;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+function font(px, { bold = false, serif = true } = {}) {
+  return `${bold ? '700' : '400'} ${px}px ${serif ? SERIF : SANS}`;
+}
+
+function text(ctx, str, x, y, { px = 22, bold = false, align = 'left', color = INK, serif = true } = {}) {
+  ctx.font = font(px, { bold, serif });
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(str, x, y);
+}
+
+// 칸 폭을 글자 길이에 맞춰 나눈다 (금액 칸은 오른쪽 정렬)
+function table(ctx, { cols, rows, total }, y) {
+  const all = [cols, ...rows, ...(total ? [total] : [])];
+  ctx.font = font(20);
+  const need = cols.map((_, i) => Math.max(...all.map((r) => ctx.measureText(String(r[i] ?? '')).width)) + 28);
+  const sum = need.reduce((a, b) => a + b, 0);
+  const width = W - M * 2;
+  const widths = need.map((n) => (n / sum) * width);
+  const rowH = 44;
+  const isNum = (v) => /^-?[\d,]+$/.test(String(v)) || /%$/.test(String(v));
+  ctx.strokeStyle = '#4b4f55';
+  ctx.lineWidth = 1.2;
+  all.forEach((r, ri) => {
+    const top = y + ri * rowH;
+    const head = ri === 0;
+    const foot = total && ri === all.length - 1;
+    if (head || foot) { ctx.fillStyle = 'rgba(60,64,70,0.07)'; ctx.fillRect(M, top, width, rowH); }
+    let x = M;
+    r.forEach((v, ci) => {
+      const s = String(v ?? '');
+      const right = !head && ci > 0 && isNum(s);
+      text(ctx, s, right ? x + widths[ci] - 14 : (head ? x + widths[ci] / 2 : x + 14), top + rowH / 2,
+        { px: 20, bold: head || foot, align: right ? 'right' : (head ? 'center' : 'left') });
+      ctx.strokeRect(x, top, widths[ci], rowH);
+      x += widths[ci];
+    });
+  });
+  ctx.lineWidth = 2;
+  ctx.strokeRect(M, y, width, all.length * rowH);
+  return y + all.length * rowH;
+}
+
+// 붉은 원형 직인
+function stamp(ctx, lines, cx, cy, r = 66) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-0.12);
+  ctx.globalAlpha = 0.78;
+  ctx.strokeStyle = '#c8322b';
+  ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, r - 9, 0, Math.PI * 2); ctx.stroke();
+  const step = 25;
+  lines.forEach((l, i) => text(ctx, l, 0, (i - (lines.length - 1) / 2) * step, { px: l.length > 3 ? 18 : 21, bold: true, align: 'center', color: '#c8322b' }));
+  ctx.restore();
+}
+
+// 전자신고 접수 도장 (사각)
+function receipt(ctx, lines, x, y) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(0.04);
+  ctx.globalAlpha = 0.75;
+  ctx.strokeStyle = '#2f55a4';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, 0, 300, 112);
+  lines.forEach((l, i) => text(ctx, l, 150, 26 + i * 32, { px: i === 0 ? 24 : 18, bold: i === 0, align: 'center', color: '#2f55a4', serif: false }));
+  ctx.restore();
+}
+
+function drawDoc(ctx, doc) {
+  let y = 120;
+  if (doc.docNo) text(ctx, `No. ${doc.docNo}`, W - M, y - 30, { px: 18, align: 'right', color: '#5b6068', serif: false });
+  text(ctx, doc.title, W / 2, y + 20, { px: 40, bold: true, align: 'center' });
+  y += 70;
+  ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(M, y); ctx.lineTo(W - M, y); ctx.stroke();
+  y += 46;
+  if (doc.to) { text(ctx, doc.to, M, y, { px: 23, bold: true }); y += 50; }
+  for (const [k, v] of doc.meta) {
+    text(ctx, k, M + 6, y, { px: 21, color: '#4b4f55' });
+    text(ctx, `:  ${v}`, M + 210, y, { px: 21 });
+    y += 38;
+  }
+  y += 14;
+  if (doc.lead) { text(ctx, doc.lead, M, y, { px: 21 }); y += 52; }
+  for (const s of doc.sections) {
+    text(ctx, s.heading, M, y, { px: 22, bold: true });
+    y = table(ctx, s, y + 24) + 44;
+  }
+  if (doc.remark) { text(ctx, doc.remark, M, y, { px: 20, color: '#3a3e44' }); y += 70; }
+  const sy = Math.min(y + 90, H - 330);
+  text(ctx, doc.signed.date, W / 2, sy, { px: 23, align: 'center' });
+  text(ctx, doc.signed.org, W - M - 180, sy + 80, { px: 23, align: 'right', bold: true });
+  text(ctx, doc.signed.person, W - M - 180, sy + 124, { px: 22, align: 'right' });
+  if (doc.signed.stamp) stamp(ctx, doc.signed.stamp, W - M - 110, sy + 106);
+  if (doc.receipt) receipt(ctx, doc.receipt, W - M - 300, 210);
+}
+
+// 스캔 느낌: 누런 종이, 약간 기울어짐, 가장자리 그림자, 잡점
+function scanEffect(ctx, draw, seed) {
+  const rand = rng(seed);
+  ctx.fillStyle = '#f7f5ef';
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate((rand() - 0.5) * 0.012);
+  ctx.translate(-W / 2, -H / 2);
+  draw();
+  ctx.restore();
+  for (let i = 0; i < 2600; i++) {
+    ctx.fillStyle = `rgba(40,40,40,${rand() * 0.18})`;
+    ctx.fillRect(rand() * W, rand() * H, rand() * 1.8 + 0.4, rand() * 1.8 + 0.4);
+  }
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, 'rgba(0,0,0,0.10)'); g.addColorStop(0.04, 'rgba(0,0,0,0)');
+  g.addColorStop(0.96, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.08)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // 시연용 표시 (작게)
+  text(ctx, 'PBC Mate 시연용 예시 문서 · 가공의 자료', W / 2, H - 34, { px: 15, align: 'center', color: 'rgba(90,90,90,0.75)', serif: false });
+}
+
+/** 문서 내용 → PNG Blob */
+async function renderScan(doc, seed = 7) {
+  try { await document.fonts?.ready; } catch { /* 글꼴 대기 실패는 무시 */ }
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  scanEffect(ctx, () => drawDoc(ctx, doc), seed);
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
+}
+
+return { renderScan };
+})();
+
 // ---- store.js
 const __m_store = (() => {
 const { addDays } = __m_lib_dates;
@@ -4274,9 +4568,9 @@ function baseDateOf(state, override, realToday) {
 
 /** 예시 첨부 파일 (load-sample 때 브라우저 저장소에 만든다). 내용은 예시 안내 문구뿐이다. */
 const SAMPLE_FILES = [
-  { id: 'sample-f1', name: '바다저축은행 조회 회신(예시).txt', itemId: 'c2' },
-  { id: 'sample-f2', name: '한결물류 재고 조회 회신(예시).txt', itemId: 'c7' },
-  { id: 'sample-f3', name: '2025 법인세 신고서 사본(예시).txt', itemId: 'i6' },
+  { id: 'sample-f1', name: '바다저축은행_은행조회서_회신_BK-002.png', itemId: 'c2' },
+  { id: 'sample-f2', name: '한결물류_재고보관_조회회신_IV-001.png', itemId: 'c7' },
+  { id: 'sample-f3', name: '2025_법인세_과세표준및세액신고서_사본.png', itemId: 'i6' },
 ];
 
 /**
@@ -4345,7 +4639,7 @@ function sampleState() {
         nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }] },
       { id: 'i6', requester: KIM, name: '법인세 신고서 사본', owner: '박준호 과장', requestedOn: d(-8), neededOn: d(-1), status: 'done',
         procedure: '법인세 검토', nudges: [], received: { on: d(-6) },
-        attachments: [{ id: 'sample-f3', name: '2025 법인세 신고서 사본(예시).txt', size: 210, type: 'text/plain', addedOn: d(-6) }] },
+        attachments: [{ id: 'sample-f3', name: '2025_법인세_과세표준및세액신고서_사본.png', size: 572000, type: 'image/png', addedOn: d(-6) }] },
       // ㈜오성테크 미회수 → 대체적 절차 증빙으로 만든 자료 요청 (후속 절차와 PBC가 이어지는 장면)
       { id: 'i7', requester: KIM, name: '기준일 이후 지급 내역(통장 사본) (㈜오성테크)', owner: '박준호 과장', requestedOn: d(-1), neededOn: d(5), status: 'none',
         procedure: '외부조회 대체적 절차', nudges: [], sourceId: 'c5' },
@@ -4372,7 +4666,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
       bookAmount: 4250000000, requestedOn: SENT, neededOn: d(4), status: 'none', nudges: [{ on: d(-1), tone: 'polite' }] }),
     conf('c2', 'bank', 'BK-002', '바다저축은행 본점', { requester: ME,
       bookAmount: 500000000, requestedOn: SENT, neededOn: d(4), status: 'done', received: { on: d(-3) },
-      attachments: [{ id: 'sample-f1', name: '바다저축은행 조회 회신(예시).txt', size: 180, type: 'text/plain', addedOn: d(-3) }] }),
+      attachments: [{ id: 'sample-f1', name: '바다저축은행_은행조회서_회신_BK-002.png', size: 632000, type: 'image/png', addedOn: d(-3) }] }),
     // 채권채무: 기한 지남 · 미회수 대체적 절차 · 금액 차이 조정 중 · 조정 완료(서명)
     conf('c4', 'arap', 'AR-002', '세진물산㈜', { requester: ME,
       receivable: 315500000, payable: 120000000, bookAmount: 435500000, requestedOn: SENT, neededOn: d(-2), status: 'none',
@@ -4398,7 +4692,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
     // 제3자 보관 재고: 회수 완료
     conf('c7', 'inventory', 'IV-001', '㈜한결물류 평택센터', { requester: KIM,
       bookAmount: 1913000000, requestedOn: SENT, neededOn: d(6), status: 'done', received: { on: d(-2) },
-      attachments: [{ id: 'sample-f2', name: '한결물류 재고 조회 회신(예시).txt', size: 190, type: 'text/plain', addedOn: d(-2) }] }),
+      attachments: [{ id: 'sample-f2', name: '한결물류_재고보관_조회회신_IV-001.png', size: 617000, type: 'image/png', addedOn: d(-2) }] }),
   ];
 }
 
@@ -7055,6 +7349,8 @@ const { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } = __m
 const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } = __m_lib_calendar;
 const { formatMD } = __m_lib_dates;
 const { validateTransition, canTransition } = __m_lib_status;
+const { sampleDoc } = __m_lib_sampleDocs;
+const { renderScan } = __m_scan;
 const { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope, pickRequester, requesterMembers } = __m_lib_team;
 const { searchEngagements, engagementById, validateStart, teamFromEngagement } = __m_lib_engagements;
 const { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
@@ -7326,7 +7622,13 @@ async function copyForDrawer(view, { itemIds, text }, record) {
 
 // 예시 자료의 첨부 파일을 브라우저 저장소에 만든다 (주간 보고 '첨부자료' 칸에서 열어 볼 수 있게).
 // 내용은 예시 안내 문구뿐이다. 저장소가 막힌 환경이면 조용히 넘어간다.
-function sampleFileBlob(f, item) {
+// 예시 첨부: 스캔본처럼 그린 문서 이미지. 그리기에 실패하면 짧은 안내 텍스트로 대신한다.
+async function sampleFileBlob(f, item) {
+  const setup = { ...(state.confirmSetup || {}), contactName: item.requester || state.confirmSetup?.contactName || '' };
+  const doc = sampleDoc(f.id, item, setup);
+  if (doc) {
+    try { return await renderScan(doc, f.id.length * 31 + item.id.charCodeAt(1)); } catch { /* 아래 텍스트로 */ }
+  }
   const text = `${f.name}\n\nPBC Mate 시연용 예시 첨부파일입니다. 실제 자료가 아닙니다.\n자료: ${item.name}\n담당: ${item.owner}\n`;
   return new Blob([text], { type: 'text/plain' });
 }
@@ -7335,7 +7637,7 @@ async function seedSampleFiles() {
   for (const f of SAMPLE_FILES) {
     const item = state.items.find((x) => x.id === f.itemId);
     if (!item) continue;
-    try { await putFile(f.id, sampleFileBlob(f, item)); } catch { return; }
+    try { await putFile(f.id, await sampleFileBlob(f, item)); } catch { return; }
   }
 }
 
@@ -7782,8 +8084,10 @@ const actions = {
     try { blob = await getFile(el.dataset.file); } catch { blob = null; }
     // 예시 첨부 파일이 저장소에 없으면(예전에 불러온 예시 등) 다시 만든다
     const sample = SAMPLE_FILES.find((f) => f.id === el.dataset.file);
+    // 예전 버전의 예시 첨부(텍스트)가 남아 있으면 새 문서 이미지로 바꾼다
+    if (sample && blob && meta?.type && blob.type !== meta.type) blob = null;
     if (!blob && sample) {
-      blob = sampleFileBlob(sample, item);
+      blob = await sampleFileBlob(sample, item);
       putFile(sample.id, blob).catch(() => {});
     }
     const name = meta?.name || 'attachment';
