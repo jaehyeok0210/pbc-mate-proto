@@ -2100,6 +2100,12 @@ function clientShortName(name) {
   return name.replace(/㈜|\(주\)|주식회사/g, '').trim();
 }
 
+/** 감사 절차 이름: '재고 실사' → '재고 실사 절차', 이미 '…절차'로 끝나면 그대로 */
+function procName(procedure) {
+  const p = String(procedure || '').trim() || '관련 감사';
+  return /절차$/.test(p) ? p : `${p} 절차`;
+}
+
 /** '2026-09-28' → '9월 28일' */
 function longDate(iso) {
   const [, m, d] = iso.split('-').map(Number);
@@ -2140,14 +2146,47 @@ function scheduleReason(tone, left, neededOn, proc) {
 }
 
 /**
- * @returns {{ subject, to: {name, dept}, cc: {name, dept} | null, segments }}
+ * 첫 요청인지: 오늘 새로 만든 미회신 자료이고, 요청 이력이 없거나 모두 요청한 날에 남긴 것.
+ * 첫 요청이면 '어떻게 되고 있나요'가 아니라 자료를 처음 요청하는 문안을 쓴다. 다음 날부터는 요청 문안으로 바뀐다.
  */
-function buildMail({ item, person = {}, client, manager, today, tone }) {
+function isFirstRequest(item, today) {
+  return item.status === 'none' && item.requestedOn >= today
+    && (item.nudges || []).every((n) => n.on === item.requestedOn);
+}
+
+/** 첫 요청 문안. 톤은 고르지 않고(매니저 참조만 반영), 표준 양식이면 양식 안내 한 줄을 넣는다. */
+function firstRequestMail({ item, prefix, proc, by, left, note }) {
+  const why = left < 0
+    ? [reason('감사 일정상 '), field(longDate(item.neededOn)), reason(`부터 ${proc}에 사용해야 하는 자료라`)]
+    : [reason('감사 일정상 '), field(longDate(item.neededOn)), reason(`에 ${proc}를 시작할 예정이라`)];
+  return {
+    subject: `${prefix} ${item.name} 요청드립니다 (${formatMD(item.neededOn)} 필요)`,
+    segments: [
+      field(`${item.owner}님`), plain(', 안녕하세요.\n\n감사 진행을 위해 아래 자료를 요청드립니다.\n\n'),
+      plain('· 자료: '), field(item.name), plain('\n'),
+      plain('· 회신 부탁드리는 날: '), field(by.soft), plain('\n'),
+      ...(note ? [plain('\n'), field(note), plain('\n')] : []),
+      plain('\n'), ...why, plain(', 미리 준비해 주시면 감사하겠습니다. 기한 내 준비가 어려우시면 가능한 날짜를 알려주세요.\n\n감사합니다.\n[이름] 드림'),
+    ],
+  };
+}
+
+/**
+ * @param note 첫 요청 메일에 넣을 양식 안내 문장 (pbcTemplate.requestNote). 없으면 생략.
+ * @returns {{ subject, to: {name, dept}, cc: {name, dept} | null, segments, first }}
+ */
+function buildMail({ item, person = {}, client, manager, today, tone, note = '' }) {
   const left = daysBetween(today, item.neededOn);
-  const proc = `${item.procedure || '관련 감사'} 절차`;
+  const proc = procName(item.procedure);
   const by = replyBy(left, item.neededOn);
   const part = item.status === 'part';
   const prefix = `[${clientShortName(client.name)} 감사]`;
+  const cc = tone === 'cc' ? (manager || { name: '[매니저]', dept: '' }) : null;
+
+  if (isFirstRequest(item, today)) {
+    const first = firstRequestMail({ item, prefix, proc, by, left, note });
+    return { ...first, to: { name: item.owner, dept: person.dept || '' }, cc, first: true };
+  }
 
   const hello = [field(`${item.owner}님`)];
   const requested = [field(longDate(item.requestedOn)), plain(' 요청드린 '), field(item.name)];
@@ -2190,8 +2229,9 @@ function buildMail({ item, person = {}, client, manager, today, tone }) {
   return {
     subject,
     to: { name: item.owner, dept: person.dept || '' },
-    cc: tone === 'cc' ? (manager || { name: '[매니저]', dept: '' }) : null,
+    cc,
     segments,
+    first: false,
   };
 }
 
@@ -2206,7 +2246,7 @@ function mailToText(mail) {
   return `${head.join('\n')}\n\n${mailBody(mail)}`;
 }
 
-return { clientShortName, replyBy, scheduleReason, buildMail, mailBody, mailToText };
+return { clientShortName, procName, replyBy, scheduleReason, isFirstRequest, buildMail, mailBody, mailToText };
 })();
 
 // ---- lib/bundle.js
@@ -2214,7 +2254,7 @@ const __m_lib_bundle = (() => {
 const { formatMD, formatMDW } = __m_lib_dates;
 const { withDays, sortItems } = __m_lib_priority;
 const { recommendTone, toneIndex } = __m_lib_tone;
-const { clientShortName, replyBy, scheduleReason } = __m_lib_mail;
+const { clientShortName, replyBy, scheduleReason, procName } = __m_lib_mail;
 // 3. 묶음 요청: 같은 담당자의 남은 자료를 메일 한 통으로
 
 
@@ -2255,7 +2295,7 @@ const STATUS_IN_MAIL = {
  */
 function buildBundleMail({ sorted, person = {}, client, manager, tone }) {
   const top = sorted[0];
-  const proc = `${top.procedure || '관련 감사'} 절차`;
+  const proc = procName(top.procedure);
   const by = replyBy(top.left, top.neededOn);
   const why = scheduleReason(tone, top.left, top.neededOn, proc);
   const prefix = `[${clientShortName(client.name)} 감사]`;
@@ -3079,7 +3119,7 @@ return { ENGAGEMENTS, searchEngagements, engagementById, validateStart, teamFrom
 const __m_lib_fix = (() => {
 const { daysBetween, formatMD } = __m_lib_dates;
 const { josa } = __m_lib_korean;
-const { clientShortName } = __m_lib_mail;
+const { clientShortName, procName } = __m_lib_mail;
 // 4. 보완 요청: 받은 자료에 문제가 있을 때, 사유에 맞는 재요청 메일
 // 톤은 항상 정중. 복사해도 상태는 '보완 요청' 그대로 둔다.
 
@@ -3139,7 +3179,7 @@ function buildFixMail({ item, person = {}, client, today, reason }) {
 
   const left = daysBetween(today, item.neededOn);
   const need = formatMD(item.neededOn);
-  const proc = `${item.procedure || '관련 감사'} 절차`;
+  const proc = procName(item.procedure);
   const prefix = `[${clientShortName(client.name)} 감사] ${item.name}`;
   const detail = fixDetail(item, reason);
 
@@ -3627,7 +3667,13 @@ function receiptSuggestion(template, check, basisDate) {
   return { status: 'done', summary: '양식대로 받았어요. 완료로 처리할 수 있어요.' };
 }
 
-return { PBC_TEMPLATES, TEMPLATE_ORDER, templateForName, templateOf, defaultBasisDate, requestSheetTsv, requestNote, receiptSuggestion };
+/** 첫 요청 메일에 넣을 양식 안내 (표준 양식 자료만, 아니면 빈 문자열) */
+function mailNote(state, item, today) {
+  const t = templateOf(item);
+  return t ? requestNote(t, item.basisDate || defaultBasisDate(state, today)) : '';
+}
+
+return { PBC_TEMPLATES, TEMPLATE_ORDER, templateForName, templateOf, defaultBasisDate, requestSheetTsv, requestNote, receiptSuggestion, mailNote };
 })();
 
 // ---- lib/report.js
@@ -5749,12 +5795,12 @@ const __m_views_compose = (() => {
 const { formatMD, formatMDW } = __m_lib_dates;
 const { withDays, leftText } = __m_lib_priority;
 const { TONES, toneIndex, toneName, recommendTone, recommendBasis } = __m_lib_tone;
-const { buildMail } = __m_lib_mail;
+const { buildMail, procName } = __m_lib_mail;
 const { sendTiming } = __m_lib_timing;
 const { timingChip, timingBanner } = __m_views_timing;
 const { mailDates } = __m_lib_calendar;
 const { mailField, mailDateDock } = __m_views_calendar;
-const { templateOf } = __m_lib_pbcTemplate;
+const { templateOf, mailNote } = __m_lib_pbcTemplate;
 const { signMail, currentUser } = __m_lib_team;
 const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
 // 2. 단건 요청 — 레퍼런스 2 / 2-1 / 2-2 / 2-3 / 2-M
@@ -5771,7 +5817,7 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
   const history = item.nudges || [];
   const last = history[history.length - 1];
   const recommended = recommendTone(item);
-  const mail = signMail(buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone }), currentUser(state));
+  const mail = signMail(buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone, note: mailNote(state, item, today) }), currentUser(state));
   const timing = sendTiming(clock, item.neededOn);
   const dates = mailDates([item], today);
 
@@ -5791,7 +5837,7 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
       <div class="drawer-body">
         <div class="compose-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">단건 요청 ${timingChip(timing)}</div>
+            <div class="eyebrow desktop-only">${mail.first ? '첫 요청' : '단건 요청'} ${timingChip(timing)}</div>
             <h2 id="compose-title">${esc(item.name)}</h2>
             <div class="compose-owner desktop-only">${esc(item.owner)}${person.dept ? ` · ${esc(person.dept)}` : ''}</div>
           </div>
@@ -5801,7 +5847,7 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
         ${timingBanner(timing)}
         ${facts(item, history, last)}
         ${mobileChips(item, history, last)}
-        ${toneSlider(tone, recommended, item)}
+        ${mail.first ? firstNote() : toneSlider(tone, recommended, item)}
         ${preview(mail, dates)}
         ${item.kind === 'confirmation' ? followEntry(item) : templateNote(item)}
         ${mailDateDock(dates, state)}
@@ -5822,6 +5868,14 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
             <small>요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
         </div>` : ''}
     </aside>`;
+}
+
+// 첫 요청: 톤 대신 안내. 다음 날부터는 요청 이력과 남은 날로 톤을 추천한다.
+function firstNote() {
+  return `
+    <section class="tone first-note">
+      <div class="section-label">첫 요청 메일 <small class="fu-count">오늘 만든 자료라 처음 요청하는 문안으로 써 드려요 · 내일부터는 톤을 골라 다시 요청할 수 있어요</small></div>
+    </section>`;
 }
 
 // 표준 양식으로 요청한 자료: 요청하면서 양식을 다시 보낼 수 있게
@@ -5858,7 +5912,7 @@ function facts(item, history, last) {
       <div class="fact">
         <div class="fact-label">필요일</div>
         <div class="fact-value">${formatMDW(item.neededOn)}</div>
-        <div class="fact-sub">${esc(item.procedure || '감사')} 절차 시작</div>
+        <div class="fact-sub">${esc(procName(item.procedure))} 시작</div>
       </div>
       <div class="fact fact-risk risk-${item.risk}">
         <div class="fact-label">남은 날</div>
@@ -7515,7 +7569,7 @@ const { bundleItems, bundleTone, buildBundleMail, bundleMailToText } = __m_lib_b
 const { canOpenFix, currentFixReason, buildFixMail, fixMailToText } = __m_lib_fix;
 const { parseNow, clockOf } = __m_lib_timing;
 const { validateItem, parsePaste, markDuplicates, duplicateMessage, normalizeDate } = __m_lib_add;
-const { PBC_TEMPLATES, templateForName, templateOf, defaultBasisDate, requestSheetTsv, receiptSuggestion } = __m_lib_pbcTemplate;
+const { PBC_TEMPLATES, templateForName, templateOf, defaultBasisDate, requestSheetTsv, receiptSuggestion, mailNote } = __m_lib_pbcTemplate;
 const { josa } = __m_lib_korean;
 const { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } = __m_lib_report;
 const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } = __m_lib_calendar;
@@ -8046,7 +8100,7 @@ const actions = {
     const item = withDays(state.items.find((x) => x.id === compose.itemId), today);
     const mail = signMail(buildMail({
       item, person: state.people[item.owner], client: state.client,
-      manager: state.team?.manager, today, tone: compose.tone,
+      manager: state.team?.manager, today, tone: compose.tone, note: mailNote(state, item, today),
     }), currentUser(state));
     return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
   },
@@ -8553,11 +8607,15 @@ app.addEventListener('submit', (e) => {
   save(state);
   add = null;
   if (source) {
-    location.hash = `#/follow/${encodeURIComponent(source.itemId)}`;
+    // 후속 절차의 증빙 요청: 추가한 자료의 첫 요청 메일을 바로 보여 주고, 닫으면 후속 절차 화면으로 돌아간다
+    const added = state.items[state.items.length - 1];
+    drawerReturn = `#/follow/${encodeURIComponent(source.itemId)}`;
+    location.hash = `#/compose/${encodeURIComponent(added.id)}`;
     render();
-  } else {
-    closeDrawer();
+    toast(`‘${value.item.name}’${josa(value.item.name, '을', '를')} 추가했어요. 요청 메일을 복사해 보내세요.`);
+    return;
   }
+  closeDrawer();
   toast(`‘${value.item.name}’${josa(value.item.name, '을', '를')} 추가했어요.`);
 });
 
