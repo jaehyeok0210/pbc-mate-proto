@@ -3791,7 +3791,7 @@ const csvCell = (v) => {
 
 /** CSV (엑셀에서 한글이 깨지지 않도록 BOM 포함). 완료 자료는 남은일수를 비운다. */
 function reportToCsv(report) {
-  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근요청일'];
+  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근재요청일'];
   const body = report.rows.map((r) => [
     r.name, r.owner, r.statusLabel, r.requestedOn, r.neededOn,
     r.status === 'done' ? '' : r.left, r.lastNudgedOn ?? '',
@@ -5201,7 +5201,7 @@ function ownerCards(groups, people, done, text) {
   return `
     <section class="owners desktop-only">
       <div class="section-head">
-        <h2>담당자별(거래처별)로 묶어 재촉하기</h2>
+        <h2>담당자별(거래처별)로 묶어 요청하기</h2>
         <div class="section-hint">같은 담당자에게는 메일 한 통으로 · ${text.group}</div>
       </div>
       <div class="cards">${cards}</div>
@@ -5278,7 +5278,7 @@ function renderEmpty({ lookupOpen = false, query = '', results = null, selectedI
           <span class="ea-today">오늘</span>
         </div>
         <h1>요청한 자료를 필요일 기준으로 챙겨드려요</h1>
-        <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 재촉 메일 초안까지 만들어요.</p>
+        <p>자료마다 필요일을 넣으면 남은 날로 급한 순서를 정하고, 요청 메일 초안까지 만들어요.</p>
 
         <form class="empty-form" id="engagement-form" novalidate>
           <div class="f eng-lookup ${errors.client ? 'has-error' : ''}">
