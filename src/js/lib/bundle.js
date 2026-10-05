@@ -3,7 +3,7 @@
 import { formatMD, formatMDW } from './dates.js';
 import { withDays, sortItems } from './priority.js';
 import { recommendTone, toneIndex } from './tone.js';
-import { clientShortName, replyBy, scheduleReason } from './mail.js';
+import { clientShortName, replyBy, scheduleReason, procName } from './mail.js';
 
 /**
  * 묶음 대상: 같은 담당자 + 완료·보완 요청이 아닌 자료 (일부 수령은 남은 자료가 있어 포함).
@@ -42,7 +42,7 @@ const STATUS_IN_MAIL = {
  */
 export function buildBundleMail({ sorted, person = {}, client, manager, tone }) {
   const top = sorted[0];
-  const proc = `${top.procedure || '관련 감사'} 절차`;
+  const proc = procName(top.procedure);
   const by = replyBy(top.left, top.neededOn);
   const why = scheduleReason(tone, top.left, top.neededOn, proc);
   const prefix = `[${clientShortName(client.name)} 감사]`;

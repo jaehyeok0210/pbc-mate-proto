@@ -11,7 +11,7 @@ import { bundleItems, bundleTone, buildBundleMail, bundleMailToText } from './li
 import { canOpenFix, currentFixReason, buildFixMail, fixMailToText } from './lib/fix.js';
 import { parseNow, clockOf } from './lib/timing.js';
 import { validateItem, parsePaste, markDuplicates, duplicateMessage, normalizeDate } from './lib/add.js';
-import { PBC_TEMPLATES, templateForName, templateOf, defaultBasisDate, requestSheetTsv, receiptSuggestion } from './lib/pbcTemplate.js';
+import { PBC_TEMPLATES, templateForName, templateOf, defaultBasisDate, requestSheetTsv, receiptSuggestion, mailNote } from './lib/pbcTemplate.js';
 import { josa } from './lib/korean.js';
 import { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } from './lib/report.js';
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
@@ -539,7 +539,7 @@ const actions = {
     const item = withDays(state.items.find((x) => x.id === compose.itemId), today);
     const mail = signMail(buildMail({
       item, person: state.people[item.owner], client: state.client,
-      manager: state.team?.manager, today, tone: compose.tone,
+      manager: state.team?.manager, today, tone: compose.tone, note: mailNote(state, item, today),
     }), currentUser(state));
     return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
   },
@@ -1046,11 +1046,15 @@ app.addEventListener('submit', (e) => {
   save(state);
   add = null;
   if (source) {
-    location.hash = `#/follow/${encodeURIComponent(source.itemId)}`;
+    // 후속 절차의 증빙 요청: 추가한 자료의 첫 요청 메일을 바로 보여 주고, 닫으면 후속 절차 화면으로 돌아간다
+    const added = state.items[state.items.length - 1];
+    drawerReturn = `#/follow/${encodeURIComponent(source.itemId)}`;
+    location.hash = `#/compose/${encodeURIComponent(added.id)}`;
     render();
-  } else {
-    closeDrawer();
+    toast(`‘${value.item.name}’${josa(value.item.name, '을', '를')} 추가했어요. 요청 메일을 복사해 보내세요.`);
+    return;
   }
+  closeDrawer();
   toast(`‘${value.item.name}’${josa(value.item.name, '을', '를')} 추가했어요.`);
 });
 

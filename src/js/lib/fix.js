@@ -3,7 +3,7 @@
 
 import { daysBetween, formatMD } from './dates.js';
 import { josa } from './korean.js';
-import { clientShortName } from './mail.js';
+import { clientShortName, procName } from './mail.js';
 
 export const FIX_REASONS = [
   { key: 'date', label: '기준일 상이', hint: '다른 기준일 자료가 옴' },
@@ -60,7 +60,7 @@ export function buildFixMail({ item, person = {}, client, today, reason }) {
 
   const left = daysBetween(today, item.neededOn);
   const need = formatMD(item.neededOn);
-  const proc = `${item.procedure || '관련 감사'} 절차`;
+  const proc = procName(item.procedure);
   const prefix = `[${clientShortName(client.name)} 감사] ${item.name}`;
   const detail = fixDetail(item, reason);
 

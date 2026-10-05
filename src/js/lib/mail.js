@@ -15,6 +15,12 @@ export function clientShortName(name) {
   return name.replace(/㈜|\(주\)|주식회사/g, '').trim();
 }
 
+/** 감사 절차 이름: '재고 실사' → '재고 실사 절차', 이미 '…절차'로 끝나면 그대로 */
+export function procName(procedure) {
+  const p = String(procedure || '').trim() || '관련 감사';
+  return /절차$/.test(p) ? p : `${p} 절차`;
+}
+
 /** '2026-09-28' → '9월 28일' */
 function longDate(iso) {
   const [, m, d] = iso.split('-').map(Number);
@@ -55,14 +61,47 @@ export function scheduleReason(tone, left, neededOn, proc) {
 }
 
 /**
- * @returns {{ subject, to: {name, dept}, cc: {name, dept} | null, segments }}
+ * 첫 요청인지: 오늘 새로 만든 미회신 자료이고, 요청 이력이 없거나 모두 요청한 날에 남긴 것.
+ * 첫 요청이면 '어떻게 되고 있나요'가 아니라 자료를 처음 요청하는 문안을 쓴다. 다음 날부터는 요청 문안으로 바뀐다.
  */
-export function buildMail({ item, person = {}, client, manager, today, tone }) {
+export function isFirstRequest(item, today) {
+  return item.status === 'none' && item.requestedOn >= today
+    && (item.nudges || []).every((n) => n.on === item.requestedOn);
+}
+
+/** 첫 요청 문안. 톤은 고르지 않고(매니저 참조만 반영), 표준 양식이면 양식 안내 한 줄을 넣는다. */
+function firstRequestMail({ item, prefix, proc, by, left, note }) {
+  const why = left < 0
+    ? [reason('감사 일정상 '), field(longDate(item.neededOn)), reason(`부터 ${proc}에 사용해야 하는 자료라`)]
+    : [reason('감사 일정상 '), field(longDate(item.neededOn)), reason(`에 ${proc}를 시작할 예정이라`)];
+  return {
+    subject: `${prefix} ${item.name} 요청드립니다 (${formatMD(item.neededOn)} 필요)`,
+    segments: [
+      field(`${item.owner}님`), plain(', 안녕하세요.\n\n감사 진행을 위해 아래 자료를 요청드립니다.\n\n'),
+      plain('· 자료: '), field(item.name), plain('\n'),
+      plain('· 회신 부탁드리는 날: '), field(by.soft), plain('\n'),
+      ...(note ? [plain('\n'), field(note), plain('\n')] : []),
+      plain('\n'), ...why, plain(', 미리 준비해 주시면 감사하겠습니다. 기한 내 준비가 어려우시면 가능한 날짜를 알려주세요.\n\n감사합니다.\n[이름] 드림'),
+    ],
+  };
+}
+
+/**
+ * @param note 첫 요청 메일에 넣을 양식 안내 문장 (pbcTemplate.requestNote). 없으면 생략.
+ * @returns {{ subject, to: {name, dept}, cc: {name, dept} | null, segments, first }}
+ */
+export function buildMail({ item, person = {}, client, manager, today, tone, note = '' }) {
   const left = daysBetween(today, item.neededOn);
-  const proc = `${item.procedure || '관련 감사'} 절차`;
+  const proc = procName(item.procedure);
   const by = replyBy(left, item.neededOn);
   const part = item.status === 'part';
   const prefix = `[${clientShortName(client.name)} 감사]`;
+  const cc = tone === 'cc' ? (manager || { name: '[매니저]', dept: '' }) : null;
+
+  if (isFirstRequest(item, today)) {
+    const first = firstRequestMail({ item, prefix, proc, by, left, note });
+    return { ...first, to: { name: item.owner, dept: person.dept || '' }, cc, first: true };
+  }
 
   const hello = [field(`${item.owner}님`)];
   const requested = [field(longDate(item.requestedOn)), plain(' 요청드린 '), field(item.name)];
@@ -105,8 +144,9 @@ export function buildMail({ item, person = {}, client, manager, today, tone }) {
   return {
     subject,
     to: { name: item.owner, dept: person.dept || '' },
-    cc: tone === 'cc' ? (manager || { name: '[매니저]', dept: '' }) : null,
+    cc,
     segments,
+    first: false,
   };
 }
 

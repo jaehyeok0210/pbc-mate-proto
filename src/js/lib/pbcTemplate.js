@@ -100,3 +100,9 @@ export function receiptSuggestion(template, check, basisDate) {
   if (pending) return { status: null, summary: '기준일과 서명을 확인하면 상태를 추천해 드려요.' };
   return { status: 'done', summary: '양식대로 받았어요. 완료로 처리할 수 있어요.' };
 }
+
+/** 첫 요청 메일에 넣을 양식 안내 (표준 양식 자료만, 아니면 빈 문자열) */
+export function mailNote(state, item, today) {
+  const t = templateOf(item);
+  return t ? requestNote(t, item.basisDate || defaultBasisDate(state, today)) : '';
+}

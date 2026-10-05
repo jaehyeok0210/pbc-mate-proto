@@ -4,12 +4,12 @@
 import { formatMD, formatMDW } from '../lib/dates.js';
 import { withDays, leftText } from '../lib/priority.js';
 import { TONES, toneIndex, toneName, recommendTone, recommendBasis } from '../lib/tone.js';
-import { buildMail } from '../lib/mail.js';
+import { buildMail, procName } from '../lib/mail.js';
 import { sendTiming } from '../lib/timing.js';
 import { timingChip, timingBanner } from './timing.js';
 import { mailDates } from '../lib/calendar.js';
 import { mailField, mailDateDock } from './calendar.js';
-import { templateOf } from '../lib/pbcTemplate.js';
+import { templateOf, mailNote } from '../lib/pbcTemplate.js';
 import { signMail, currentUser } from '../lib/team.js';
 import { esc, ICON, RISK_LABEL, STATUS_LABEL } from './html.js';
 
@@ -23,7 +23,7 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
   const history = item.nudges || [];
   const last = history[history.length - 1];
   const recommended = recommendTone(item);
-  const mail = signMail(buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone }), currentUser(state));
+  const mail = signMail(buildMail({ item, person, client: state.client, manager: state.team?.manager, today, tone, note: mailNote(state, item, today) }), currentUser(state));
   const timing = sendTiming(clock, item.neededOn);
   const dates = mailDates([item], today);
 
@@ -43,7 +43,7 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
       <div class="drawer-body">
         <div class="compose-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">단건 요청 ${timingChip(timing)}</div>
+            <div class="eyebrow desktop-only">${mail.first ? '첫 요청' : '단건 요청'} ${timingChip(timing)}</div>
             <h2 id="compose-title">${esc(item.name)}</h2>
             <div class="compose-owner desktop-only">${esc(item.owner)}${person.dept ? ` · ${esc(person.dept)}` : ''}</div>
           </div>
@@ -53,7 +53,7 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
         ${timingBanner(timing)}
         ${facts(item, history, last)}
         ${mobileChips(item, history, last)}
-        ${toneSlider(tone, recommended, item)}
+        ${mail.first ? firstNote() : toneSlider(tone, recommended, item)}
         ${preview(mail, dates)}
         ${item.kind === 'confirmation' ? followEntry(item) : templateNote(item)}
         ${mailDateDock(dates, state)}
@@ -74,6 +74,14 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
             <small>요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
         </div>` : ''}
     </aside>`;
+}
+
+// 첫 요청: 톤 대신 안내. 다음 날부터는 요청 이력과 남은 날로 톤을 추천한다.
+function firstNote() {
+  return `
+    <section class="tone first-note">
+      <div class="section-label">첫 요청 메일 <small class="fu-count">오늘 만든 자료라 처음 요청하는 문안으로 써 드려요 · 내일부터는 톤을 골라 다시 요청할 수 있어요</small></div>
+    </section>`;
 }
 
 // 표준 양식으로 요청한 자료: 요청하면서 양식을 다시 보낼 수 있게
@@ -110,7 +118,7 @@ function facts(item, history, last) {
       <div class="fact">
         <div class="fact-label">필요일</div>
         <div class="fact-value">${formatMDW(item.neededOn)}</div>
-        <div class="fact-sub">${esc(item.procedure || '감사')} 절차 시작</div>
+        <div class="fact-sub">${esc(procName(item.procedure))} 시작</div>
       </div>
       <div class="fact fact-risk risk-${item.risk}">
         <div class="fact-label">남은 날</div>

@@ -74,3 +74,30 @@ test('mailToText: 제목·받는 사람·참조를 맨 위에, 발송 표현 없
   assert.ok(text.startsWith('제목: [한빛전자 감사] 은행조회서 회신 일정 협의 요청\n받는 사람: 박준호 과장\n참조: 이서연 매니저\n\n박준호 과장님'));
   assert.ok(!mailToText(mailFor('polite')).includes('참조:'));
 });
+
+test('첫 요청: 오늘 만든 미회신 자료는 처음 요청하는 문안, 다음 날부터는 다시 요청하는 문안', async () => {
+  const { isFirstRequest } = await import('../src/js/lib/mail.js');
+  const today = '2027-01-14';
+  const item = { id: 'n1', name: '기준일 이후 지급 내역(통장 사본) (㈜오성테크)', owner: '김민지 대리', requestedOn: today,
+    neededOn: '2027-01-19', status: 'none', procedure: '외부조회 대체적 절차', nudges: [] };
+  const client = { name: '㈜한빛전자' };
+  assert.equal(isFirstRequest(item, today), true);
+  const mail = buildMail({ item, client, today, tone: 'firm' });
+  assert.equal(mail.first, true);
+  assert.equal(mail.subject, '[한빛전자 감사] 기준일 이후 지급 내역(통장 사본) (㈜오성테크) 요청드립니다 (1/19 필요)');
+  const body = mailBody(mail);
+  assert.match(body, /감사 진행을 위해 아래 자료를 요청드립니다/);
+  assert.match(body, /1월 19일에 외부조회 대체적 절차를 시작할 예정이라/);
+  assert.doesNotMatch(body, /어떻게 진행되고/);
+  // 같은 날 복사해 이력이 생겨도 첫 요청 문안 유지
+  assert.equal(isFirstRequest({ ...item, nudges: [{ on: today, tone: 'angel' }] }, today), true);
+  // 다음 날이면 다시 요청하는 문안
+  assert.equal(isFirstRequest(item, '2027-01-15'), false);
+  assert.equal(buildMail({ item, client, today: '2027-01-15', tone: 'polite' }).first, false);
+  // 받은 자료는 첫 요청이 아니다
+  assert.equal(isFirstRequest({ ...item, status: 'part' }, today), false);
+  // 양식 안내 문장이 있으면 넣는다
+  assert.match(mailBody(buildMail({ item, client, today, tone: 'angel', note: '12월 31일 기준으로 작성해 주세요.' })), /12월 31일 기준으로 작성해 주세요\./);
+  // 매니저 참조는 첫 요청에도 반영
+  assert.equal(buildMail({ item, client, today, tone: 'cc', manager: { name: '이서연 매니저' } }).cc.name, '이서연 매니저');
+});
