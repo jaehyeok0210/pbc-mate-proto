@@ -370,7 +370,7 @@ a.row-name { color: inherit; text-decoration: none; }
 a.row-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 a.m-row { color: inherit; text-decoration: none; }
 
-/* ---------- 패널(단건 독촉 · 묶음 독촉 · 보완 요청): 왼쪽 정보 / 오른쪽 메일 초안 ---------- */
+/* ---------- 패널(단건 요청 · 묶음 요청 · 보완 요청): 왼쪽 정보 / 오른쪽 메일 초안 ---------- */
 body.has-drawer { overflow: hidden; }
 .drawer-dim { position: fixed; inset: 0; z-index: 30; background: rgba(23, 23, 23, .4); }
 .drawer {
@@ -484,7 +484,7 @@ body.has-drawer { overflow: hidden; }
 .compose-toast b { font-size: 15px; color: #fff; }
 .compose-toast small { font-size: 12.5px; color: #BDBDBD; }
 
-/* ---------- 묶음 독촉 ---------- */
+/* ---------- 묶음 요청 ---------- */
 a.m-bundle { text-decoration: none; }
 .bundle-head { display: flex; align-items: flex-start; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
 .bundle-head .compose-who { flex-grow: 1; min-width: 0; }
@@ -1017,7 +1017,7 @@ a.m-bundle { text-decoration: none; }
   .compose-toast b { font-size: 14px; }
   .compose-toast small { font-size: 12px; }
 
-  /* 묶음 독촉 */
+  /* 묶음 요청 */
   .bundle-head { display: flex; flex-direction: column; gap: 10px; }
   .bundle-head h2 { font-size: 22px; }
   .value-chip { align-self: stretch; padding: 10px 12px; }
@@ -1095,7 +1095,7 @@ a.m-bundle { text-decoration: none; }
   .ot-row > div:nth-child(3)::before { content: '긴급·지연 '; color: var(--ink-3); font-weight: 500; }
   .ot-row > div:nth-child(4) { grid-column: 1 / -1; }
   .ot-row > div:nth-child(4)::before { content: '가장 가까운 필요일 '; color: var(--ink-3); }
-  .ot-row > div:nth-child(5)::before { content: '최근 독촉 '; color: var(--ink-3); }
+  .ot-row > div:nth-child(5)::before { content: '최근 요청 '; color: var(--ink-3); }
   .it-row { grid-template-columns: 1fr auto; row-gap: 6px; padding: 12px 14px; }
   .it-row > div:nth-child(2) { grid-column: 1; font-size: 13px; color: var(--ink-3); }
   .it-row > div:nth-child(3) { grid-column: 2; grid-row: 1; justify-self: end; }
@@ -1103,7 +1103,7 @@ a.m-bundle { text-decoration: none; }
   .it-row > div:nth-child(4)::before { content: '필요일 '; color: var(--ink-3); }
   .it-row > div:nth-child(5) { grid-column: 2; grid-row: 2 / 4; justify-self: end; align-self: center; flex-direction: column; align-items: flex-end; gap: 4px; }
   .it-row > div:nth-child(6) { grid-column: 1; font-size: 12.5px; color: var(--ink-3); }
-  .it-row > div:nth-child(6)::before { content: '최근 독촉 '; }
+  .it-row > div:nth-child(6)::before { content: '최근 요청 '; }
   .it-row > div:nth-child(7) { grid-column: 1 / -1; }
   .it-row > div.it-att:empty, .it-head > div:nth-child(7) { display: none; }
 
@@ -1417,7 +1417,7 @@ a.m-bundle { text-decoration: none; }
 .rc-result.is-fix { background: var(--fix-bg); color: var(--fix-fg); }
 .rc-result.is-done { background: var(--low-bg); color: var(--low-fg); }
 
-/* 묶음 독촉 카드: 항목별로 따로 보내기 */
+/* 묶음 요청 카드: 항목별로 따로 보내기 */
 .row-action { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; font-size: 12px; font-weight: 600; color: var(--ink-2); text-decoration: none; }
 .row-action svg { width: 12px; height: 12px; }
 .row-action:hover { border-color: var(--orange); color: var(--orange-dark); }
@@ -1493,7 +1493,7 @@ a.m-bundle { text-decoration: none; }
   .owner-items .it-row > div:nth-child(3)::before, .owner-items .it-row > div:nth-child(5)::before, .owner-items .it-row > div:nth-child(6)::before { content: none; }
 }
 
-/* 필요일 타임라인: 박스에 올리면 살짝 커지고 맨 앞으로, 누르면 자료 화면(독촉·보완·후속 절차) */
+/* 필요일 타임라인: 박스에 올리면 살짝 커지고 맨 앞으로, 누르면 자료 화면(요청·보완·후속 절차) */
 a.tl-label { text-decoration: none; color: inherit; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
 .above a.tl-label { transform-origin: left bottom; }
 .below a.tl-label { transform-origin: left top; }
@@ -2036,7 +2036,7 @@ return { riskOf, withDays, isOpen, sortItems, groupByOwner, summarize, leftText,
 // ---- lib/tone.js
 const __m_lib_tone = (() => {
 
-// 독촉 메일 톤 4단계와 기본 추천 규칙
+// 요청 메일 톤 4단계와 기본 추천 규칙
 
 const TONES = [
   { key: 'angel', name: '천사', emoji: '😇' },
@@ -2077,7 +2077,7 @@ return { TONES, toneIndex, toneName, recommendTone, recommendBasis };
 const __m_lib_mail = (() => {
 const { addDays, daysBetween, formatMD } = __m_lib_dates;
 const { josa } = __m_lib_korean;
-// 독촉 메일 문안 생성. 본문은 조각(segment) 배열로 만들어 화면에서 구분해 보여준다.
+// 요청 메일 문안 생성. 본문은 조각(segment) 배열로 만들어 화면에서 구분해 보여준다.
 //   field  : 자료에서 자동으로 들어간 값 (이름, 날짜, 자료명)
 //   reason : 왜 지금 필요한지 알려주는 일정 근거 문장
 //   plain  : 그 외 문장
@@ -2207,7 +2207,7 @@ const { formatMD, formatMDW } = __m_lib_dates;
 const { withDays, sortItems } = __m_lib_priority;
 const { recommendTone, toneIndex } = __m_lib_tone;
 const { clientShortName, replyBy, scheduleReason } = __m_lib_mail;
-// 3. 묶음 독촉: 같은 담당자의 남은 자료를 메일 한 통으로
+// 3. 묶음 요청: 같은 담당자의 남은 자료를 메일 한 통으로
 
 
 /**
@@ -2953,7 +2953,7 @@ function nextDocNo(items, type) {
 
 /**
  * 조회서를 대시보드 조회 목록에 넣을 값으로 바꾼다. store.addItems()에 그대로 넘긴다.
- * 조회처를 담당자(owner)로 두어 기존 대시보드의 담당자별 묶음·독촉 이력이 그대로 동작한다.
+ * 조회처를 담당자(owner)로 두어 기존 대시보드의 담당자별 묶음·요청 이력이 그대로 동작한다.
  * 요청일 = 발송일, 필요일 = 회신 기한.
  */
 function toRegistryValues(letters, setup) {
@@ -3122,7 +3122,7 @@ function fixSummary(item, reason) {
 
 /**
  * @returns {{ subject, to: {name, dept}, segments }}
- * segments 형식은 단건 독촉 메일과 같다 (field / reason / plain).
+ * segments 형식은 단건 요청 메일과 같다 (field / reason / plain).
  */
 function buildFixMail({ item, person = {}, client, today, reason }) {
   const field = (text) => ({ kind: 'field', text });
@@ -3194,7 +3194,7 @@ return { FIX_REASONS, fixReasonLabel, canOpenFix, currentFixReason, fixDetail, f
 const __m_lib_followup = (() => {
 const { addDays } = __m_lib_dates;
 // 외부조회 후속 절차: 회신 결과에 따라 갈라지는 두 갈래를 다룬다.
-//   noreply : 최종 독촉 후에도 회신이 없어 '미회수'로 확정 → 조회서 종류별 대체적 절차 가이드
+//   noreply : 최종 요청 후에도 회신이 없어 '미회수'로 확정 → 조회서 종류별 대체적 절차 가이드
 //   diff    : 회신은 왔지만 장부금액과 다름 → 차이 원인별 조정 기록과 결론
 // (회신이 불완전한 경우 — 서명 누락·기준일 상이 등 — 는 기존 보완 요청(fix.js)을 그대로 쓴다.)
 //
@@ -3205,7 +3205,7 @@ const { addDays } = __m_lib_dates;
 
 
 const FOLLOW_TYPES = {
-  noreply: { key: 'noreply', label: '미회수 확정', hint: '최종 독촉 후에도 회신이 없어요' },
+  noreply: { key: 'noreply', label: '미회수 확정', hint: '최종 요청 후에도 회신이 없어요' },
   diff: { key: 'diff', label: '금액 차이', hint: '회신 금액이 장부와 달라요' },
 };
 
@@ -3791,7 +3791,7 @@ const csvCell = (v) => {
 
 /** CSV (엑셀에서 한글이 깨지지 않도록 BOM 포함). 완료 자료는 남은일수를 비운다. */
 function reportToCsv(report) {
-  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근독촉일'];
+  const head = ['자료명', '담당자', '상태', '요청일', '필요일', '남은일수', '최근요청일'];
   const body = report.rows.map((r) => [
     r.name, r.owner, r.statusLabel, r.requestedOn, r.neededOn,
     r.status === 'done' ? '' : r.left, r.lastNudgedOn ?? '',
@@ -3824,7 +3824,7 @@ const CONF_NAME = { bank: '은행조회서', arap: '채권채무조회서', lega
  * @returns {null | {
  *   owner, dept, isCounterparty,
  *   counts: { total, open, urgent, done },
- *   nudges, lastNudgedOn, bundlable,           // 묶음 독촉 가능한 건수
+ *   nudges, lastNudgedOn, bundlable,           // 묶음 요청 가능한 건수
  *   rows: 주간 보고 행 + { nudgeCount, kindLabel, bookAmount }[],  // 미완료(필요일순) → 완료
  *   history: { on, kind: 'nudge'|'fix'|'received'|'closed', text, itemName }[]  // 최근 순
  * }}
@@ -3846,7 +3846,7 @@ function ownerDetail(state, owner, today) {
 
   const history = [];
   for (const x of items) {
-    for (const n of x.nudges || []) history.push({ on: n.on, kind: 'nudge', text: `독촉 메일 · ${TONE_NAME[n.tone] || n.tone}`, itemName: x.name });
+    for (const n of x.nudges || []) history.push({ on: n.on, kind: 'nudge', text: `요청 메일 · ${TONE_NAME[n.tone] || n.tone}`, itemName: x.name });
     for (const f of x.fixes || []) history.push({ on: f.on, kind: 'fix', text: `보완 요청 · ${FIX_NAME[f.reason] || f.reason}`, itemName: x.name });
     if (x.received?.on) history.push({ on: x.received.on, kind: 'received', text: '자료 수령', itemName: x.name });
     if (x.follow?.closedOn) history.push({ on: x.follow.closedOn, kind: 'closed', text: '후속 절차 완료', itemName: x.name });
@@ -4014,7 +4014,7 @@ return { corporateTax, SAMPLE_DOC_BUILDERS, sampleDoc };
 // ---- lib/status.js
 const __m_lib_status = (() => {
 const { FIX_REASONS, fixSummary } = __m_lib_fix;
-// 자료 상태 변경: 요청 → 독촉 → 수령 뒤에 사용자가 상태를 직접 갱신한다.
+// 자료 상태 변경: 요청 → 요청 → 수령 뒤에 사용자가 상태를 직접 갱신한다.
 // 상태 체계는 그대로(none · part · fix · done). 역방향 전환은 막는다.
 
 
@@ -4027,7 +4027,7 @@ const ALLOWED_TRANSITIONS = {
 };
 
 const STATUS_HINT = {
-  part: '일부만 받았고 나머지는 계속 독촉해요',
+  part: '일부만 받았고 나머지는 계속 요청해요',
   fix: '받았지만 그대로 쓸 수 없어 다시 요청해요',
   done: '필요한 자료를 모두 받았어요',
 };
@@ -4061,7 +4061,7 @@ function validateTransition(item, change) {
  * 상태를 바꾼 새 자료를 돌려준다. 원래 자료는 바꾸지 않는다.
  * - 일부 수령·보완 요청·완료로 처음 바뀔 때 received.on = on. 이미 있으면 최초 수령일 유지.
  * - 보완 요청이면 fix.reason(·기준일)을 저장하고 대시보드용 요약(reason)을 fixSummary로 만든다.
- * - 독촉 이력(nudges)·보완 이력(fixes)은 건드리지 않는다.
+ * - 요청 이력(nudges)·보완 이력(fixes)은 건드리지 않는다.
  */
 function transitionItem(item, change, on) {
   const errors = validateTransition(item, change);
@@ -4519,7 +4519,7 @@ const { transitionItem } = __m_lib_status;
 //   people: { [이름]: { dept, nudges, lastNudgedOn } },
 //   items:  [{ id, name, owner, requestedOn, neededOn, status, reason?,
 //              procedure?,                           // 이 자료를 쓰는 감사 절차
-//              nudges?: [{ on, tone }],               // 독촉 이력
+//              nudges?: [{ on, tone }],               // 요청 이력
 //              received?: { on, basisDate? },         // 받은 자료 (보완 요청 자료)
 //              fix?: { reason, requiredBasisDate?, details? },  // 현재 보완 사유
 //              fixes?: [{ on, reason }] }]            // 보완 요청 이력
@@ -4597,7 +4597,7 @@ function upgradeSampleAttachments(state) {
 /**
  * 예시 자료. 시연 기준일(DEMO_DATE, 2027-01-14 목) 기준 상대 날짜로 만든다.
  * 기능마다 보여줄 장면이 하나씩 있도록 구성했다.
- *   PBC 6건  : 미회신·독촉 중(재고실사) / 묶음 독촉(김민지 대리 3건) / 일부 수령(특수관계자) /
+ *   PBC 6건  : 미회신·요청 중(재고실사) / 묶음 요청(김민지 대리 3건) / 일부 수령(특수관계자) /
  *              보완 요청-기준일 상이(유형자산) / 완료+첨부(법인세) / 후속 절차에서 만든 증빙 요청(지급 내역)
  *              4건은 표준 양식(template·basisDate)으로 요청
  *   외부조회 8건: 은행 2(미회신·회수 완료) / 채권채무 4(기한 지남·미회수 대체적 절차·금액 차이 조정 중·조정 완료+서명) /
@@ -4718,9 +4718,9 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
 }
 
 /**
- * 메일 한 통을 복사했을 때 독촉 이력을 남긴다. 원래 state는 바꾸지 않고 새 state를 돌려준다.
+ * 메일 한 통을 복사했을 때 요청 이력을 남긴다. 원래 state는 바꾸지 않고 새 state를 돌려준다.
  * 메일에 담긴 자료마다 이력에 { on, tone }을 추가하고,
- * 담당자의 독촉 횟수는 메일 1통이므로 1만 올린다. (같은 담당자의 자료만 묶는다고 가정)
+ * 담당자의 요청 횟수는 메일 1통이므로 1만 올린다. (같은 담당자의 자료만 묶는다고 가정)
  */
 function recordNudges(state, itemIds, tone, on) {
   const ids = new Set(itemIds);
@@ -5096,7 +5096,7 @@ function fixHref(item) {
   return `#/fix/${encodeURIComponent(item.id)}`;
 }
 
-// 자료를 눌렀을 때: 보완 요청 자료는 보완 요청 화면, 나머지는 단건 독촉
+// 자료를 눌렀을 때: 보완 요청 자료는 보완 요청 화면, 나머지는 단건 요청
 function followHref(item) {
   return `#/follow/${encodeURIComponent(item.id)}`;
 }
@@ -5127,7 +5127,7 @@ function itemMeta(x) {
 function rowActionLabel(x) {
   if (x.status === 'fix') return '보완 재요청 메일 쓰기';
   if (x.status === 'follow') return '후속 절차 열기';
-  return '이 자료만 따로 독촉';
+  return '이 자료만 따로 요청';
 }
 
 function leftBig(left) {
@@ -5142,10 +5142,10 @@ function ownerCards(groups, people, done, text) {
     const person = people[g.owner] || {};
     const doneHere = done.filter((x) => x.owner === g.owner);
     const nudged = person.nudges
-      ? `마지막 독촉 ${formatMD(person.lastNudgedOn)} · 독촉 ${person.nudges}회`
-      : '아직 독촉하지 않았어요';
+      ? `마지막 요청 ${formatMD(person.lastNudgedOn)} · 요청 ${person.nudges}회`
+      : '아직 요청하지 않았어요';
 
-    // 묶음 독촉 대상이 2건 이상인 카드: 항목마다 따로 보내는 경우를 위한 버튼을 붙인다.
+    // 묶음 요청 대상이 2건 이상인 카드: 항목마다 따로 보내는 경우를 위한 버튼을 붙인다.
     const bundlable = g.items.filter(isBundleEligible);
     const perItem = bundlable.length > 1;
 
@@ -5169,13 +5169,13 @@ function ownerCards(groups, people, done, text) {
       ? `<div class="done-line">${ICON.done}완료 ${doneHere.length}건 · ${doneHere.map((x) => esc(x.name)).join(', ')}</div>`
       : '';
 
-    // 버튼 건수는 묶음 독촉 화면과 같은 기준(보완 요청 제외)으로 센다. (bundlable은 위에서 계산)
+    // 버튼 건수는 묶음 요청 화면과 같은 기준(보완 요청 제외)으로 센다. (bundlable은 위에서 계산)
     let cta;
     if (bundlable.length > 1) {
       cta = `<a class="btn btn-cta" href="${bundleHref(g.owner)}">
-        ${bundlable.length}건 묶어서 독촉 <span class="cta-sub">· 메일 1통</span></a>`;
+        ${bundlable.length}건 묶어서 요청 <span class="cta-sub">· 메일 1통</span></a>`;
     } else if (bundlable.length === 1) {
-      cta = `<a class="btn btn-sub" href="${composeHref(bundlable[0])}">${esc(bundlable[0].name)} 독촉하기</a>`;
+      cta = `<a class="btn btn-sub" href="${composeHref(bundlable[0])}">${esc(bundlable[0].name)} 요청하기</a>`;
     } else {
       cta = g.items[0].status === 'follow'
         ? `<a class="btn btn-sub" href="${followHref(g.items[0])}">후속 절차 열기</a>`
@@ -5210,7 +5210,7 @@ function ownerCards(groups, people, done, text) {
 
 // 모바일(레퍼런스 1-M): 담당자 묶음 대신 한 줄 목록 + 가장 많이 밀린 담당자 묶음 버튼
 function mobileList(sorted, topLabel) {
-  // 보완 요청 자료는 단건 독촉 대신 보완 요청 화면으로 연결한다.
+  // 보완 요청 자료는 단건 요청 대신 보완 요청 화면으로 연결한다.
   const rows = sorted.map((x, i) => `
     <a href="${itemHref(x)}" class="m-row ${i === 0 ? 'is-top' : ''}">
       <span class="m-left">
@@ -5227,7 +5227,7 @@ function mobileList(sorted, topLabel) {
     .reduce((a, b) => (b.items.length > a.items.length ? b : a), { items: [] });
   const bundle = biggest.items.length > 1 ? `
     <a class="m-bundle" href="${bundleHref(biggest.owner)}">
-      <span><b>${esc(biggest.owner)} ${biggest.items.length}건 묶어서 독촉</b><small>개별 메일 ${biggest.items.length}통 대신 1통</small></span>
+      <span><b>${esc(biggest.owner)} ${biggest.items.length}건 묶어서 요청</b><small>개별 메일 ${biggest.items.length}통 대신 1통</small></span>
       ${ICON.chevron}
     </a>` : '';
 
@@ -5396,7 +5396,7 @@ return { renderEmpty, lookupResults };
 // ---- views/timing.js
 const __m_views_timing = (() => {
 const { ICON } = __m_views_html;
-// 발송 시점 안내 — 레퍼런스 5. 단건·묶음 독촉 화면이 함께 쓴다.
+// 발송 시점 안내 — 레퍼런스 5. 단건·묶음 요청 화면이 함께 쓴다.
 
 
 /** 현재 시각 칩. 일반 시간이면 '지금 보내도 괜찮아요'까지 칩 안에 쓴다. */
@@ -5606,7 +5606,7 @@ const { mailField, mailDateDock } = __m_views_calendar;
 const { templateOf } = __m_lib_pbcTemplate;
 const { signMail, currentUser } = __m_lib_team;
 const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
-// 2. 단건 독촉 — 레퍼런스 2 / 2-1 / 2-2 / 2-3 / 2-M
+// 2. 단건 요청 — 레퍼런스 2 / 2-1 / 2-2 / 2-3 / 2-M
 // 데스크톱은 대시보드 위 오른쪽 패널, 모바일(720px 이하)은 전체 화면.
 
 
@@ -5625,22 +5625,22 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
   const dates = mailDates([item], today);
 
   const footNote = copied && last
-    ? `${ICON.done}독촉 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
-    : '복사하면 독촉 이력에 자동으로 기록돼요. 발송은 아웃룩에서 해주세요.';
+    ? `${ICON.done}요청 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
+    : '복사하면 요청 이력에 자동으로 기록돼요. 발송은 아웃룩에서 해주세요.';
 
   return `
     <div class="drawer-dim" data-action="close-compose"></div>
     <aside class="drawer compose" role="dialog" aria-modal="true" aria-labelledby="compose-title">
       <header class="m-header mobile-only">
         <button type="button" class="icon-btn" data-action="close-compose" aria-label="뒤로">${ICON.back}</button>
-        <div class="m-header-title">독촉 메일</div>
+        <div class="m-header-title">요청 메일</div>
         ${timingChip(timing)}
       </header>
 
       <div class="drawer-body">
         <div class="compose-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">단건 독촉 ${timingChip(timing)}</div>
+            <div class="eyebrow desktop-only">단건 요청 ${timingChip(timing)}</div>
             <h2 id="compose-title">${esc(item.name)}</h2>
             <div class="compose-owner desktop-only">${esc(item.owner)}${person.dept ? ` · ${esc(person.dept)}` : ''}</div>
           </div>
@@ -5668,12 +5668,12 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
         <div class="compose-toast" role="status">
           <span class="toast-check">${ICON.done}</span>
           <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>독촉 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
+            <small>요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
         </div>` : ''}
     </aside>`;
 }
 
-// 표준 양식으로 요청한 자료: 독촉하면서 양식을 다시 보낼 수 있게
+// 표준 양식으로 요청한 자료: 요청하면서 양식을 다시 보낼 수 있게
 function templateNote(item) {
   const t = templateOf(item);
   if (!t) return '';
@@ -5685,7 +5685,7 @@ function templateNote(item) {
     </section>`;
 }
 
-// 외부조회 건: 독촉을 마치고도 회신이 없거나, 회신 금액이 다르면 후속 절차로 넘어간다.
+// 외부조회 건: 요청을 마치고도 회신이 없거나, 회신 금액이 다르면 후속 절차로 넘어간다.
 function followEntry(item) {
   return `
     <section class="follow-entry">
@@ -5699,7 +5699,7 @@ function followEntry(item) {
     </section>`;
 }
 
-// 데스크톱 상단 4칸: 필요일 / 남은 날 / 요청 후 / 독촉 이력
+// 데스크톱 상단 4칸: 필요일 / 남은 날 / 요청 후 / 요청 이력
 function facts(item, history, last) {
   const leftValue = item.left === 0 ? '오늘' : item.left > 0 ? `${item.left}일` : `${-item.left}일 지남`;
   return `
@@ -5720,7 +5720,7 @@ function facts(item, history, last) {
         <div class="fact-sub">${formatMD(item.requestedOn)} 요청 · ${STATUS_LABEL[item.status]}</div>
       </div>
       <div class="fact">
-        <div class="fact-label">독촉 이력</div>
+        <div class="fact-label">요청 이력</div>
         <div class="fact-value">${history.length}회</div>
         <div class="fact-sub">${last ? `최근 ${formatMD(last.on)} · ${toneName(last.tone)}` : '아직 없음'}</div>
       </div>
@@ -5733,7 +5733,7 @@ function mobileChips(item, history, last) {
     <div class="chips mobile-only">
       <span class="chip-pill risk-${item.risk}">${ICON[item.risk]}${formatMD(item.neededOn)} 필요 · ${leftText(item.left)}</span>
       <span class="chip-pill">${formatMD(item.requestedOn)} 요청 · D+${item.elapsed}</span>
-      <span class="chip-pill">${last ? `독촉 ${history.length}회 · ${formatMD(last.on)}` : '독촉 이력 없음'}</span>
+      <span class="chip-pill">${last ? `요청 ${history.length}회 · ${formatMD(last.on)}` : '요청 이력 없음'}</span>
     </div>`;
 }
 
@@ -5815,7 +5815,7 @@ const { timingChip, timingBanner } = __m_views_timing;
 const { mailDates } = __m_lib_calendar;
 const { mailField, mailDateDock } = __m_views_calendar;
 const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
-// 3. 묶음 독촉 — 레퍼런스 3
+// 3. 묶음 요청 — 레퍼런스 3
 // 데스크톱은 대시보드 위 오른쪽 패널, 모바일(720px 이하)은 전체 화면.
 
 
@@ -5833,8 +5833,8 @@ function renderBundle(state, { sorted, clock, tone, copied, toast }) {
   const timing = sendTiming(clock, top.neededOn);
   const dates = mailDates(sorted, clock.date);
   const nudged = person.nudges
-    ? `마지막 독촉 ${formatMD(person.lastNudgedOn)} · 독촉 ${person.nudges}회`
-    : '아직 독촉하지 않았어요';
+    ? `마지막 요청 ${formatMD(person.lastNudgedOn)} · 요청 ${person.nudges}회`
+    : '아직 요청하지 않았어요';
 
   const rows = sorted.map((x, i) => `
     <div class="b-row ${i === 0 ? 'is-top' : ''}">
@@ -5871,22 +5871,22 @@ function renderBundle(state, { sorted, clock, tone, copied, toast }) {
     : '<span class="muted-text">없음</span>';
 
   const footNote = copied
-    ? `${ICON.done}${count}건 모두 독촉 이력에 기록했어요`
-    : `복사하면 ${count}건 모두 독촉 이력에 기록돼요. 발송은 아웃룩에서 해주세요.`;
+    ? `${ICON.done}${count}건 모두 요청 이력에 기록했어요`
+    : `복사하면 ${count}건 모두 요청 이력에 기록돼요. 발송은 아웃룩에서 해주세요.`;
 
   return `
     <div class="drawer-dim" data-action="close-drawer"></div>
     <aside class="drawer bundle" role="dialog" aria-modal="true" aria-labelledby="bundle-title">
       <header class="m-header mobile-only">
         <button type="button" class="icon-btn" data-action="close-drawer" aria-label="뒤로">${ICON.back}</button>
-        <div class="m-header-title">묶음 독촉</div>
+        <div class="m-header-title">묶음 요청</div>
         ${timingChip(timing)}
       </header>
 
       <div class="drawer-body">
         <div class="bundle-head">
           <div class="compose-who">
-            <div class="eyebrow desktop-only">묶음 독촉 ${timingChip(timing)}</div>
+            <div class="eyebrow desktop-only">묶음 요청 ${timingChip(timing)}</div>
             <h2 id="bundle-title">${esc(owner)} <span>${esc(person.dept || '')}</span></h2>
             <div class="bundle-sub">미완료 ${count}건 · ${nudged}</div>
           </div>
@@ -5937,7 +5937,7 @@ function renderBundle(state, { sorted, clock, tone, copied, toast }) {
         <div class="compose-toast" role="status">
           <span class="toast-check">${ICON.done}</span>
           <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>${count}건 모두 독촉 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
+            <small>${count}건 모두 요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
         </div>` : ''}
     </aside>`;
 }
@@ -5973,7 +5973,7 @@ function renderFix(state, { today, itemId, reason, copied, toast }) {
 
   const flow = [
     `<span class="flow-chip">${formatMD(item.requestedOn)} 요청</span>`,
-    nudges ? `<span class="flow-chip">독촉 ${nudges}회</span>` : '',
+    nudges ? `<span class="flow-chip">요청 ${nudges}회</span>` : '',
     item.received ? `<span class="flow-chip">${formatMD(item.received.on)} 파일 수령</span>` : '',
     lastFix ? `<span class="flow-chip is-fix">${formatMD(lastFix.on)} 보완 요청</span>` : '',
   ].filter(Boolean).join(`<span class="flow-arrow">${ICON.chevron}</span>`);
@@ -6178,7 +6178,7 @@ function singleForm(state, today, form, errors) {
       </div>
 
       <div class="add-col need-panel">
-        ${field('이 자료를 쓰는 감사 절차', 'procedure', form.procedure, { placeholder: '예: 차입금 실증', hint: '선택 · 독촉 메일의 일정 근거에 들어가요', list: 'procedure-list' })}
+        ${field('이 자료를 쓰는 감사 절차', 'procedure', form.procedure, { placeholder: '예: 차입금 실증', hint: '선택 · 요청 메일의 일정 근거에 들어가요', list: 'procedure-list' })}
         <datalist id="procedure-list">${procedures.map((p) => `<option value="${esc(p)}">`).join('')}</datalist>
         ${field('필요일', 'neededOn', form.neededOn, { type: 'date', error: errors.neededOn, hint: '감사 절차를 시작하는 날' })}
         ${needPreview(form.neededOn, today)}
@@ -6335,7 +6335,7 @@ function confirmOverview(o, materiality) {
     ? `<div class="co-verdict ${c.exceeds ? 'is-bad' : 'is-ok'}">
          ${c.exceeds ? ICON.high : ICON.done}
          <span>미확인 잔액 <b>${eok(c.uncovered)}</b>이 수행중요성 ${eok(c.performance)}을
-         ${c.exceeds ? `<b>${eok(c.gap)} 넘어요</b>. 회신 독촉이나 대체적 절차가 더 필요해요.` : '넘지 않아요.'}</span>
+         ${c.exceeds ? `<b>${eok(c.gap)} 넘어요</b>. 회신 요청이나 대체적 절차가 더 필요해요.` : '넘지 않아요.'}</span>
        </div>`
     : '<div class="co-verdict is-open">수행중요성을 입력하면 미확인 잔액과 비교해 드려요.</div>';
 
@@ -6557,7 +6557,7 @@ function body(report, lines, state, query) {
         <div class="report-block">
           <h2>담당자별(거래처별) 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
           <div class="owner-table">
-            <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 독촉</div></div>
+            <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 요청</div></div>
             ${owners.map((o) => `
               <div class="ot-row">
                 <div class="ot-owner"><a class="owner-link" href="#/owner/${encodeURIComponent(o.owner)}">${esc(o.owner)}${ICON.chevron}</a>${o.dept ? `<small>${esc(o.dept)}</small>` : ''}</div>
@@ -6610,7 +6610,7 @@ function requesterBlock(rows, members, me) {
 function itemTableBody(allRows, query) {
   const rows = filterRows(allRows, query);
   return `
-            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 독촉</div><div>첨부자료</div></div>
+            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 요청</div><div>첨부자료</div></div>
             ${query ? `<div class="it-count">‘${esc(query)}’ 검색 결과 ${rows.length}건 / 전체 ${allRows.length}건</div>` : ''}
             ${rows.length ? '' : '<div class="it-empty">검색 결과가 없어요. 자료명의 일부만 입력해 보세요.</div>'}
             ${rows.map((r) => `
@@ -6656,7 +6656,7 @@ const { esc, ICON, STATUS_LABEL } = __m_views_html;
 const { topbar } = __m_views_dashboard;
 const { attachCell } = __m_views_attach;
 // 담당자 상세 — 주간 보고의 담당자별 현황에서 담당자를 누르면 연다 (#/owner/<담당자>).
-// 이 담당자에게 요청한 자료, 바로 할 일(독촉·보완·후속 절차), 독촉·수령 이력을 한 화면에.
+// 이 담당자에게 요청한 자료, 바로 할 일(요청·보완·후속 절차), 요청·수령 이력을 한 화면에.
 
 
 const won = (n) => `${Number(n).toLocaleString('ko-KR')}원`;
@@ -6671,7 +6671,7 @@ function renderOwner(state, detail, { today, isDemo }) {
   const d = detail;
   const back = `#/owner/${encodeURIComponent(d.owner)}`; // 패널을 닫으면 이 화면으로 돌아온다
   const bundle = d.bundlable > 1
-    ? `<a class="btn btn-cta" href="#/bundle/${encodeURIComponent(d.owner)}" data-return="${esc(back)}">${ICON.mail}${d.bundlable}건 묶어서 독촉</a>` : '';
+    ? `<a class="btn btn-cta" href="#/bundle/${encodeURIComponent(d.owner)}" data-return="${esc(back)}">${ICON.mail}${d.bundlable}건 묶어서 요청</a>` : '';
 
   return `
     <div class="page report owner-page">
@@ -6691,7 +6691,7 @@ function renderOwner(state, detail, { today, isDemo }) {
             ${stat('미완료', `${d.counts.open}건`, `전체 ${d.counts.total}건`)}
             ${stat('긴급·지연', `${d.counts.urgent}건`, '지연 · 2일 이내', d.counts.urgent ? 'is-late' : '')}
             ${stat('완료', `${d.counts.done}건`, '')}
-            ${stat('독촉', `${d.nudges}회`, d.lastNudgedOn ? `마지막 ${formatMD(d.lastNudgedOn)}` : '아직 없음')}
+            ${stat('요청', `${d.nudges}회`, d.lastNudgedOn ? `마지막 ${formatMD(d.lastNudgedOn)}` : '아직 없음')}
           </div>
           <div class="report-block owner-history">
             <h2>이력 <span>· 최근 순</span></h2>
@@ -6708,7 +6708,7 @@ function renderOwner(state, detail, { today, isDemo }) {
           <div class="report-block">
             <h2>요청한 자료 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
             <div class="item-table owner-items">
-              <div class="it-row it-head"><div>자료명</div><div>상태</div><div>필요일</div><div>남은 날</div><div>독촉</div><div>첨부자료</div><div></div></div>
+              <div class="it-row it-head"><div>자료명</div><div>상태</div><div>필요일</div><div>남은 날</div><div>요청</div><div>첨부자료</div><div></div></div>
               ${d.rows.map((r) => `
                 <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                   <div class="it-name">${esc(r.name)}<small>${esc(r.kindLabel)}${r.bookAmount ? ` · 장부 ${won(r.bookAmount)}` : ''}${r.fixReason ? ` · ${esc(r.fixReason)}` : ''}</small>${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
@@ -6731,7 +6731,7 @@ function rowAction(r, back) {
   if (r.status === 'done') return '';
   if (r.status === 'fix') return `<a class="btn btn-sub" href="#/fix/${id}" data-return="${esc(back)}">보완 재요청</a>`;
   if (r.status === 'follow') return `<a class="btn btn-sub" href="#/follow/${id}" data-return="${esc(back)}">후속 절차</a>`;
-  return `<a class="btn btn-sub" href="#/compose/${id}" data-return="${esc(back)}">독촉하기</a>`;
+  return `<a class="btn btn-sub" href="#/compose/${id}" data-return="${esc(back)}">요청하기</a>`;
 }
 
 function stat(label, value, sub, cls = '') {
@@ -6753,7 +6753,7 @@ const { allowedStatuses, STATUS_HINT } = __m_lib_status;
 const { FIX_REASONS } = __m_lib_fix;
 const { templateOf, receiptSuggestion } = __m_lib_pbcTemplate;
 const { esc, ICON, STATUS_LABEL } = __m_views_html;
-// 자료 상태 변경 시트 — 단건 독촉·보완 요청 화면 위에 작게 뜬다.
+// 자료 상태 변경 시트 — 단건 요청·보완 요청 화면 위에 작게 뜬다.
 
 
 /**
@@ -6772,7 +6772,7 @@ function renderStatusSheet(item, { status, reason, basisDate, requiredBasisDate,
     ? `수령일은 처음 받은 ${formatMD(item.received.on)} 그대로예요.`
     : `수령일이 ${formatMD(today)}로 기록돼요.`;
   const note = status
-    ? `${receivedNote} 독촉 횟수와 이력은 바뀌지 않아요.`
+    ? `${receivedNote} 요청 횟수와 이력은 바뀌지 않아요.`
     : '바꿀 상태를 골라 주세요. 미회신으로 되돌리는 건 지원하지 않아요.';
 
   return `
@@ -7074,7 +7074,7 @@ function outputSection(state, { today, type, setup, pasteText, bankBlank }) {
           <button type="button" class="btn btn-cta" data-action="conf-register">조회 목록에 ${letters.length}건 등록</button>
         </div>
       </div>
-      <p class="need-note">등록하면 대시보드에서 ${CONF_TYPES[type].unit}별로 회신을 추적하고 독촉 메일을 만들 수 있어요. ${{ required: '금액과 상관없이 전부 회수해야 하는 조회서예요.', coverage: '수행중요성 대비 금액 커버리지로 관리하는 조회서예요.', general: '회신 여부와 내용으로 관리하는 조회서예요.' }[CONF_TYPES[type].track]}</p>
+      <p class="need-note">등록하면 대시보드에서 ${CONF_TYPES[type].unit}별로 회신을 추적하고 요청 메일을 만들 수 있어요. ${{ required: '금액과 상관없이 전부 회수해야 하는 조회서예요.', coverage: '수행중요성 대비 금액 커버리지로 관리하는 조회서예요.', general: '회신 여부와 내용으로 관리하는 조회서예요.' }[CONF_TYPES[type].track]}</p>
     </div>
     <div class="letters">${letters.map(letterHtml).join('')}</div>`;
 }
@@ -7333,7 +7333,7 @@ function evidenceBox(item, f, owner, owners) {
 
   return `
     <section class="fu-evidence">
-      <div class="section-label">회사에 요청할 증빙 <small class="fu-count">자료 요청 목록에 추가돼 독촉까지 이어져요</small></div>
+      <div class="section-label">회사에 요청할 증빙 <small class="fu-count">자료 요청 목록에 추가돼 메일까지 이어져요</small></div>
       <label class="f fu-owner">
         <span class="f-label">회사 담당자</span>
         <input type="text" data-action-input="follow-owner" value="${esc(owner || '')}" placeholder="예: 김민지 대리" list="follow-owners" autocomplete="off">
@@ -7393,7 +7393,7 @@ const { putFile, getFile, deleteFile, clearFiles } = __m_files;
 const { startFollow, completeFollow, clampVerified, evidenceRequests, validateSignoff, FOLLOW_TYPES } = __m_lib_followup;
 const { CONF_TYPES, defaultSetup, validateSetup, parseConfirmations, buildLetters, toRegistryValues, nextDocNo } = __m_lib_confirmation;
 // 진입점: 상태를 불러와 화면을 그리고, data-action 클릭을 처리한다.
-// 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 독촉 · #/bundle/<담당자> 묶음 독촉
+// 화면 주소: (없음) 대시보드 · #/compose/<자료id> 단건 요청 · #/bundle/<담당자> 묶음 요청
 //           #/fix/<자료id> 보완 요청 · #/add 자료 추가 (#/add/paste 붙여넣기 탭) · #/report 주간 현황
 //           #/calendar 일정 · #/confirm 외부조회서 작성 · #/follow/<자료id> 외부조회 후속 절차
 
@@ -7416,8 +7416,8 @@ let state = load();
   }
 }
 let mode = 'need';
-let compose = null; // 단건 독촉 화면 상태: { itemId, tone, copied, toast }
-let bundle = null;  // 묶음 독촉 화면 상태: { owner, tone, copied, toast }
+let compose = null; // 단건 요청 화면 상태: { itemId, tone, copied, toast }
+let bundle = null;  // 묶음 요청 화면 상태: { owner, tone, copied, toast }
 let fix = null;     // 보완 요청 화면 상태: { itemId, reason, copied, toast }
 let add = null;     // 자료 추가 화면 상태: { tab, form, errors, pasteText }
 let sheet = null;   // 상태 변경 시트: { itemId, status, reason, basisDate, requiredBasisDate, errors }
@@ -7490,7 +7490,7 @@ function render() {
     return;
   }
 
-  // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(독촉·보완·추가)은 대시보드 위에서만 연다.
+  // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(요청·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = sheet = null;
     app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + attachOverlay();
@@ -7567,7 +7567,7 @@ function render() {
     add = null;
   }
 
-  // 상태 변경 시트는 단건 독촉·보완 요청 패널이 열려 있을 때만 그 위에 뜬다.
+  // 상태 변경 시트는 단건 요청·보완 요청 패널이 열려 있을 때만 그 위에 뜬다.
   const sheetItem = sheet && (item || fixItem) && state.items.find((x) => x.id === sheet.itemId);
   if (sheetItem && sheetItem.status !== 'done') {
     html += renderStatusSheet(sheetItem, sheet, today);
@@ -7629,7 +7629,7 @@ function closeDrawer() {
 }
 
 // 복사 성공 시에만 이력을 남기고, 화면 상태(copied·toast)를 갱신한다.
-// record: 기본은 독촉 이력. 보완 요청은 copyAndRecordFix를 넘긴다.
+// record: 기본은 요청 이력. 보완 요청은 copyAndRecordFix를 넘긴다.
 let drawerToastTimer;
 async function copyForDrawer(view, { itemIds, text }, record) {
   const result = record
@@ -7830,7 +7830,7 @@ const actions = {
     add.errors = {};
     render();
   },
-  // 엑셀용 요청 양식 복사: 자료 추가 창이면 입력 중인 값, 독촉 패널이면 그 자료 기준
+  // 엑셀용 요청 양식 복사: 자료 추가 창이면 입력 중인 값, 요청 패널이면 그 자료 기준
   'copy-template': async (el) => {
     let t; let basis;
     if (el.dataset.item) {
@@ -7879,7 +7879,7 @@ const actions = {
     } else {
       location.hash = `#/compose/${encodeURIComponent(item.id)}`;
       render();
-      toast(`${name} 일부 수령으로 바꿨어요. 나머지는 계속 독촉할 수 있어요.`);
+      toast(`${name} 일부 수령으로 바꿨어요. 나머지는 계속 요청할 수 있어요.`);
     }
   },
 
@@ -8456,7 +8456,7 @@ app.addEventListener('input', (e) => {
 });
 
 app.addEventListener('click', (e) => {
-  // 담당자 상세의 '독촉하기' 등: 패널을 닫으면 이 화면으로 돌아오도록 기억한다
+  // 담당자 상세의 '요청하기' 등: 패널을 닫으면 이 화면으로 돌아오도록 기억한다
   const ret = e.target.closest('[data-return]');
   if (ret) drawerReturn = ret.dataset.return;
   else if (e.target.closest('a[href^="#"]')) drawerReturn = null;
