@@ -17,6 +17,8 @@ import { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } from
 import { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } from './lib/calendar.js';
 import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
+import { sampleDoc } from './lib/sampleDocs.js';
+import { renderScan } from './scan.js';
 import { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope, pickRequester, requesterMembers } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
 import { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
@@ -285,7 +287,13 @@ async function copyForDrawer(view, { itemIds, text }, record) {
 
 // 예시 자료의 첨부 파일을 브라우저 저장소에 만든다 (주간 보고 '첨부자료' 칸에서 열어 볼 수 있게).
 // 내용은 예시 안내 문구뿐이다. 저장소가 막힌 환경이면 조용히 넘어간다.
-function sampleFileBlob(f, item) {
+// 예시 첨부: 스캔본처럼 그린 문서 이미지. 그리기에 실패하면 짧은 안내 텍스트로 대신한다.
+async function sampleFileBlob(f, item) {
+  const setup = { ...(state.confirmSetup || {}), contactName: item.requester || state.confirmSetup?.contactName || '' };
+  const doc = sampleDoc(f.id, item, setup);
+  if (doc) {
+    try { return await renderScan(doc, f.id.length * 31 + item.id.charCodeAt(1)); } catch { /* 아래 텍스트로 */ }
+  }
   const text = `${f.name}\n\nPBC Mate 시연용 예시 첨부파일입니다. 실제 자료가 아닙니다.\n자료: ${item.name}\n담당: ${item.owner}\n`;
   return new Blob([text], { type: 'text/plain' });
 }
@@ -294,7 +302,7 @@ async function seedSampleFiles() {
   for (const f of SAMPLE_FILES) {
     const item = state.items.find((x) => x.id === f.itemId);
     if (!item) continue;
-    try { await putFile(f.id, sampleFileBlob(f, item)); } catch { return; }
+    try { await putFile(f.id, await sampleFileBlob(f, item)); } catch { return; }
   }
 }
 
@@ -741,8 +749,10 @@ const actions = {
     try { blob = await getFile(el.dataset.file); } catch { blob = null; }
     // 예시 첨부 파일이 저장소에 없으면(예전에 불러온 예시 등) 다시 만든다
     const sample = SAMPLE_FILES.find((f) => f.id === el.dataset.file);
+    // 예전 버전의 예시 첨부(텍스트)가 남아 있으면 새 문서 이미지로 바꾼다
+    if (sample && blob && meta?.type && blob.type !== meta.type) blob = null;
     if (!blob && sample) {
-      blob = sampleFileBlob(sample, item);
+      blob = await sampleFileBlob(sample, item);
       putFile(sample.id, blob).catch(() => {});
     }
     const name = meta?.name || 'attachment';

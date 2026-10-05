@@ -1554,8 +1554,9 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .preview-sheet .sheet-body { flex-grow: 1; display: flex; min-height: 0; padding: 12px 22px; }
 .pv-frame { flex-grow: 1; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill-2); overflow: auto; }
 .pv-frame iframe { width: 100%; height: 100%; border: 0; background: #fff; }
-.pv-image { display: grid; place-items: center; padding: 12px; }
-.pv-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pv-image { display: grid; place-items: start center; padding: 12px; }
+/* 문서 스캔처럼 세로로 긴 이미지는 폭에 맞추고 세로로 스크롤해 읽는다 */
+.pv-image img { display: block; max-width: 100%; height: auto; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
 .pv-text { margin: 0; padding: 14px 16px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); background: #fff; }
 .pv-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; color: var(--ink-3); }
 .pv-none svg { width: 22px; height: 22px; color: var(--ink-3); }

@@ -59,9 +59,9 @@ export function baseDateOf(state, override, realToday) {
 
 /** 예시 첨부 파일 (load-sample 때 브라우저 저장소에 만든다). 내용은 예시 안내 문구뿐이다. */
 export const SAMPLE_FILES = [
-  { id: 'sample-f1', name: '바다저축은행 조회 회신(예시).txt', itemId: 'c2' },
-  { id: 'sample-f2', name: '한결물류 재고 조회 회신(예시).txt', itemId: 'c7' },
-  { id: 'sample-f3', name: '2025 법인세 신고서 사본(예시).txt', itemId: 'i6' },
+  { id: 'sample-f1', name: '바다저축은행_은행조회서_회신_BK-002.png', itemId: 'c2' },
+  { id: 'sample-f2', name: '한결물류_재고보관_조회회신_IV-001.png', itemId: 'c7' },
+  { id: 'sample-f3', name: '2025_법인세_과세표준및세액신고서_사본.png', itemId: 'i6' },
 ];
 
 /**
@@ -130,7 +130,7 @@ export function sampleState() {
         nudges: [{ on: d(-6), tone: 'angel' }, { on: d(-2), tone: 'polite' }] },
       { id: 'i6', requester: KIM, name: '법인세 신고서 사본', owner: '박준호 과장', requestedOn: d(-8), neededOn: d(-1), status: 'done',
         procedure: '법인세 검토', nudges: [], received: { on: d(-6) },
-        attachments: [{ id: 'sample-f3', name: '2025 법인세 신고서 사본(예시).txt', size: 210, type: 'text/plain', addedOn: d(-6) }] },
+        attachments: [{ id: 'sample-f3', name: '2025_법인세_과세표준및세액신고서_사본.png', size: 572000, type: 'image/png', addedOn: d(-6) }] },
       // ㈜오성테크 미회수 → 대체적 절차 증빙으로 만든 자료 요청 (후속 절차와 PBC가 이어지는 장면)
       { id: 'i7', requester: KIM, name: '기준일 이후 지급 내역(통장 사본) (㈜오성테크)', owner: '박준호 과장', requestedOn: d(-1), neededOn: d(5), status: 'none',
         procedure: '외부조회 대체적 절차', nudges: [], sourceId: 'c5' },
@@ -157,7 +157,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
       bookAmount: 4250000000, requestedOn: SENT, neededOn: d(4), status: 'none', nudges: [{ on: d(-1), tone: 'polite' }] }),
     conf('c2', 'bank', 'BK-002', '바다저축은행 본점', { requester: ME,
       bookAmount: 500000000, requestedOn: SENT, neededOn: d(4), status: 'done', received: { on: d(-3) },
-      attachments: [{ id: 'sample-f1', name: '바다저축은행 조회 회신(예시).txt', size: 180, type: 'text/plain', addedOn: d(-3) }] }),
+      attachments: [{ id: 'sample-f1', name: '바다저축은행_은행조회서_회신_BK-002.png', size: 632000, type: 'image/png', addedOn: d(-3) }] }),
     // 채권채무: 기한 지남 · 미회수 대체적 절차 · 금액 차이 조정 중 · 조정 완료(서명)
     conf('c4', 'arap', 'AR-002', '세진물산㈜', { requester: ME,
       receivable: 315500000, payable: 120000000, bookAmount: 435500000, requestedOn: SENT, neededOn: d(-2), status: 'none',
@@ -183,7 +183,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
     // 제3자 보관 재고: 회수 완료
     conf('c7', 'inventory', 'IV-001', '㈜한결물류 평택센터', { requester: KIM,
       bookAmount: 1913000000, requestedOn: SENT, neededOn: d(6), status: 'done', received: { on: d(-2) },
-      attachments: [{ id: 'sample-f2', name: '한결물류 재고 조회 회신(예시).txt', size: 190, type: 'text/plain', addedOn: d(-2) }] }),
+      attachments: [{ id: 'sample-f2', name: '한결물류_재고보관_조회회신_IV-001.png', size: 617000, type: 'image/png', addedOn: d(-2) }] }),
   ];
 }
 
