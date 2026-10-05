@@ -1581,3 +1581,8 @@ a.brand:hover { color: var(--orange-dark); }
 
 /* 첫 화면: 과제용 시연 프로토타입 안내 */
 .empty-main .empty-disclaimer { margin-top: 6px; font-size: 12px; color: var(--ink-3); }
+
+/* 요청 경과 타임라인: 오른쪽 끝이 오늘 */
+.timeline.is-elapsed .tl-now { left: auto; right: -6px; }
+.timeline.is-elapsed .tl-tick.is-today { left: auto; right: 0; }
+.tl-mark.risk-low { --c: var(--low-icon); }

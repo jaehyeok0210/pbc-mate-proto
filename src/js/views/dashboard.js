@@ -5,6 +5,7 @@ import {
   withDays, isOpen, sortItems, groupByOwner, summarize, insight, leftText,
 } from '../lib/priority.js';
 import { isBundleEligible } from '../lib/bundle.js';
+import { WAIT_BANDS, waitBand, axisSpan, groupMarks, labelWidth, layoutLabels } from '../lib/timeline.js';
 import { currentUser, requesterMembers, isManager, filterByRequester } from '../lib/team.js';
 import { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL } from './html.js';
 
@@ -51,7 +52,7 @@ export function renderDashboard(state, { today, mode, isDemo, who = 'all' }) {
         ${insightSection(insight(sorted[0], mode), summarize(all))}
         ${filter}
         ${modeToggle(mode, text.hint)}
-        ${timeline(sorted, today)}
+        ${timeline(sorted, today, mode)}
         ${ownerCards(groupByOwner(sorted), state.people, done, text)}
         ${mobileList(sorted, text.top)}
       ` : allDone()}
@@ -160,27 +161,55 @@ function modeToggle(mode, hint) {
 }
 
 // 필요일 타임라인: 오늘(0일)부터 가장 먼 필요일까지. 최소 15일 폭으로 그린다.
-function timeline(sorted, today) {
-  const span = Math.max(15, Math.max(...sorted.map((x) => x.left)) + 1);
-  const pct = (days) => `${(Math.max(0, days) / span) * 100}%`;
+function timeline(sorted, today, mode = 'need') {
+  const elapsedMode = mode === 'elapsed';
+  const span = axisSpan(sorted, mode);
+  const pct = (frac) => `${Math.max(0, Math.min(1, frac)) * 100}%`;
 
-  const byLeft = [...sorted].sort((a, b) => a.left - b.left);
-  const marks = byLeft.map((x, i) => {
-    const pos = Math.max(0, x.left) / span;
-    const side = i % 2 === 0 ? 'above' : 'below';
-    const anchor = pos > 0.85 ? 'end' : 'start';
-    const extra = x.status === 'fix' ? ' · 보완 요청' : x.status === 'follow' ? ' · 후속 절차' : '';
+  // 같은 날에 놓이는 자료는 한 표시로 묶고, 라벨이 겹치지 않게 위·아래와 펼치는 방향을 정한다
+  const marks = groupMarks(sorted, mode, span).map((m) => ({ ...m, width: labelWidth(markTitle(m.items), markSub(m.items, elapsedMode)) }));
+  const html = layoutLabels(marks).map((m) => {
+    const x = m.items[0];
+    const tone = elapsedMode ? waitBand(x.elapsed) : x.risk;
+    const urgent = elapsedMode ? tone === 'high' : x.risk === 'high' || x.risk === 'late';
+    const names = m.items.map((y) => `${y.name} · ${y.owner}`).join('\n');
     return `
-      <div class="tl-mark risk-${x.risk} ${side} anchor-${anchor}" style="left:${pct(x.left)}">
+      <div class="tl-mark risk-${tone} ${m.side} anchor-${m.anchor}" style="left:${pct(m.pos)}">
         <span class="tl-stem"></span><span class="tl-dot"></span>
-        <a class="tl-label ${x.risk === 'high' || x.risk === 'late' ? 'is-urgent' : ''} ${x.status === 'fix' ? 'is-fix' : ''}" href="${itemHref(x)}" title="${esc(x.name)} · ${esc(x.owner)} — 눌러서 열기">
-          <b>${esc(x.name)}</b><span>${formatMD(x.neededOn)} · ${leftText(x.left)}${extra}</span>
+        <a class="tl-label ${urgent ? 'is-urgent' : ''} ${x.status === 'fix' ? 'is-fix' : ''}" href="${itemHref(x)}" title="${esc(names)} — 눌러서 열기">
+          <b>${esc(markTitle(m.items))}</b><span>${esc(markSub(m.items, elapsedMode))}</span>
         </a>
       </div>`;
   }).join('');
 
+  if (elapsedMode) {
+    const at = (e) => (span - e) / span; // 경과일 e의 위치
+    const ticks = tickDays(today, span, -1).map((d) =>
+      `<span class="tl-tick" style="left:${pct(at(d))}">${formatMD(addDays(today, -d))}</span>`).join('');
+    return `
+    <section class="timeline is-elapsed desktop-only">
+      <div class="tl-head">
+        <div class="tl-title">요청 경과 타임라인 <span>· 각 자료의 요청일부터 오늘까지</span></div>
+        <div class="tl-legend">
+          <span class="risk-high">${ICON.high}<i>${WAIT_BANDS.high}일 이상</i></span>
+          <span class="risk-mid">${ICON.mid}<i>${WAIT_BANDS.mid}~${WAIT_BANDS.high - 1}일</i></span>
+          <span class="risk-low">${ICON.low}<i>${WAIT_BANDS.mid}일 미만</i></span>
+        </div>
+      </div>
+      <div class="tl-track">
+        ${span > WAIT_BANDS.high ? `<div class="tl-seg risk-high" style="left:0;width:${pct(at(WAIT_BANDS.high))}"></div>` : ''}
+        <div class="tl-seg risk-mid" style="left:${pct(at(Math.min(span, WAIT_BANDS.high)))};width:${pct(at(WAIT_BANDS.mid) - at(Math.min(span, WAIT_BANDS.high)))}"></div>
+        <div class="tl-seg risk-low" style="left:${pct(at(WAIT_BANDS.mid))};right:0"></div>
+        <span class="tl-now"></span>
+        <span class="tl-tick is-today">오늘 ${formatMD(today)}</span>
+        ${ticks}
+        ${html}
+      </div>
+    </section>`;
+  }
+
   const ticks = tickDays(today, span).map((d) =>
-    `<span class="tl-tick" style="left:${pct(d)}">${formatMD(addDays(today, d))}</span>`).join('');
+    `<span class="tl-tick" style="left:${pct(d / span)}">${formatMD(addDays(today, d))}</span>`).join('');
 
   return `
     <section class="timeline desktop-only">
@@ -193,22 +222,43 @@ function timeline(sorted, today) {
         </div>
       </div>
       <div class="tl-track">
-        <div class="tl-seg risk-high" style="left:0;width:${pct(Math.min(2, span))}"></div>
-        <div class="tl-seg risk-mid" style="left:${pct(2)};width:${pct(Math.min(5, span - 2))}"></div>
-        <div class="tl-seg risk-low" style="left:${pct(7)};right:0"></div>
+        <div class="tl-seg risk-high" style="left:0;width:${pct(Math.min(2, span) / span)}"></div>
+        <div class="tl-seg risk-mid" style="left:${pct(2 / span)};width:${pct(Math.min(5, span - 2) / span)}"></div>
+        <div class="tl-seg risk-low" style="left:${pct(7 / span)};right:0"></div>
         <span class="tl-now"></span>
         <span class="tl-tick is-today" style="left:0">오늘 ${formatMD(today)}</span>
         ${ticks}
-        ${marks}
+        ${html}
       </div>
     </section>`;
 }
 
-// 날짜 눈금: 5의 배수 날짜(5, 10, 15 …)에 표시하되 오늘 라벨과 겹치지 않게 3일 이후부터.
-function tickDays(today, span) {
+// 타임라인 라벨: 제목은 대표 자료 이름, 아래 줄에 날짜와 묶인 건수
+function markTitle(items) {
+  return items[0].name;
+}
+
+function markSub(items, elapsedMode) {
+  const x = items[0];
+  const more = items.length > 1 ? ` · 외 ${items.length - 1}건` : '';
+  const extra = items.length > 1 ? '' : x.status === 'fix' ? ' · 보완 요청' : x.status === 'follow' ? ' · 후속 절차' : '';
+  if (!elapsedMode) return `${formatMD(x.neededOn)} · ${leftText(x.left)}${extra}${more}`;
+  // 자리가 모자라 이웃한 날의 자료가 합쳐졌으면 날짜를 범위로 보여 준다
+  const days = items.map((y) => y.elapsed);
+  const [lo, hi] = [Math.min(...days), Math.max(...days)];
+  const dates = [...new Set(items.map((y) => y.requestedOn))].sort();
+  const when = lo === hi
+    ? `요청 ${formatMD(x.requestedOn)} · D+${x.elapsed}`
+    : `요청 ${formatMD(dates[0])}~${formatMD(dates[dates.length - 1])} · D+${lo}~${hi}`;
+  return `${when}${extra}${more}`;
+}
+
+// 날짜 눈금: 5의 배수 날짜(5, 10, 15 …)에 표시하되 오늘 라벨과 겹치지 않게 3일 떨어진 곳부터.
+// dir 1이면 오늘 이후, -1이면 오늘 이전(요청 경과 타임라인)으로 센다.
+function tickDays(today, span, dir = 1) {
   const days = [];
   for (let d = 3; d < span; d++) {
-    if (Number(addDays(today, d).slice(8)) % 5 === 0) days.push(d);
+    if (Number(addDays(today, d * dir).slice(8)) % 5 === 0) days.push(d);
   }
   return days;
 }
