@@ -3773,7 +3773,7 @@ function reportToText(report) {
     `보완 요청 ${counts.fix}건`,
   ];
   if (owners.length) {
-    lines.push('', '담당자별');
+    lines.push('', '담당자별(거래처별)');
     for (const o of owners) lines.push(`- ${o.owner}: ${o.open}건${o.urgent ? ` (긴급·지연 ${o.urgent})` : ''}`);
   }
   if (urgentItems.length) {
@@ -4023,6 +4023,17 @@ function defaultRequester(state) {
   return isManager(state) ? '' : currentUser(state);
 }
 
+/**
+ * 실무진 후보 중에서 고른 사람: 후보에 있으면 그대로, 아니면 지금 쓰는 사람(실무진일 때), 그것도 아니면 첫 실무진.
+ * 팀 정보가 없으면 받은 이름을 그대로 둔다. (외부조회서 회신처 담당자 기본값 등에 쓴다)
+ */
+function pickRequester(state, name) {
+  const members = requesterMembers(state);
+  if (!members.length) return name || '';
+  if (members.includes(name)) return name;
+  return defaultRequester(state) || members[0];
+}
+
 /** 다른 팀원으로 바꾼 새 state (팀원 목록에 있는 사람만) */
 function switchUser(state, name) {
   return teamMembers(state).includes(name) ? { ...state, team: { ...state.team, me: name } } : state;
@@ -4090,7 +4101,7 @@ function calendarScope(state) {
   return { items, events, scope: 'mine', me };
 }
 
-return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, managerName, isManager, requesterMembers, defaultRequester, switchUser, filterByRequester, requesterSummary, signMail, calendarScope };
+return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, managerName, isManager, requesterMembers, defaultRequester, pickRequester, switchUser, filterByRequester, requesterSummary, signMail, calendarScope };
 })();
 
 // ---- lib/timing.js
@@ -4875,7 +4886,7 @@ function ownerCards(groups, people, done, text) {
   return `
     <section class="owners desktop-only">
       <div class="section-head">
-        <h2>담당자별로 묶어 재촉하기</h2>
+        <h2>담당자별(거래처별)로 묶어 재촉하기</h2>
         <div class="section-hint">같은 담당자에게는 메일 한 통으로 · ${text.group}</div>
       </div>
       <div class="cards">${cards}</div>
@@ -6229,7 +6240,7 @@ function body(report, lines, state, query) {
         ${confirmOverview(trackOverview(state.items, state.materiality?.performance), state.materiality)}
 
         <div class="report-block">
-          <h2>담당자별 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
+          <h2>담당자별(거래처별) 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
           <div class="owner-table">
             <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 독촉</div></div>
             ${owners.map((o) => `
@@ -6545,6 +6556,7 @@ const __m_views_confirm = (() => {
 const { CONF_TYPES, TYPE_ORDER, TRACK_LABEL, validateSetup, parseConfirmations, buildLetters, formatAmount, nextDocNo } = __m_lib_confirmation;
 const { esc, ICON } = __m_views_html;
 const { topbar } = __m_views_dashboard;
+const { requesterMembers } = __m_lib_team;
 // 외부조회서 작성 — 공통 정보 → 종류 선택 → 선정된 조회처 붙여넣기 → 검증 → 조회서 미리보기·인쇄 → 조회 목록 등록
 // 판단(검증·묶기·문안)은 lib/confirmation.js가 하고, 여기서는 그리기만 한다.
 
@@ -6573,7 +6585,7 @@ function renderConfirm(state, { today, isDemo, type, setup, setupErrors, pasteTe
 
       <div class="confirm-grid">
         <aside class="confirm-side">
-          ${setupForm(setup, setupErrors)}
+          ${setupForm(setup, setupErrors, requesterMembers(state))}
         </aside>
 
         <section class="confirm-main">
@@ -6624,7 +6636,18 @@ function field(label, name, value, { type = 'text', placeholder = '', error = ''
     </label>`;
 }
 
-function setupForm(s, e) {
+// 회신처 담당자: 자료 요청의 요청 감사인과 같은 후보(실무진) 중에서 고른다. 팀 정보가 없으면 직접 입력.
+function contactField(s, e, members) {
+  if (!members.length) return field('담당자', 'contactName', s.contactName, { placeholder: '장재혁 회계사', error: e.contactName });
+  return `
+    <label class="f ${e.contactName ? 'has-error' : ''}">
+      <span class="f-label">담당자 <small>실무진 중에서 · 등록한 조회서의 요청 감사인이 돼요</small></span>
+      <select name="contactName">${members.map((m) => `<option value="${esc(m)}" ${m === s.contactName ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
+      ${e.contactName ? `<span class="f-error">${esc(e.contactName)}</span>` : ''}
+    </label>`;
+}
+
+function setupForm(s, e, members = []) {
   return `
     <form id="conf-setup" class="conf-setup" novalidate>
       <div class="report-block">
@@ -6637,7 +6660,7 @@ function setupForm(s, e) {
         <h2>회신처 <span>· 회신은 감사인에게 직접 와야 해요</span></h2>
         ${field('감사인', 'auditorName', s.auditorName, { error: e.auditorName })}
         ${field('감사인 주소', 'auditorAddress', s.auditorAddress, { error: e.auditorAddress })}
-        ${field('담당자', 'contactName', s.contactName, { placeholder: '장재혁 회계사', error: e.contactName })}
+        ${contactField(s, e, members)}
         <div class="owner-grid conf-two">
           ${field('전화', 'contactPhone', s.contactPhone, { placeholder: '02-0000-0000', error: e.contactPhone })}
           ${field('이메일', 'contactEmail', s.contactEmail, { type: 'email', hint: '선택', error: e.contactEmail })}
@@ -7032,7 +7055,7 @@ const { buildReport, reportToText, reportToCsv, csvFileName, ownerDetail } = __m
 const { monthOf, shiftMonth, addEvent, removeEvent, moveEntry, setEventProgress, progressLabel } = __m_lib_calendar;
 const { formatMD } = __m_lib_dates;
 const { validateTransition, canTransition } = __m_lib_status;
-const { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope } = __m_lib_team;
+const { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope, pickRequester, requesterMembers } = __m_lib_team;
 const { searchEngagements, engagementById, validateStart, teamFromEngagement } = __m_lib_engagements;
 const { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
 const { renderDashboard } = __m_views_dashboard;
@@ -7134,6 +7157,8 @@ function render() {
         setup: { ...defaultSetup(state.client, today), ...(state.confirmSetup || {}), issuedOn: today, replyBy: defaultSetup(state.client, today).replyBy },
       };
     }
+    // 회신처 담당자는 실무진 중 한 명 (기억해 둔 이름이 후보에 없으면 지금 쓰는 사람으로)
+    conf.setup.contactName = pickRequester(state, conf.setup.contactName);
     app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + attachOverlay();
     document.body.classList.remove('has-drawer');
     return;
@@ -7647,8 +7672,9 @@ const actions = {
     if (!setup || !parsed.parties.length || parsed.errorCount) return;
     const letters = buildLetters(conf.type, parsed.parties, setup,
       { startNo: nextDocNo(state.items, conf.type), bankBlank: conf.bankBlank });
-    const me = defaultRequester(state);
-    state = addItems(state, toRegistryValues(letters, setup).map((v) => (me ? { ...v, item: { ...v.item, requester: me } } : v)));
+    // 요청 감사인 = 회신처 담당자(실무진 후보에서 고른 사람)
+    const requester = requesterMembers(state).includes(setup.contactName) ? setup.contactName : defaultRequester(state);
+    state = addItems(state, toRegistryValues(letters, setup).map((v) => (requester ? { ...v, item: { ...v.item, requester } } : v)));
     // 다음 작성 때 회사·감사인 정보를 다시 입력하지 않도록 기억한다 (날짜는 매번 새로)
     const { issuedOn, replyBy, ...keep } = setup;
     state = { ...state, confirmSetup: keep };
@@ -7974,7 +8000,7 @@ app.addEventListener('change', (e) => {
     conf.touched.add(e.target.name);
     const errors = confSetupErrors(currentToday());
     for (const label of app.querySelectorAll('#conf-setup .f')) {
-      const name = label.querySelector('input')?.name;
+      const name = label.querySelector('input, select')?.name;
       if (!conf.touched.has(name)) continue;
       label.classList.toggle('has-error', Boolean(errors[name]));
       label.querySelector('.f-error')?.remove();
