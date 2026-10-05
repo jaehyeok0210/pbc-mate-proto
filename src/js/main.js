@@ -283,12 +283,16 @@ async function copyForDrawer(view, { itemIds, text }, record) {
 
 // 예시 자료의 첨부 파일을 브라우저 저장소에 만든다 (주간 보고 '첨부자료' 칸에서 열어 볼 수 있게).
 // 내용은 예시 안내 문구뿐이다. 저장소가 막힌 환경이면 조용히 넘어간다.
+function sampleFileBlob(f, item) {
+  const text = `${f.name}\n\nPBC Mate 시연용 예시 첨부파일입니다. 실제 자료가 아닙니다.\n자료: ${item.name}\n담당: ${item.owner}\n`;
+  return new Blob([text], { type: 'text/plain' });
+}
+
 async function seedSampleFiles() {
   for (const f of SAMPLE_FILES) {
     const item = state.items.find((x) => x.id === f.itemId);
     if (!item) continue;
-    const text = `${f.name}\n\nPBC Mate 시연용 예시 첨부파일입니다. 실제 자료가 아닙니다.\n자료: ${item.name}\n담당: ${item.owner}\n`;
-    try { await putFile(f.id, new Blob([text], { type: 'text/plain' })); } catch { return; }
+    try { await putFile(f.id, sampleFileBlob(f, item)); } catch { return; }
   }
 }
 
@@ -732,8 +736,19 @@ const actions = {
     const meta = item?.attachments?.find((a) => a.id === el.dataset.file);
     let blob;
     try { blob = await getFile(el.dataset.file); } catch { blob = null; }
-    if (!blob) { toast('이 브라우저에서 파일을 찾지 못했어요. 다른 브라우저에서 첨부했거나 저장 데이터가 지워졌을 수 있어요.'); return; }
+    // 예시 첨부 파일이 저장소에 없으면(예전에 불러온 예시 등) 다시 만든다
+    const sample = SAMPLE_FILES.find((f) => f.id === el.dataset.file);
+    if (!blob && sample) {
+      blob = sampleFileBlob(sample, item);
+      putFile(sample.id, blob).catch(() => {});
+    }
     const name = meta?.name || 'attachment';
+    if (!blob) {
+      // 파일 내용이 이 브라우저에 없을 때도 창을 띄워 이유를 알려 준다
+      preview = { itemId: item.id, fileId: el.dataset.file, name, size: meta?.size || 0, kind: 'missing', itemName: item.name };
+      render();
+      return;
+    }
     const kind = previewKind(name, blob.type || meta?.type);
     preview = { itemId: item.id, fileId: el.dataset.file, name, size: blob.size, kind, itemName: item.name, blob };
     if (kind === 'image' || kind === 'pdf') preview.url = URL.createObjectURL(blob);
@@ -746,7 +761,7 @@ const actions = {
   },
   'preview-close': closePreview,
   'preview-save': () => {
-    if (!preview) return;
+    if (!preview?.blob) return;
     const url = URL.createObjectURL(preview.blob);
     const a = Object.assign(document.createElement('a'), { href: url, download: preview.name });
     document.body.append(a);

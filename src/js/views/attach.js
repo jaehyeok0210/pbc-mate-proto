@@ -68,6 +68,7 @@ export function renderPreview(p) {
   if (p.kind === 'image') body = `<div class="pv-frame pv-image"><img src="${p.url}" alt="${esc(p.name)}"></div>`;
   else if (p.kind === 'pdf') body = `<div class="pv-frame"><iframe src="${p.url}" title="${esc(p.name)} 미리보기"></iframe></div>`;
   else if (p.kind === 'text') body = `<pre class="pv-frame pv-text">${esc(p.text)}${p.truncated ? '\n\n… (앞부분만 보여요. 전체는 저장해서 확인해 주세요)' : ''}</pre>`;
+  else if (p.kind === 'missing') body = `<div class="pv-frame pv-none">${ICON.high}<b>이 브라우저에서 파일을 찾지 못했어요</b><small>다른 브라우저나 기기에서 첨부했거나, 브라우저 저장 데이터가 지워졌을 수 있어요. 파일 목록에서 지우고 다시 첨부해 주세요.</small></div>`;
   else body = `<div class="pv-frame pv-none">${ICON.download}<b>이 형식은 미리보기를 지원하지 않아요</b><small>저장한 뒤 엑셀·워드 등에서 열어 주세요.</small></div>`;
   return `
     <div class="sheet-dim" data-action="preview-close"></div>
@@ -83,7 +84,7 @@ export function renderPreview(p) {
       <div class="sheet-body">${body}</div>
       <footer class="sheet-foot">
         <button type="button" class="btn btn-sub" data-action="preview-close">닫기</button>
-        <button type="button" class="btn btn-cta" data-action="preview-save">${ICON.download}저장</button>
+        <button type="button" class="btn btn-cta" data-action="preview-save" ${p.kind === 'missing' ? 'disabled' : ''}>${ICON.download}저장</button>
       </footer>
     </div>`;
 }

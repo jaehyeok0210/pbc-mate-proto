@@ -1574,3 +1574,6 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 /* 왼쪽 위 PBC Mate: 누르면 대시보드 */
 a.brand { color: inherit; text-decoration: none; }
 a.brand:hover { color: var(--orange-dark); }
+
+.preview-sheet .sheet-foot .btn[disabled] { opacity: .45; cursor: not-allowed; }
+.pv-none small { max-width: 360px; }
