@@ -32,8 +32,8 @@ import { renderStatusSheet } from './views/status.js';
 import { renderCalendar } from './views/calendar.js';
 import { renderConfirm, partiesPreview, outputSection } from './views/confirm.js';
 import { renderFollow } from './views/follow.js';
-import { renderAttach } from './views/attach.js';
-import { checkFiles, addAttachments, removeAttachment, newFileId } from './lib/attach.js';
+import { renderAttach, renderPreview } from './views/attach.js';
+import { checkFiles, addAttachments, removeAttachment, newFileId, previewKind, TEXT_PREVIEW_LIMIT } from './lib/attach.js';
 import { putFile, getFile, deleteFile, clearFiles } from './files.js';
 import { startFollow, completeFollow, clampVerified, evidenceRequests, validateSignoff, FOLLOW_TYPES } from './lib/followup.js';
 import {
@@ -62,6 +62,7 @@ let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set
 let confResetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
+let preview = null; // 첨부 미리보기: { itemId, fileId, name, size, kind, url, text, truncated, itemName, blob }
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
@@ -287,9 +288,16 @@ async function seedSampleFiles() {
 }
 
 function attachOverlay() {
+  if (preview) return renderPreview(preview);
   const item = att && state?.items.find((x) => x.id === att.itemId);
   if (!item) { att = null; return ''; }
   return renderAttach(item, att);
+}
+
+function closePreview() {
+  if (preview?.url) URL.revokeObjectURL(preview.url);
+  preview = null;
+  render();
 }
 
 function openAttach(itemId, justDone) {
@@ -713,18 +721,34 @@ const actions = {
     render();
     toast(`${metas.length}개 파일을 첨부했어요. 주간 보고 자료 목록에서 열 수 있어요.`);
   },
+  // 첨부 파일: 먼저 미리보기 창을 띄우고, 저장 버튼을 눌러야 내려받는다
   'open-attachment': async (el) => {
     const item = state.items.find((x) => x.id === el.dataset.item);
     const meta = item?.attachments?.find((a) => a.id === el.dataset.file);
     let blob;
     try { blob = await getFile(el.dataset.file); } catch { blob = null; }
     if (!blob) { toast('이 브라우저에서 파일을 찾지 못했어요. 다른 브라우저에서 첨부했거나 저장 데이터가 지워졌을 수 있어요.'); return; }
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href: url, download: meta?.name || 'attachment' });
+    const name = meta?.name || 'attachment';
+    const kind = previewKind(name, blob.type || meta?.type);
+    preview = { itemId: item.id, fileId: el.dataset.file, name, size: blob.size, kind, itemName: item.name, blob };
+    if (kind === 'image' || kind === 'pdf') preview.url = URL.createObjectURL(blob);
+    if (kind === 'text') {
+      const text = await blob.text();
+      preview.text = text.slice(0, TEXT_PREVIEW_LIMIT);
+      preview.truncated = text.length > TEXT_PREVIEW_LIMIT;
+    }
+    render();
+  },
+  'preview-close': closePreview,
+  'preview-save': () => {
+    if (!preview) return;
+    const url = URL.createObjectURL(preview.blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: preview.name });
     document.body.append(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(`‘${preview.name}’을(를) 저장했어요.`);
   },
   'remove-attachment': async (el) => {
     const { item: itemId, file } = el.dataset;
@@ -1048,6 +1072,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key !== 'Escape') return;
   if (!state && emptyForm.lookupOpen) { actions['eng-close'](); return; }
+  if (preview) { closePreview(); return; }
   if (att) { att = null; render(); return; }
   if (sheet) { sheet = null; render(); return; }
   if (compose || bundle || fix || add || fu) actions['close-drawer']();

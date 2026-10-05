@@ -51,10 +51,39 @@ export function attachCell(row) {
   const files = row.attachments || [];
   const list = files.map((a) => `
     <span class="att-file">
-      <button type="button" class="att-link" data-action="open-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" title="${esc(a.name)} · ${formatSize(a.size)}">${ICON.download}<span>${esc(a.name)}</span></button>
+      <button type="button" class="att-link" data-action="open-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" title="${esc(a.name)} · ${formatSize(a.size)} — 눌러서 미리보기">${ICON.file}<span>${esc(a.name)}</span></button>
       <button type="button" class="att-remove" data-action="remove-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" aria-label="${esc(a.name)} 첨부 삭제">${ICON.close}</button>
     </span>`).join('');
   const add = row.status === 'done'
     ? `<button type="button" class="att-add" data-action="attach-open" data-item="${esc(row.id)}">${ICON.plus}첨부</button>` : '';
   return list || add ? `<div class="att-cell">${list}${add}</div>` : '—';
+}
+
+/**
+ * 첨부 파일 미리보기. 저장 버튼을 눌러야 내려받는다.
+ * @param p { name, size, kind: 'image'|'pdf'|'text'|'none', url, text, truncated, itemName }
+ */
+export function renderPreview(p) {
+  let body;
+  if (p.kind === 'image') body = `<div class="pv-frame pv-image"><img src="${p.url}" alt="${esc(p.name)}"></div>`;
+  else if (p.kind === 'pdf') body = `<div class="pv-frame"><iframe src="${p.url}" title="${esc(p.name)} 미리보기"></iframe></div>`;
+  else if (p.kind === 'text') body = `<pre class="pv-frame pv-text">${esc(p.text)}${p.truncated ? '\n\n… (앞부분만 보여요. 전체는 저장해서 확인해 주세요)' : ''}</pre>`;
+  else body = `<div class="pv-frame pv-none">${ICON.download}<b>이 형식은 미리보기를 지원하지 않아요</b><small>저장한 뒤 엑셀·워드 등에서 열어 주세요.</small></div>`;
+  return `
+    <div class="sheet-dim" data-action="preview-close"></div>
+    <div class="sheet preview-sheet" role="dialog" aria-modal="true" aria-labelledby="pv-title">
+      <div class="sheet-head">
+        <div>
+          <div class="eyebrow">첨부자료 미리보기${p.itemName ? ` · ${esc(p.itemName)}` : ''}</div>
+          <h3 id="pv-title">${esc(p.name)}</h3>
+          <div class="sheet-current">${formatSize(p.size)}</div>
+        </div>
+        <button type="button" class="icon-btn btn-sub" data-action="preview-close" aria-label="닫기">${ICON.close}</button>
+      </div>
+      <div class="sheet-body">${body}</div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-sub" data-action="preview-close">닫기</button>
+        <button type="button" class="btn btn-cta" data-action="preview-save">${ICON.download}저장</button>
+      </footer>
+    </div>`;
 }

@@ -1548,3 +1548,17 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .eng-modal .sheet-body { display: flex; flex-direction: column; gap: 12px; }
 .eng-modal .eng-results { max-height: 320px; }
 .eng-list { min-height: 60px; }
+
+/* ---------- 첨부 미리보기 ---------- */
+.sheet.preview-sheet { width: 820px; height: calc(100% - 64px); }
+.preview-sheet .sheet-body { flex-grow: 1; display: flex; min-height: 0; padding: 12px 22px; }
+.pv-frame { flex-grow: 1; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill-2); overflow: auto; }
+.pv-frame iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.pv-image { display: grid; place-items: center; padding: 12px; }
+.pv-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pv-text { margin: 0; padding: 14px 16px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); background: #fff; }
+.pv-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; color: var(--ink-3); }
+.pv-none svg { width: 22px; height: 22px; color: var(--ink-3); }
+.pv-none b { color: var(--ink); font-size: 14px; }
+.preview-sheet .sheet-foot .btn svg { width: 14px; height: 14px; }
+@media (max-width: 720px) { .sheet.preview-sheet { height: 92%; } .preview-sheet .sheet-body { padding: 10px 16px; } }

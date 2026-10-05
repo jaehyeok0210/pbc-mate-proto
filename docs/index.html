@@ -1561,6 +1561,20 @@ a.tl-label:hover b, a.tl-label:focus-visible b { max-width: none; }
 .eng-modal .eng-results { max-height: 320px; }
 .eng-list { min-height: 60px; }
 
+/* ---------- 첨부 미리보기 ---------- */
+.sheet.preview-sheet { width: 820px; height: calc(100% - 64px); }
+.preview-sheet .sheet-body { flex-grow: 1; display: flex; min-height: 0; padding: 12px 22px; }
+.pv-frame { flex-grow: 1; min-height: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill-2); overflow: auto; }
+.pv-frame iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.pv-image { display: grid; place-items: center; padding: 12px; }
+.pv-image img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pv-text { margin: 0; padding: 14px 16px; font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); background: #fff; }
+.pv-none { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; color: var(--ink-3); }
+.pv-none svg { width: 22px; height: 22px; color: var(--ink-3); }
+.pv-none b { color: var(--ink); font-size: 14px; }
+.preview-sheet .sheet-foot .btn svg { width: 14px; height: 14px; }
+@media (max-width: 720px) { .sheet.preview-sheet { height: 92%; } .preview-sheet .sheet-body { padding: 10px 16px; } }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -1866,7 +1880,24 @@ function newFileId(now = Date.now(), seq = 0) {
   return `f${now.toString(36)}${seq.toString(36)}`;
 }
 
-return { MAX_FILE_BYTES, formatSize, checkFiles, addAttachments, removeAttachment, newFileId };
+// ---------- 미리보기 ----------
+
+const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
+const TEXT_EXT = ['txt', 'csv', 'tsv', 'md', 'json', 'log', 'xml'];
+
+/** 미리보기 방식: 'image' | 'pdf' | 'text' | 'none'(엑셀·워드 등 브라우저가 직접 못 여는 형식) */
+function previewKind(name, type = '') {
+  const ext = String(name ?? '').split('.').pop().toLowerCase();
+  if (type.startsWith('image/') || IMAGE_EXT.includes(ext)) return 'image';
+  if (type === 'application/pdf' || ext === 'pdf') return 'pdf';
+  if (type.startsWith('text/') || TEXT_EXT.includes(ext)) return 'text';
+  return 'none';
+}
+
+/** 텍스트 미리보기는 앞부분만 (너무 긴 파일로 화면이 멈추지 않게) */
+const TEXT_PREVIEW_LIMIT = 20000;
+
+return { MAX_FILE_BYTES, formatSize, checkFiles, addAttachments, removeAttachment, newFileId, previewKind, TEXT_PREVIEW_LIMIT };
 })();
 
 // ---- lib/korean.js
@@ -4444,6 +4475,7 @@ const ICON = {
   arrow: svg('<path d="M3 8h10M9.5 4.5L13 8l-3.5 3.5"/>', 1.8),
   download: svg('<path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13h10"/>', 1.8),
   follow: svg('<path d="M2.5 8h5M7.5 8l3.5-3.5M7.5 8l3.5 3.5M11 4.5h2.5M11 11.5h2.5"/>', 1.8),
+  file: svg('<path d="M4 2h5.5L12 4.5V14H4z"/><path d="M9.5 2v2.5H12M6 8h4M6 10.5h4"/>', 1.6),
   search: svg('<circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5L14 14"/>', 1.8),
   copy: svg('<rect x="5" y="5" width="9" height="9" rx="2"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/>', 1.8),
 };
@@ -6024,7 +6056,7 @@ function attachCell(row) {
   const files = row.attachments || [];
   const list = files.map((a) => `
     <span class="att-file">
-      <button type="button" class="att-link" data-action="open-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" title="${esc(a.name)} · ${formatSize(a.size)}">${ICON.download}<span>${esc(a.name)}</span></button>
+      <button type="button" class="att-link" data-action="open-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" title="${esc(a.name)} · ${formatSize(a.size)} — 눌러서 미리보기">${ICON.file}<span>${esc(a.name)}</span></button>
       <button type="button" class="att-remove" data-action="remove-attachment" data-item="${esc(row.id)}" data-file="${esc(a.id)}" aria-label="${esc(a.name)} 첨부 삭제">${ICON.close}</button>
     </span>`).join('');
   const add = row.status === 'done'
@@ -6032,7 +6064,36 @@ function attachCell(row) {
   return list || add ? `<div class="att-cell">${list}${add}</div>` : '—';
 }
 
-return { renderAttach, attachCell };
+/**
+ * 첨부 파일 미리보기. 저장 버튼을 눌러야 내려받는다.
+ * @param p { name, size, kind: 'image'|'pdf'|'text'|'none', url, text, truncated, itemName }
+ */
+function renderPreview(p) {
+  let body;
+  if (p.kind === 'image') body = `<div class="pv-frame pv-image"><img src="${p.url}" alt="${esc(p.name)}"></div>`;
+  else if (p.kind === 'pdf') body = `<div class="pv-frame"><iframe src="${p.url}" title="${esc(p.name)} 미리보기"></iframe></div>`;
+  else if (p.kind === 'text') body = `<pre class="pv-frame pv-text">${esc(p.text)}${p.truncated ? '\n\n… (앞부분만 보여요. 전체는 저장해서 확인해 주세요)' : ''}</pre>`;
+  else body = `<div class="pv-frame pv-none">${ICON.download}<b>이 형식은 미리보기를 지원하지 않아요</b><small>저장한 뒤 엑셀·워드 등에서 열어 주세요.</small></div>`;
+  return `
+    <div class="sheet-dim" data-action="preview-close"></div>
+    <div class="sheet preview-sheet" role="dialog" aria-modal="true" aria-labelledby="pv-title">
+      <div class="sheet-head">
+        <div>
+          <div class="eyebrow">첨부자료 미리보기${p.itemName ? ` · ${esc(p.itemName)}` : ''}</div>
+          <h3 id="pv-title">${esc(p.name)}</h3>
+          <div class="sheet-current">${formatSize(p.size)}</div>
+        </div>
+        <button type="button" class="icon-btn btn-sub" data-action="preview-close" aria-label="닫기">${ICON.close}</button>
+      </div>
+      <div class="sheet-body">${body}</div>
+      <footer class="sheet-foot">
+        <button type="button" class="btn btn-sub" data-action="preview-close">닫기</button>
+        <button type="button" class="btn btn-cta" data-action="preview-save">${ICON.download}저장</button>
+      </footer>
+    </div>`;
+}
+
+return { renderAttach, attachCell, renderPreview };
 })();
 
 // ---- views/report.js
@@ -6925,8 +6986,8 @@ const { renderStatusSheet } = __m_views_status;
 const { renderCalendar } = __m_views_calendar;
 const { renderConfirm, partiesPreview, outputSection } = __m_views_confirm;
 const { renderFollow } = __m_views_follow;
-const { renderAttach } = __m_views_attach;
-const { checkFiles, addAttachments, removeAttachment, newFileId } = __m_lib_attach;
+const { renderAttach, renderPreview } = __m_views_attach;
+const { checkFiles, addAttachments, removeAttachment, newFileId, previewKind, TEXT_PREVIEW_LIMIT } = __m_lib_attach;
 const { putFile, getFile, deleteFile, clearFiles } = __m_files;
 const { startFollow, completeFollow, clampVerified, evidenceRequests, validateSignoff, FOLLOW_TYPES } = __m_lib_followup;
 const { CONF_TYPES, defaultSetup, validateSetup, parseConfirmations, buildLetters, toRegistryValues, nextDocNo } = __m_lib_confirmation;
@@ -6958,6 +7019,7 @@ let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set
 let confResetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
+let preview = null; // 첨부 미리보기: { itemId, fileId, name, size, kind, url, text, truncated, itemName, blob }
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
@@ -7183,9 +7245,16 @@ async function seedSampleFiles() {
 }
 
 function attachOverlay() {
+  if (preview) return renderPreview(preview);
   const item = att && state?.items.find((x) => x.id === att.itemId);
   if (!item) { att = null; return ''; }
   return renderAttach(item, att);
+}
+
+function closePreview() {
+  if (preview?.url) URL.revokeObjectURL(preview.url);
+  preview = null;
+  render();
 }
 
 function openAttach(itemId, justDone) {
@@ -7609,18 +7678,34 @@ const actions = {
     render();
     toast(`${metas.length}개 파일을 첨부했어요. 주간 보고 자료 목록에서 열 수 있어요.`);
   },
+  // 첨부 파일: 먼저 미리보기 창을 띄우고, 저장 버튼을 눌러야 내려받는다
   'open-attachment': async (el) => {
     const item = state.items.find((x) => x.id === el.dataset.item);
     const meta = item?.attachments?.find((a) => a.id === el.dataset.file);
     let blob;
     try { blob = await getFile(el.dataset.file); } catch { blob = null; }
     if (!blob) { toast('이 브라우저에서 파일을 찾지 못했어요. 다른 브라우저에서 첨부했거나 저장 데이터가 지워졌을 수 있어요.'); return; }
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href: url, download: meta?.name || 'attachment' });
+    const name = meta?.name || 'attachment';
+    const kind = previewKind(name, blob.type || meta?.type);
+    preview = { itemId: item.id, fileId: el.dataset.file, name, size: blob.size, kind, itemName: item.name, blob };
+    if (kind === 'image' || kind === 'pdf') preview.url = URL.createObjectURL(blob);
+    if (kind === 'text') {
+      const text = await blob.text();
+      preview.text = text.slice(0, TEXT_PREVIEW_LIMIT);
+      preview.truncated = text.length > TEXT_PREVIEW_LIMIT;
+    }
+    render();
+  },
+  'preview-close': closePreview,
+  'preview-save': () => {
+    if (!preview) return;
+    const url = URL.createObjectURL(preview.blob);
+    const a = Object.assign(document.createElement('a'), { href: url, download: preview.name });
     document.body.append(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(`‘${preview.name}’을(를) 저장했어요.`);
   },
   'remove-attachment': async (el) => {
     const { item: itemId, file } = el.dataset;
@@ -7944,6 +8029,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key !== 'Escape') return;
   if (!state && emptyForm.lookupOpen) { actions['eng-close'](); return; }
+  if (preview) { closePreview(); return; }
   if (att) { att = null; render(); return; }
   if (sheet) { sheet = null; render(); return; }
   if (compose || bundle || fix || add || fu) actions['close-drawer']();

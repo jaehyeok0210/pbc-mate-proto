@@ -45,3 +45,20 @@ export function removeAttachment(item, fileId) {
 export function newFileId(now = Date.now(), seq = 0) {
   return `f${now.toString(36)}${seq.toString(36)}`;
 }
+
+// ---------- 미리보기 ----------
+
+const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
+const TEXT_EXT = ['txt', 'csv', 'tsv', 'md', 'json', 'log', 'xml'];
+
+/** 미리보기 방식: 'image' | 'pdf' | 'text' | 'none'(엑셀·워드 등 브라우저가 직접 못 여는 형식) */
+export function previewKind(name, type = '') {
+  const ext = String(name ?? '').split('.').pop().toLowerCase();
+  if (type.startsWith('image/') || IMAGE_EXT.includes(ext)) return 'image';
+  if (type === 'application/pdf' || ext === 'pdf') return 'pdf';
+  if (type.startsWith('text/') || TEXT_EXT.includes(ext)) return 'text';
+  return 'none';
+}
+
+/** 텍스트 미리보기는 앞부분만 (너무 긴 파일로 화면이 멈추지 않게) */
+export const TEXT_PREVIEW_LIMIT = 20000;

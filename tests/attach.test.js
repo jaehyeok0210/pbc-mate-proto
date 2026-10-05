@@ -37,3 +37,14 @@ test('newFileId: 같은 시각이어도 순번으로 구분', () => {
   assert.notEqual(newFileId(1000, 0), newFileId(1000, 1));
   assert.match(newFileId(), /^f[0-9a-z]+$/);
 });
+
+test('previewKind: 이미지·PDF·텍스트는 미리보기, 엑셀·워드는 지원 안 함', async () => {
+  const { previewKind } = await import('../src/js/lib/attach.js');
+  assert.equal(previewKind('서명본.PDF'), 'pdf');
+  assert.equal(previewKind('scan.jpg'), 'image');
+  assert.equal(previewKind('x', 'image/png'), 'image');
+  assert.equal(previewKind('회신(예시).txt'), 'text');
+  assert.equal(previewKind('목록.csv'), 'text');
+  assert.equal(previewKind('연령분석표.xlsx'), 'none');
+  assert.equal(previewKind('계약서.docx'), 'none');
+});
