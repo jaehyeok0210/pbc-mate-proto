@@ -62,8 +62,6 @@ let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set
 let confResetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
-let resetArmed = false; // '처음으로'를 한 번 눌러 확인을 기다리는 중
-let resetTimer;
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
 let fu = null;      // 외부조회 후속 절차 패널: { itemId, owner, signoff: { preparer, completedOn, reviewer }, signoffErrors }
 
@@ -343,21 +341,6 @@ function setFollow(fn) {
 
 const actions = {
   'set-mode': (el) => { mode = el.dataset.mode; render(); },
-  // 처음으로: 첫 클릭은 확인 대기(4초), 한 번 더 누르면 모든 자료·첨부 파일을 지우고 첫 화면으로
-  'reset-all': (el) => {
-    clearTimeout(resetTimer);
-    if (!resetArmed) {
-      resetArmed = true;
-      el.classList.add('is-armed');
-      el.innerHTML = '한 번 더 누르면 모든 자료가 지워져요';
-      resetTimer = setTimeout(() => { resetArmed = false; render(); }, 4000);
-      return;
-    }
-    resetArmed = false;
-    window.pbc.reset();
-    location.hash = '';
-    toast('모든 자료를 지웠어요. 처음부터 시작할 수 있어요.');
-  },
   'set-who': (el) => { who = el.dataset.who; render(); },
   // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
   'show-requester': (el) => {
