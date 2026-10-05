@@ -39,7 +39,7 @@ test('앱 예시 데이터에는 은행조회서가 PBC 자료로 들어가 있�
   const s = appSample();
   const pbc = s.items.filter((x) => x.kind !== 'confirmation');
   assert.equal(pbc.some((x) => x.name.includes('은행조회서')), false, '은행조회서는 PBC 자료가 아님');
-  assert.equal(pbc.length, 5);
+  assert.equal(pbc.length, 6);
   assert.equal(s.people['박준호 과장'].nudges, 0, '독촉 이력도 함께 정리');
 });
 
@@ -56,4 +56,23 @@ test('앱 예시 데이터: 외부조회 건은 네 종류와 여러 상태가 �
   }
   assert.equal(new Set(s.items.map((x) => x.id)).size, s.items.length, 'id 중복 없음');
   assert.equal(s.confirmSetup.companyName, s.client.name);
+});
+
+test('앱 예시 데이터: 시연 기준일은 결산일 이후 1월, 12/31 기준 자료와 날짜가 맞는다', async () => {
+  const { sampleState: appSample, DEMO_DATE: APP_DATE, SAMPLE_FILES } = await import('../src/js/store.js');
+  const s = appSample();
+  assert.equal(APP_DATE, '2027-01-14');
+  const conf = s.items.filter((x) => x.kind === 'confirmation');
+  assert.ok(conf.every((x) => x.requestedOn > x.baseDate), '조회서는 기준일(12/31) 이후 발송');
+  assert.ok(s.items.filter((x) => x.basisDate).every((x) => x.requestedOn > x.basisDate), '12/31 기준 자료는 결산 후 요청');
+  // 예시 첨부 파일은 자료의 첨부 목록과 맞물린다
+  for (const f of SAMPLE_FILES) {
+    assert.ok(s.items.find((x) => x.id === f.itemId).attachments.some((a) => a.id === f.id), f.id);
+  }
+  // 후속 절차에서 만든 증빙 요청은 원래 외부조회 건과 연결
+  const ev = s.items.find((x) => x.sourceId);
+  assert.ok(s.items.find((x) => x.id === ev.sourceId).follow.requested.length);
+  // 타임라인 박스가 겹치지 않도록 미완료 자료의 필요일이 서로 다르다 (지연 건 제외)
+  const lefts = s.items.filter((x) => x.status !== 'done' && x.neededOn >= APP_DATE).map((x) => x.neededOn);
+  assert.equal(new Set(lefts).size, lefts.length);
 });

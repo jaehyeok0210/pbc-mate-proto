@@ -19,7 +19,7 @@ import { formatMD } from './lib/dates.js';
 import { validateTransition, canTransition } from './lib/status.js';
 import { currentUser, switchUser, signMail } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
-import { load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
+import { SAMPLE_FILES, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty } from './views/empty.js';
 import { renderCompose } from './views/compose.js';
@@ -275,6 +275,17 @@ async function copyForDrawer(view, { itemIds, text }, record) {
 
 // ---------- 파일 첨부 ----------
 
+// 예시 자료의 첨부 파일을 브라우저 저장소에 만든다 (주간 보고 '첨부자료' 칸에서 열어 볼 수 있게).
+// 내용은 예시 안내 문구뿐이다. 저장소가 막힌 환경이면 조용히 넘어간다.
+async function seedSampleFiles() {
+  for (const f of SAMPLE_FILES) {
+    const item = state.items.find((x) => x.id === f.itemId);
+    if (!item) continue;
+    const text = `${f.name}\n\nPBC Mate 시연용 예시 첨부파일입니다. 실제 자료가 아닙니다.\n자료: ${item.name}\n담당: ${item.owner}\n`;
+    try { await putFile(f.id, new Blob([text], { type: 'text/plain' })); } catch { return; }
+  }
+}
+
 function attachOverlay() {
   const item = att && state?.items.find((x) => x.id === att.itemId);
   if (!item) { att = null; return ''; }
@@ -348,7 +359,7 @@ const actions = {
     location.hash = '';
     render();
   },
-  'load-sample': () => { state = sampleState(); save(state); who = 'all'; render(); },
+  'load-sample': () => { state = sampleState(); save(state); who = 'all'; render(); seedSampleFiles(); },
 
   // 첫 실행: 클라이언트명·감사명을 넣고 빈 state로 시작 → 자료 추가 화면으로
   'start-blank': (el) => {
