@@ -72,7 +72,7 @@ export function topbar(client, today, isDemo, active, team) {
         <a class="tab ${active === 'calendar' ? 'is-active' : ''}" href="#/calendar">일정</a>
         <a class="tab ${active === 'report' ? 'is-active' : ''}" href="#/report">주간 보고</a>
       </nav>
-      ${isDemo ? `<span class="demo-date">시연 기준일 ${today.replaceAll('-', '.')}</span>` : ''}
+      <button type="button" class="demo-date reset-btn" data-action="reset-all" title="모든 자료와 첨부 파일을 지우고 첫 화면으로 돌아가요">${ICON.fix}<span>처음으로</span></button>
       <div class="topbar-end">
         ${userPicker(team)}
         <span class="org-label desktop-only">삼일회계법인</span>

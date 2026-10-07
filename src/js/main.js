@@ -71,6 +71,8 @@ let who = 'all';    // 대시보드 요청 감사인 필터: 'all' | 'me' | 팀�
 let cal = null;     // 일정 탭 상태: { month, selected, form: { title, errors }, filter }
 let conf = null;    // 외부조회서 작성 상태: { type, setup, touched:Set, pasteText, bankBlank, resetArmed }
 let confResetTimer;
+let resetArmed = false; // 상단바 '처음으로'를 한 번 눌러 확인을 기다리는 중
+let resetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
 let preview = null; // 첨부 미리보기: { itemId, fileId, name, size, kind, url, text, truncated, itemName, blob }
@@ -388,6 +390,20 @@ function setFollow(fn) {
 
 const actions = {
   'set-mode': (el) => { mode = el.dataset.mode; render(); },
+  // 처음으로: 첫 클릭은 확인 대기(4초), 한 번 더 누르면 저장된 자료·첨부 파일·화면 상태를 모두 지우고 첫 화면으로
+  'reset-all': (el) => {
+    clearTimeout(resetTimer);
+    if (!resetArmed) {
+      resetArmed = true;
+      el.classList.add('is-armed');
+      el.innerHTML = '한 번 더 누르면 모두 지워져요';
+      resetTimer = setTimeout(() => { resetArmed = false; render(); }, 4000);
+      return;
+    }
+    resetArmed = false;
+    resetAll();
+    toast('모든 자료를 지웠어요. 처음부터 시작할 수 있어요.');
+  },
   'set-who': (el) => { who = el.dataset.who; render(); },
   // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
   'show-requester': (el) => {
@@ -1131,7 +1147,21 @@ document.addEventListener('keydown', (e) => {
   if (compose || bundle || fix || add || fu) actions['close-drawer']();
 });
 
+// 저장된 자료(localStorage)·첨부 파일(IndexedDB)·화면 상태를 모두 지우고 첫 실행 화면으로 돌아간다.
+function resetAll() {
+  clear();
+  clearFiles().catch(() => {});
+  try { sessionStorage.clear(); } catch { /* 막힌 환경이면 넘어간다 */ }
+  if (preview?.url) URL.revokeObjectURL(preview.url);
+  state = null;
+  compose = bundle = fix = add = sheet = cal = conf = fu = att = preview = null;
+  mode = 'need'; who = 'all'; reportQuery = ''; drawerReturn = null;
+  emptyForm = { ...EMPTY_FORM };
+  try { history.replaceState(null, '', location.pathname + location.search); } catch { location.hash = ''; }
+  render();
+}
+
 // 개발용: 콘솔에서 pbc.reset() 하면 첫 실행 화면으로 돌아간다.
-window.pbc = { reset() { clear(); clearFiles().catch(() => {}); state = null; compose = bundle = fix = add = sheet = cal = conf = fu = att = null; render(); } };
+window.pbc = { reset: resetAll };
 
 render();

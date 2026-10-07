@@ -1586,3 +1586,9 @@ a.brand:hover { color: var(--orange-dark); }
 .timeline.is-elapsed .tl-now { left: auto; right: -6px; }
 .timeline.is-elapsed .tl-tick.is-today { left: auto; right: 0; }
 .tl-mark.risk-low { --c: var(--low-icon); }
+
+/* 상단바 '처음으로' (시연 기준일 자리) — 두 번 눌러야 초기화 */
+.topbar .reset-btn { gap: 4px; height: 26px; cursor: pointer; font-family: inherit; }
+.topbar .reset-btn svg { width: 12px; height: 12px; }
+.topbar .reset-btn:hover { color: var(--ink); border-color: #BDBDBD; background: #fff; }
+.topbar .reset-btn.is-armed { background: var(--high-bg); border-color: var(--high-line); color: var(--high-fg); }
