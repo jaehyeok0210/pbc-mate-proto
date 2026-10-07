@@ -1605,6 +1605,25 @@ a.brand:hover { color: var(--orange-dark); }
 .topbar .reset-btn:hover { color: var(--ink); border-color: #BDBDBD; background: #fff; }
 .topbar .reset-btn.is-armed { background: var(--high-bg); border-color: var(--high-line); color: var(--high-fg); }
 
+/* 상태 변경: 완료 증빙 안내 · 변경 이력 */
+.sheet-evidence { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill-2); font-size: 13px; color: var(--ink-2); }
+.sheet-evidence svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; }
+.status-log ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.status-log li { display: grid; grid-template-columns: 44px auto 1fr; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+.status-log li small { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fu-proof .att-list-inline { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+
+/* 커버리지 수치 해석 주의 */
+.co-caveat { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+
+/* 주간 보고: 완료 건 되돌리기 */
+.it-revert { display: block; margin-top: 4px; padding: 0; border: 0; background: none; font: inherit; font-size: 11.5px; color: var(--ink-3); text-decoration: underline; cursor: pointer; }
+.it-revert:hover { color: var(--ink); }
+
+.fu-proof { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+.mark-sent { white-space: nowrap; }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -3414,6 +3433,7 @@ function startFollow(item, type, on) {
  * 완료할 수 있는지와, 막혀 있으면 그 이유.
  * - 미회수: 필수 회수 조회(은행·변호사)는 대체적 절차로 끝낼 수 없다. 커버리지 조회는 대체적 절차를 하나 이상 마쳐야 한다.
  * - 금액 차이: 설명되지 않은 차이가 없어야 한다.
+ * - 공통: 회신서나 대체적 절차 증빙이 하나 이상 첨부돼 있어야 한다 (감사증거 없이 완료 금지).
  */
 function completeCheck(item) {
   const f = item.follow;
@@ -3423,7 +3443,8 @@ function completeCheck(item) {
       return { ok: false, reason: '필수 회수 조회라 회신을 받은 뒤 완료할 수 있어요.' };
     }
     const doneAlt = noReplySteps(item).some((s) => s.role === 'alt' && f.steps?.[s.key]);
-    return doneAlt ? { ok: true } : { ok: false, reason: '대체적 절차를 하나 이상 마쳐야 해요.' };
+    if (!doneAlt) return { ok: false, reason: '대체적 절차를 하나 이상 마쳐야 해요.' };
+    return evidenceCheck(item);
   }
   if (f.recon?.confirmed === null || f.recon?.confirmed === undefined || f.recon?.confirmed === '') {
     return { ok: false, reason: '회신금액을 입력해 주세요.' };
@@ -3431,17 +3452,27 @@ function completeCheck(item) {
   const r = reconcile(f.recon);
   if (r.result === 'open') return { ok: false, reason: '설명되지 않은 차이가 남아 있어요.' };
   if (r.termsPending) return { ok: false, reason: '미착품 차이의 인도조건을 확인해 주세요.' };
-  return { ok: true };
+  return evidenceCheck(item);
+}
+
+function evidenceCheck(item) {
+  return (item.attachments || []).length
+    ? { ok: true }
+    : { ok: false, needsEvidence: true, reason: '회신서나 대체적 절차 증빙을 첨부해야 완료할 수 있어요.' };
 }
 
 /**
- * 완료 기록(감사기준서 230: 수행자·완료일·검토자) 검증. 수행자와 완료일은 필수, 검토자는 나중에 채워도 된다.
+ * 완료 기록(감사기준서 230: 수행자·완료일·검토자) 검증. 셋 다 필수이고, 검토자는 수행자와 다른 사람이어야 한다.
  * @returns {Record<string,string>} 비어 있으면 통과
  */
 function validateSignoff({ preparer, completedOn, reviewer } = {}) {
   const errors = {};
-  if (!String(preparer ?? '').trim()) errors.preparer = '수행자를 입력해 주세요.';
+  const p = String(preparer ?? '').trim();
+  const r = String(reviewer ?? '').trim();
+  if (!p) errors.preparer = '수행자를 입력해 주세요.';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(completedOn ?? ''))) errors.completedOn = '완료일을 입력해 주세요.';
+  if (!r) errors.reviewer = '검토자를 입력해 주세요.';
+  else if (p && r.split(' ')[0] === p.split(' ')[0]) errors.reviewer = '검토자는 수행자와 다른 사람이어야 해요.';
   return errors;
 }
 
@@ -3455,14 +3486,16 @@ function completeFollow(item, signoff) {
   const conclusion = f.type === 'diff'
     ? reconConclusion(reconcile(f.recon))
     : `대체적 절차로 ${won(f.verified || 0)} 확인`;
+  const preparer = signoff.preparer.trim();
   return {
     ...item,
     status: 'done',
+    statusLog: [...(item.statusLog || []), { on: signoff.completedOn, from: item.status, to: 'done', by: preparer, note: '후속 절차 완료' }],
     follow: {
       ...f,
       closedOn: signoff.completedOn,
       conclusion,
-      signoff: { preparer: signoff.preparer.trim(), reviewer: String(signoff.reviewer ?? '').trim() },
+      signoff: { preparer, reviewer: String(signoff.reviewer).trim() },
     },
   };
 }
@@ -4009,6 +4042,32 @@ function inventoryReply(item, setup) {
   };
 }
 
+/** 채권채무조회서 회신 — 한성정밀㈜ (AR-004). 장부 5.12억과 7백만원 차이: 12/31 송금분이 1/2 입금(시점 차이) */
+function arapReply(item, setup) {
+  const confirmed = item.follow?.recon?.confirmed ?? 505000000;
+  return {
+    kind: 'arap',
+    docNo: item.docNo,
+    title: '채 권 · 채 무 조 회 서 (회 신)',
+    to: `${setup.auditorName} 귀중 (담당: ${setup.contactName})`,
+    meta: [
+      ['조회 의뢰 회사', `${setup.companyName} (대표이사 ${setup.ceoName})`],
+      ['조회 기준일', '2026년 12월 31일'],
+      ['조회서 번호', item.docNo],
+    ],
+    lead: '조회 기준일 현재 당사 장부상 귀 조회 의뢰 회사와의 채권·채무 잔액을 아래와 같이 회신합니다.',
+    sections: [
+      { heading: '1. 당사의 채무 (조회 의뢰 회사의 채권)', cols: ['계정', '내용', '잔액(원)'],
+        rows: [['외상매입금', '부품 매입 대금', won(confirmed)]], total: ['합계', '', won(confirmed)] },
+      { heading: '2. 당사의 채권 (조회 의뢰 회사의 채무)', cols: ['계정', '내용', '잔액(원)'],
+        rows: [['해당 사항 없음', '', '']] },
+    ],
+    remark: `참고: 2026년 12월 31일 ${won(item.bookAmount - confirmed)}원을 귀사 계좌로 송금하였습니다.`,
+    signed: { date: '2027년 1월 9일', org: '한성정밀㈜ 재무팀', person: '팀장  배 수 현 (인)', stamp: ['한성', '정밀', '재무팀'] },
+    confirmed,
+  };
+}
+
 /** 법인세 과세표준 및 세액신고서 사본 — 2025 사업연도 (세율 2억 이하 9%, 2억 초과~200억 19%) */
 function corporateTax(income) {
   const base = income.net + income.add - income.deduct;
@@ -4060,6 +4119,7 @@ const SAMPLE_DOC_BUILDERS = {
   'sample-f1': bankReply,
   'sample-f2': inventoryReply,
   'sample-f3': taxReturn,
+  'sample-f4': arapReply,
 };
 
 /** 예시 첨부의 문서 내용. 해당 없으면 null */
@@ -4074,19 +4134,32 @@ return { corporateTax, SAMPLE_DOC_BUILDERS, sampleDoc };
 // ---- lib/status.js
 const __m_lib_status = (() => {
 const { FIX_REASONS, fixSummary } = __m_lib_fix;
-// 자료 상태 변경: 요청 → 요청 → 수령 뒤에 사용자가 상태를 직접 갱신한다.
-// 상태 체계는 그대로(none · part · fix · done). 역방향 전환은 막는다.
+// 자료 상태 변경: 요청 → 수령 뒤에 사용자가 상태를 직접 갱신한다.
+// 상태 체계는 그대로(none · part · fix · done).
+// - 완료는 받은 자료(첨부)가 있어야 한다 (감사증거 없이 완료 처리 금지).
+// - 잘못 처리한 상태는 되돌릴 수 있되, 사유를 적어야 하고 이전 상태·수령 기록은 이력(statusLog)에 남는다.
 
 
 /** 현재 상태에서 바꿀 수 있는 상태 */
 const ALLOWED_TRANSITIONS = {
   none: ['part', 'fix', 'done'],
-  part: ['fix', 'done'],
-  fix: ['part', 'done'],
-  done: [],
+  part: ['none', 'fix', 'done'],
+  fix: ['none', 'part', 'done'],
+  done: ['none', 'part', 'fix'],
 };
 
+/** 정정(되돌리기): 미회신으로 되돌리거나, 완료를 다시 여는 것. 사유가 필요하다. */
+function isCorrection(item, status) {
+  return status === 'none' || item.status === 'done';
+}
+
+/** 완료에 필요한 증거: 받은 파일이 하나 이상 첨부돼 있어야 한다 */
+function hasEvidence(item) {
+  return (item.attachments || []).length > 0;
+}
+
 const STATUS_HINT = {
+  none: '받은 자료가 무효이거나 잘못 처리했어요 · 다시 요청해요',
   part: '일부만 받았고 나머지는 계속 요청해요',
   fix: '받았지만 그대로 쓸 수 없어 다시 요청해요',
   done: '필요한 자료를 모두 받았어요',
@@ -4107,6 +4180,8 @@ function canTransition(item, status) {
 function validateTransition(item, change) {
   const errors = {};
   if (!canTransition(item, change.status)) errors.status = '지금 상태에서는 바꿀 수 없어요.';
+  if (change.status === 'done' && !hasEvidence(item)) errors.evidence = '완료하려면 받은 자료를 첨부해야 해요.';
+  if (isCorrection(item, change.status) && !String(change.note || '').trim()) errors.note = '되돌리는 사유를 적어 주세요.';
   if (change.status === 'fix') {
     if (!FIX_REASONS.some((r) => r.key === change.reason)) errors.reason = '보완 사유를 골라 주세요.';
     if (change.reason === 'date') {
@@ -4119,6 +4194,8 @@ function validateTransition(item, change) {
 
 /**
  * 상태를 바꾼 새 자료를 돌려준다. 원래 자료는 바꾸지 않는다.
+ * - 모든 변경은 statusLog에 { on, from, to, by?, note? }로 남는다.
+ * - 미회신으로 되돌리면 현재 수령 기록(received)·보완 사유를 비우되, 이전 수령 기록은 로그에 함께 남긴다.
  * - 일부 수령·보완 요청·완료로 처음 바뀔 때 received.on = on. 이미 있으면 최초 수령일 유지.
  * - 보완 요청이면 fix.reason(·기준일)을 저장하고 대시보드용 요약(reason)을 fixSummary로 만든다.
  * - 요청 이력(nudges)·보완 이력(fixes)은 건드리지 않는다.
@@ -4127,10 +4204,24 @@ function transitionItem(item, change, on) {
   const errors = validateTransition(item, change);
   if (Object.keys(errors).length) throw new Error(Object.values(errors)[0]);
 
+  const log = { on, from: item.status, to: change.status };
+  if (change.by) log.by = change.by;
+  if (String(change.note || '').trim()) log.note = change.note.trim();
+  const statusLog = [...(item.statusLog || []), log];
+
+  if (change.status === 'none') {
+    if (item.received) log.received = item.received;
+    const next = { ...item, status: 'none', statusLog };
+    delete next.received;
+    delete next.reason;
+    delete next.fix;
+    return next;
+  }
+
   const received = { ...(item.received || {}), on: item.received?.on || on };
   if (change.status === 'fix' && change.reason === 'date') received.basisDate = change.basisDate;
 
-  const next = { ...item, status: change.status, received };
+  const next = { ...item, status: change.status, received, statusLog };
 
   if (change.status === 'fix') {
     next.fix = {
@@ -4146,7 +4237,7 @@ function transitionItem(item, change, on) {
   return next;
 }
 
-return { ALLOWED_TRANSITIONS, STATUS_HINT, allowedStatuses, canTransition, validateTransition, transitionItem };
+return { ALLOWED_TRANSITIONS, isCorrection, hasEvidence, STATUS_HINT, allowedStatuses, canTransition, validateTransition, transitionItem };
 })();
 
 // ---- lib/team.js
@@ -4723,6 +4814,7 @@ const SAMPLE_FILES = [
   { id: 'sample-f1', name: '바다저축은행_은행조회서_회신_BK-002.png', itemId: 'c2' },
   { id: 'sample-f2', name: '한결물류_재고보관_조회회신_IV-001.png', itemId: 'c7' },
   { id: 'sample-f3', name: '2025_법인세_과세표준및세액신고서_사본.png', itemId: 'i6' },
+  { id: 'sample-f4', name: '한성정밀_채권채무조회서_회신_AR-004.png', itemId: 'c8' },
 ];
 
 /**
@@ -4856,6 +4948,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
         recon: { book: 842000000, confirmed: 830000000, lines: [{ cause: 'goods', amount: 9000000, note: '12/29 출고 · 1/2 거래처 입고분' }] } } }),
     conf('c8', 'arap', 'AR-004', '한성정밀㈜', { requester: ME,
       receivable: 512000000, payable: 0, bookAmount: 512000000, requestedOn: SENT, neededOn: d(7), status: 'done', received: { on: d(-5) },
+      attachments: [{ id: 'sample-f4', name: '한성정밀_채권채무조회서_회신_AR-004.png', size: 598000, type: 'image/png', addedOn: d(-5) }],
       follow: { type: 'diff', startedOn: d(-5), closedOn: d(-1), requested: [],
         recon: { book: 512000000, confirmed: 505000000, lines: [{ cause: 'cash', amount: 7000000, note: '12/31 송금 · 1/2 입금' }] },
         conclusion: '차이 7,000,000원은 시점 차이·조회처 오류로 모두 설명돼요. 왜곡표시는 없어요.',
@@ -5018,7 +5111,31 @@ const RISK_LABEL = { late: '지연', high: '2일 이내', mid: '3~7일', low: '8
 const RISK_SHORT = { late: '지연', high: '2일 내', mid: '7일 내', low: '여유' };
 const STATUS_LABEL = { none: '미회신', part: '일부 수령', fix: '보완 요청', follow: '후속 절차', done: '완료' };
 
-return { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL };
+/**
+ * 메일 화면 아래쪽 버튼: 복사 → (아웃룩에서 발송) → 발송 완료로 기록.
+ * 복사만으로는 이력에 남기지 않는다. 복사한 뒤에만 '발송 완료로 기록'이 나타난다.
+ */
+function sendActions({ copied, sent }, { copyAction, copyLabel, extra = '' }) {
+  const waiting = copied && !sent;
+  return `
+    <div class="foot-actions">
+      ${extra}
+      <button type="button" class="btn ${waiting ? 'btn-sub' : 'btn-cta'} copy-btn" data-action="${copyAction}">${ICON.copy}<span>${waiting ? '다시 복사' : copyLabel}</span></button>
+      ${waiting ? `<button type="button" class="btn btn-cta mark-sent" data-action="mark-sent">${ICON.done}<span class="desktop-only">발송 완료로 기록</span><span class="mobile-only">보냈어요</span></button>` : ''}
+    </div>`;
+}
+
+/** 복사 직후 뜨는 안내 */
+function copiedToast(sentNote) {
+  return `
+    <div class="compose-toast" role="status">
+      <span class="toast-check">${ICON.copy}</span>
+      <span><b>메일을 복사했어요. 아웃룩에서 보낸 뒤 발송을 기록해 주세요.</b>
+        <small>복사만으로는 ${sentNote}에 남지 않아요</small></span>
+    </div>`;
+}
+
+return { esc, ICON, RISK_LABEL, RISK_SHORT, STATUS_LABEL, sendActions, copiedToast };
 })();
 
 // ---- views/dashboard.js
@@ -5808,7 +5925,7 @@ const { mailDates } = __m_lib_calendar;
 const { mailField, mailDateDock } = __m_views_calendar;
 const { templateOf, mailNote } = __m_lib_pbcTemplate;
 const { signMail, currentUser } = __m_lib_team;
-const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
+const { esc, ICON, RISK_LABEL, STATUS_LABEL, sendActions, copiedToast } = __m_views_html;
 // 2. 단건 요청 — 레퍼런스 2 / 2-1 / 2-2 / 2-3 / 2-M
 // 데스크톱은 대시보드 위 오른쪽 패널, 모바일(720px 이하)은 전체 화면.
 
@@ -5817,7 +5934,7 @@ const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
  * @param state 앱 상태
  * @param opts  { today, clock, itemId, tone, copied, toast }
  */
-function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
+function renderCompose(state, { today, clock, itemId, tone, copied, sent, toast }) {
   const item = withDays(state.items.find((x) => x.id === itemId), today);
   const person = state.people[item.owner] || {};
   const history = item.nudges || [];
@@ -5827,9 +5944,11 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
   const timing = sendTiming(clock, item.neededOn);
   const dates = mailDates([item], today);
 
-  const footNote = copied && last
-    ? `${ICON.done}요청 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
-    : '복사하면 요청 이력에 자동으로 기록돼요. 발송은 아웃룩에서 해주세요.';
+  const footNote = sent && last
+    ? `${ICON.done}발송을 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계`
+    : copied
+      ? '아웃룩에서 보냈다면 발송을 기록해 주세요. 그래야 요청 이력에 남아요.'
+      : '복사해서 아웃룩에서 보낸 뒤, 발송 완료로 기록해야 요청 이력에 남아요.';
 
   return `
     <div class="drawer-dim" data-action="close-compose"></div>
@@ -5860,19 +5979,12 @@ function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
       </div>
 
       <footer class="compose-foot">
-        <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <div class="foot-actions">
-          <button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.fix}자료 상태 변경</button>
-          <button type="button" class="btn btn-cta copy-btn" data-action="copy-mail">${ICON.copy}<span>복사하기</span></button>
-        </div>
+        <div class="foot-note ${sent ? 'is-done' : ''}">${footNote}</div>
+        ${sendActions({ copied, sent }, { copyAction: 'copy-mail', copyLabel: '복사하기',
+          extra: `<button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.fix}자료 상태 변경</button>` })}
       </footer>
 
-      ${toast ? `
-        <div class="compose-toast" role="status">
-          <span class="toast-check">${ICON.done}</span>
-          <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
-        </div>` : ''}
+      ${toast ? copiedToast('요청 이력') : ''}
     </aside>`;
 }
 
@@ -6025,7 +6137,7 @@ const { sendTiming } = __m_lib_timing;
 const { timingChip, timingBanner } = __m_views_timing;
 const { mailDates } = __m_lib_calendar;
 const { mailField, mailDateDock } = __m_views_calendar;
-const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
+const { esc, ICON, RISK_LABEL, STATUS_LABEL, sendActions, copiedToast } = __m_views_html;
 // 3. 묶음 요청 — 레퍼런스 3
 // 데스크톱은 대시보드 위 오른쪽 패널, 모바일(720px 이하)은 전체 화면.
 
@@ -6034,7 +6146,7 @@ const { esc, ICON, RISK_LABEL, STATUS_LABEL } = __m_views_html;
  * @param state 앱 상태
  * @param opts  { sorted: bundleItems() 결과, clock, tone, copied, toast }
  */
-function renderBundle(state, { sorted, clock, tone, copied, toast }) {
+function renderBundle(state, { sorted, clock, tone, copied, sent, toast }) {
   const top = sorted[0];
   const owner = top.owner;
   const person = state.people[owner] || {};
@@ -6081,9 +6193,11 @@ function renderBundle(state, { sorted, clock, tone, copied, toast }) {
     ? `<span class="m-cc">${esc(mail.cc.name)}<span class="desktop-only">${mail.cc.dept ? ` (${esc(mail.cc.dept)})` : ''}</span></span>`
     : '<span class="muted-text">없음</span>';
 
-  const footNote = copied
-    ? `${ICON.done}${count}건 모두 요청 이력에 기록했어요`
-    : `복사하면 ${count}건 모두 요청 이력에 기록돼요. 발송은 아웃룩에서 해주세요.`;
+  const footNote = sent
+    ? `${ICON.done}발송을 기록했어요 · ${count}건 모두 요청 이력에 남았어요`
+    : copied
+      ? '아웃룩에서 보냈다면 발송을 기록해 주세요.'
+      : `복사해서 아웃룩에서 보낸 뒤 발송 완료로 기록하면 ${count}건 모두 요청 이력에 남아요.`;
 
   return `
     <div class="drawer-dim" data-action="close-drawer"></div>
@@ -6140,16 +6254,11 @@ function renderBundle(state, { sorted, clock, tone, copied, toast }) {
       </div>
 
       <footer class="compose-foot">
-        <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <button type="button" class="btn btn-cta copy-btn" data-action="copy-bundle">${ICON.copy}<span>${count}건 한 통으로 복사</span></button>
+        <div class="foot-note ${sent ? 'is-done' : ''}">${footNote}</div>
+        ${sendActions({ copied, sent }, { copyAction: 'copy-bundle', copyLabel: `${count}건 한 통으로 복사` })}
       </footer>
 
-      ${toast ? `
-        <div class="compose-toast" role="status">
-          <span class="toast-check">${ICON.done}</span>
-          <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>${count}건 모두 요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
-        </div>` : ''}
+      ${toast ? copiedToast('요청 이력') : ''}
     </aside>`;
 }
 
@@ -6162,7 +6271,7 @@ const { formatMD, formatMDW } = __m_lib_dates;
 const { withDays, leftText } = __m_lib_priority;
 const { FIX_REASONS, fixReasonLabel, fixDetail, buildFixMail } = __m_lib_fix;
 const { signMail, currentUser } = __m_lib_team;
-const { esc, ICON, STATUS_LABEL } = __m_views_html;
+const { esc, ICON, STATUS_LABEL, sendActions, copiedToast } = __m_views_html;
 const { mailDates } = __m_lib_calendar;
 const { mailField, mailDateDock } = __m_views_calendar;
 // 4. 보완 요청 — 레퍼런스 4 / 4-1
@@ -6173,7 +6282,7 @@ const { mailField, mailDateDock } = __m_views_calendar;
  * @param state 앱 상태
  * @param opts  { today, itemId, reason, copied, toast }
  */
-function renderFix(state, { today, itemId, reason, copied, toast }) {
+function renderFix(state, { today, itemId, reason, copied, sent, toast }) {
   const item = withDays(state.items.find((x) => x.id === itemId), today);
   const person = state.people[item.owner] || {};
   const mail = signMail(buildFixMail({ item, person, client: state.client, today, reason }), currentUser(state));
@@ -6203,9 +6312,11 @@ function renderFix(state, { today, itemId, reason, copied, toast }) {
     return esc(s.text);
   }).join('');
 
-  const footNote = copied && lastFix
-    ? `${ICON.done}보완 요청 이력에 기록했어요 · ${formatMD(lastFix.on)} ${fixReasonLabel(lastFix.reason)}`
-    : `<span>복사하면 보완 요청 이력에 <b>${label}</b>(으)로 기록돼요. 상태는 보완 요청 그대로예요.</span>`;
+  const footNote = sent && lastFix
+    ? `${ICON.done}발송을 기록했어요 · ${formatMD(lastFix.on)} ${fixReasonLabel(lastFix.reason)}`
+    : copied
+      ? '아웃룩에서 보냈다면 발송을 기록해 주세요.'
+      : `<span>보낸 뒤 발송 완료로 기록하면 보완 요청 이력에 <b>${label}</b>(으)로 남아요. 상태는 보완 요청 그대로예요.</span>`;
 
   return `
     <div class="drawer-dim" data-action="close-drawer"></div>
@@ -6258,19 +6369,12 @@ function renderFix(state, { today, itemId, reason, copied, toast }) {
       </div>
 
       <footer class="compose-foot">
-        <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <div class="foot-actions">
-          <button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.done}수령 처리</button>
-          <button type="button" class="btn btn-cta copy-btn" data-action="copy-fix">${ICON.copy}<span>재요청 메일 복사</span></button>
-        </div>
+        <div class="foot-note ${sent ? 'is-done' : ''}">${footNote}</div>
+        ${sendActions({ copied, sent }, { copyAction: 'copy-fix', copyLabel: '재요청 메일 복사',
+          extra: `<button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.done}수령 처리</button>` })}
       </footer>
 
-      ${toast ? `
-        <div class="compose-toast" role="status">
-          <span class="toast-check">${ICON.done}</span>
-          <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>보완 요청 이력에 기록했어요<span class="desktop-only"> · 상태는 보완 요청 그대로예요</span></small></span>
-        </div>` : ''}
+      ${toast ? copiedToast('보완 요청 이력') : ''}
     </aside>`;
 }
 
@@ -6572,7 +6676,7 @@ function confirmOverview(o, materiality) {
 
         <div class="co-card co-wide">
           <div class="co-label">커버리지 · 채권채무 · 재고</div>
-          <div class="co-big">${pct(c.covered)}%<small> 확인 · ${eok(c.covered)} / ${eok(c.total)}</small></div>
+          <div class="co-big">${pct(c.covered)}%<small> 금액 기준 확인 · ${eok(c.covered)} / ${eok(c.total)}</small></div>
           <div class="co-bar" role="img" aria-label="회신 확인 ${pct(c.confirmed)}%, 대체적 절차 ${pct(c.alternative)}%, 미확인 ${pct(c.uncovered)}%">
             <span class="co-seg is-confirmed" style="width:${pct(c.confirmed)}%"></span>
             <span class="co-seg is-alt" style="width:${pct(c.alternative)}%"></span>
@@ -6583,6 +6687,7 @@ function confirmOverview(o, materiality) {
             <span><i></i>미확인 ${eok(c.uncovered)}</span>
           </div>
           ${perf}
+          <div class="co-caveat">금액 기준 비율이에요. 회신 금액과 대체적 절차로 확인한 금액을 단순히 더한 값이라, 증거의 질이나 모집단의 완전성(총계정원장 대사 · 표본 선정 근거)을 뜻하지는 않아요.</div>
         </div>
 
         <div class="co-card">
@@ -6609,14 +6714,14 @@ const { esc, ICON } = __m_views_html;
  * @param item  첨부할 자료
  * @param view  { pending: File[], rejected: { name, reason }[], justDone: boolean, saving: boolean }
  */
-function renderAttach(item, { pending, rejected, justDone, saving }) {
+function renderAttach(item, { pending, rejected, justDone, saving, complete }) {
   const existing = item.attachments || [];
   return `
     <div class="sheet-dim" data-action="attach-close"></div>
     <div class="sheet attach" role="dialog" aria-modal="true" aria-labelledby="attach-title">
       <div class="sheet-head">
         <div>
-          <div class="eyebrow">${justDone ? '완료 처리했어요 · 받은 파일을 남겨 두세요' : '첨부자료'}</div>
+          <div class="eyebrow">${complete ? '완료하려면 받은 자료를 첨부해 주세요' : justDone ? '완료 처리했어요 · 받은 파일을 남겨 두세요' : '첨부자료'}</div>
           <h3 id="attach-title">${esc(item.name)}</h3>
           <div class="sheet-current">${esc(item.owner)}${existing.length ? ` · 이미 ${existing.length}개 첨부` : ''}</div>
         </div>
@@ -6642,8 +6747,8 @@ function renderAttach(item, { pending, rejected, justDone, saving }) {
       </div>
 
       <footer class="sheet-foot">
-        <button type="button" class="btn btn-sub" data-action="attach-close">${justDone ? '나중에 첨부' : '닫기'}</button>
-        <button type="button" class="btn btn-cta" data-action="attach-save" ${pending.length && !saving ? '' : 'disabled'}>${saving ? '저장 중…' : pending.length ? `${pending.length}개 첨부하기` : '첨부하기'}</button>
+        <button type="button" class="btn btn-sub" data-action="attach-close">${complete ? '취소' : justDone ? '나중에 첨부' : '닫기'}</button>
+        <button type="button" class="btn btn-cta" data-action="attach-save" ${pending.length && !saving ? '' : 'disabled'}>${saving ? '저장 중…' : complete ? (pending.length ? `${pending.length}개 첨부하고 완료` : '첨부하고 완료') : pending.length ? `${pending.length}개 첨부하기` : '첨부하기'}</button>
       </footer>
     </div>`;
 }
@@ -6828,7 +6933,7 @@ function itemTableBody(allRows, query) {
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
                 <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a>${r.requester ? `<small class="it-req">요청 ${esc(r.requester)}</small>` : ''}</div>
-                <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
+                <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span>${r.status === 'done' ? `<button type="button" class="it-revert" data-action="open-status" data-item="${esc(r.id)}" title="잘못 완료했거나 받은 자료가 무효이면 사유를 적고 되돌려요">되돌리기</button>` : ''}</div>
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>
@@ -6960,7 +7065,7 @@ return { renderOwner };
 // ---- views/status.js
 const __m_views_status = (() => {
 const { formatMD } = __m_lib_dates;
-const { allowedStatuses, STATUS_HINT } = __m_lib_status;
+const { allowedStatuses, STATUS_HINT, isCorrection, hasEvidence } = __m_lib_status;
 const { FIX_REASONS } = __m_lib_fix;
 const { templateOf, receiptSuggestion } = __m_lib_pbcTemplate;
 const { esc, ICON, STATUS_LABEL } = __m_views_html;
@@ -6972,19 +7077,23 @@ const { esc, ICON, STATUS_LABEL } = __m_views_html;
  * @param sheet { status, reason, basisDate, requiredBasisDate, errors }
  * @param today 기준일 (수령일로 기록될 날짜)
  */
-function renderStatusSheet(item, { status, reason, basisDate, requiredBasisDate, errors, check }, today) {
+function renderStatusSheet(item, { status, reason, basisDate, requiredBasisDate, note: correction = '', errors, check }, today) {
   const options = allowedStatuses(item).map((s) => `
     <button type="button" class="status-opt" data-action="pick-status" data-status="${s}" aria-pressed="${status === s}">
       <span class="status status-${s}">${ICON[s]}${STATUS_LABEL[s]}</span>
       <small>${STATUS_HINT[s]}</small>
     </button>`).join('');
 
-  const receivedNote = item.received?.on
-    ? `수령일은 처음 받은 ${formatMD(item.received.on)} 그대로예요.`
-    : `수령일이 ${formatMD(today)}로 기록돼요.`;
+  const receivedNote = status === 'none'
+    ? '지금 수령 기록은 비워지고, 이전 기록은 변경 이력에 남아요.'
+    : item.received?.on
+      ? `수령일은 처음 받은 ${formatMD(item.received.on)} 그대로예요.`
+      : `수령일이 ${formatMD(today)}로 기록돼요.`;
   const note = status
     ? `${receivedNote} 요청 횟수와 이력은 바뀌지 않아요.`
-    : '바꿀 상태를 골라 주세요. 미회신으로 되돌리는 건 지원하지 않아요.';
+    : '바꿀 상태를 골라 주세요. 잘못 처리한 상태는 사유를 적고 되돌릴 수 있어요.';
+  const correcting = status && isCorrection(item, status);
+  const needsFile = status === 'done' && !hasEvidence(item);
 
   return `
     <div class="sheet-dim" data-action="close-status"></div>
@@ -7003,12 +7112,15 @@ function renderStatusSheet(item, { status, reason, basisDate, requiredBasisDate,
         <div class="status-opts">${options}</div>
         ${errors.status ? `<div class="f-error">${esc(errors.status)}</div>` : ''}
         ${status === 'fix' ? fixFields(reason, basisDate, requiredBasisDate, errors) : ''}
+        ${correcting ? correctionField(correction, errors) : ''}
+        ${needsFile ? `<div class="sheet-evidence">${ICON.file}<span><b>완료하려면 받은 자료를 첨부해야 해요.</b> 다음 단계에서 파일을 고르면 첨부와 함께 완료로 처리돼요.</span></div>` : ''}
         <div class="sheet-note">${note}</div>
+        ${historyList(item)}
       </div>
 
       <footer class="sheet-foot">
         <button type="button" class="btn btn-sub" data-action="close-status">취소</button>
-        <button type="button" class="btn btn-cta" data-action="save-status" ${status ? '' : 'disabled'}>${saveLabel(status)}</button>
+        <button type="button" class="btn btn-cta" data-action="save-status" ${status ? '' : 'disabled'}>${needsFile ? '받은 자료 첨부하고 완료' : saveLabel(status, correcting)}</button>
       </footer>
     </div>`;
 }
@@ -7036,7 +7148,28 @@ function receiptCheck(item, check, today) {
     </section>`;
 }
 
-function saveLabel(status) {
+// 정정(되돌리기) 사유: 기존 기록은 덮어쓰지 않고 변경 이력에 남는다
+function correctionField(value, errors) {
+  return `
+    <label class="f ${errors.note ? 'has-error' : ''}">
+      <span class="f-label">되돌리는 사유 <small>필수 · 변경 이력에 남아요</small></span>
+      <input type="text" name="statusNote" value="${esc(value)}" placeholder="예: 받은 파일이 다른 회사 자료였음" autocomplete="off">
+      ${errors.note ? `<span class="f-error">${esc(errors.note)}</span>` : ''}
+    </label>`;
+}
+
+// 변경 이력 (최근 3건)
+function historyList(item) {
+  const log = item.statusLog || [];
+  if (!log.length) return '';
+  const rows = log.slice(-3).reverse().map((l) => `
+    <li><span>${formatMD(l.on)}</span><span>${STATUS_LABEL[l.from] || l.from} → ${STATUS_LABEL[l.to] || l.to}</span>
+      <small>${[l.by, l.note].filter(Boolean).map(esc).join(' · ')}</small></li>`).join('');
+  return `<div class="status-log"><div class="f-label">변경 이력 <small>${log.length}건</small></div><ul>${rows}</ul></div>`;
+}
+
+function saveLabel(status, correcting) {
+  if (correcting) return status === 'none' ? '미회신으로 되돌리기' : `${STATUS_LABEL[status]}(으)로 정정`;
   if (status === 'done') return '완료로 처리';
   if (status === 'fix') return '보완 요청으로 저장';
   if (status === 'part') return '일부 수령으로 저장';
@@ -7400,6 +7533,8 @@ function renderFollow(state, { today, itemId, owner, signoff = {}, signoffErrors
 
         ${evidenceBox(item, f, owner, owners)}
 
+        ${completionEvidence(item)}
+
         ${signoffBox(signoff, signoffErrors)}
       </div>
 
@@ -7412,6 +7547,19 @@ function renderFollow(state, { today, itemId, owner, signoff = {}, signoffErrors
         </div>
       </footer>
     </aside>`;
+}
+
+// ---------- 완료 증빙: 회신서나 대체적 절차 증빙이 있어야 완료할 수 있다 ----------
+
+function completionEvidence(item) {
+  const files = item.attachments || [];
+  return `
+    <section class="fu-proof">
+      <div class="section-label">완료 증빙 <small class="fu-count">${files.length ? `${files.length}개 첨부됨` : '회신서나 대체적 절차 증빙을 첨부해야 완료할 수 있어요'}</small></div>
+      ${files.length ? `<div class="att-list-inline">${files.map((a) => `
+        <button type="button" class="att-link" data-action="open-attachment" data-item="${esc(item.id)}" data-file="${esc(a.id)}">${ICON.file}<span>${esc(a.name)}</span></button>`).join('')}</div>` : ''}
+      <button type="button" class="btn btn-sub" data-action="attach-open" data-item="${esc(item.id)}">${ICON.plus}증빙 첨부</button>
+    </section>`;
 }
 
 // ---------- 완료 기록 (감사기준서 230: 수행자·완료일·검토자) ----------
@@ -7429,7 +7577,7 @@ function signoffBox(s, e) {
       <div class="fu-signoff-grid">
         ${field('수행자', 'preparer', s.preparer, { placeholder: '예: 장재혁' })}
         ${field('완료일', 'completedOn', s.completedOn, { type: 'date' })}
-        ${field('검토자', 'reviewer', s.reviewer, { hint: '선택 · 나중에 채워도 돼요', placeholder: '예: 이서연 매니저' })}
+        ${field('검토자', 'reviewer', s.reviewer, { hint: '필수 · 수행자와 다른 사람', placeholder: '예: 이서연 매니저' })}
       </div>
     </section>`;
 }
@@ -7585,7 +7733,7 @@ const { sampleDoc } = __m_lib_sampleDocs;
 const { renderScan } = __m_scan;
 const { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope, pickRequester, requesterMembers } = __m_lib_team;
 const { searchEngagements, engagementById, validateStart, teamFromEngagement } = __m_lib_engagements;
-const { SAMPLE_FILES, upgradeSampleAttachments, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
+const { SAMPLE_FILES, upgradeSampleAttachments, load, save, clear, sampleState, baseDateOf, recordNudges, recordFix, addItems, updateItemStatus, createEmptyState } = __m_store;
 const { renderDashboard } = __m_views_dashboard;
 const { renderEmpty, lookupResults } = __m_views_empty;
 const { renderCompose } = __m_views_compose;
@@ -7675,21 +7823,21 @@ function render() {
 
   // 일정 탭: 대시보드 대신 그리는 전체 화면
   if (location.hash === '#/calendar') {
-    compose = bundle = fix = add = sheet = null;
+    compose = bundle = fix = add = null;
     if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
     // 회계사는 자기가 요청한 자료의 일정만, 매니저는 팀 전체
     const scoped = calendarScope(state);
     const scopeNote = !scoped.me ? '' : scoped.scope === 'all'
       ? (isManager(state) ? `매니저 화면 · 팀 전체 일정이 보여요` : '')
       : `${scoped.me}${josa(scoped.me, '이', '가')} 요청한 자료와 내 일정만 보여요 · 팀 공통 일정 포함`;
-    app.innerHTML = renderCalendar({ ...state, items: scoped.items, events: scoped.events }, { today, isDemo, ...cal, scopeNote }) + attachOverlay();
+    app.innerHTML = renderCalendar({ ...state, items: scoped.items, events: scoped.events }, { today, isDemo, ...cal, scopeNote }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
 
   // 외부조회서 작성: 대시보드 대신 그리는 전체 화면
   if (location.hash === '#/confirm') {
-    compose = bundle = fix = add = sheet = null;
+    compose = bundle = fix = add = null;
     if (!conf) {
       conf = {
         type: 'bank', touched: new Set(), pasteText: '', bankBlank: false,
@@ -7698,15 +7846,15 @@ function render() {
       // 회신처 담당자는 실무진 중 한 명. 처음 열 때는 상단바에서 고른 사람(매니저면 첫 실무진)으로 시작한다.
       conf.setup.contactName = pickRequester(state, '');
     }
-    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + attachOverlay();
+    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
 
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(요청·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
-    compose = bundle = fix = add = sheet = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + attachOverlay();
+    compose = bundle = fix = add = null;
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -7714,10 +7862,10 @@ function render() {
   // 담당자 상세: 주간 보고에서 담당자를 누르면 여는 전체 화면
   const ownerName = routeParam('owner');
   if (ownerName) {
-    compose = bundle = fix = add = sheet = null;
+    compose = bundle = fix = add = null;
     const detail = ownerDetail(state, ownerName, today);
     if (detail) {
-      app.innerHTML = renderOwner(state, detail, { today, isDemo }) + attachOverlay();
+      app.innerHTML = renderOwner(state, detail, { today, isDemo }) + overlays();
       document.body.classList.remove('has-drawer');
       return;
     }
@@ -7780,17 +7928,10 @@ function render() {
     add = null;
   }
 
-  // 상태 변경 시트는 단건 요청·보완 요청 패널이 열려 있을 때만 그 위에 뜬다.
-  const sheetItem = sheet && (item || fixItem) && state.items.find((x) => x.id === sheet.itemId);
-  if (sheetItem && sheetItem.status !== 'done') {
-    html += renderStatusSheet(sheetItem, sheet, today);
-  } else {
-    sheet = null;
-  }
 
   const focusedTone = document.activeElement?.dataset?.tone;
   const focusedReason = document.activeElement?.dataset?.reason;
-  app.innerHTML = html + attachOverlay();
+  app.innerHTML = html + overlays();
   document.body.classList.toggle('has-drawer', Boolean(item || b || fix || add || fu));
   // 톤·사유를 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
   if (focusedTone) {
@@ -7841,24 +7982,22 @@ function closeDrawer() {
   render();
 }
 
-// 복사 성공 시에만 이력을 남기고, 화면 상태(copied·toast)를 갱신한다.
-// record: 기본은 요청 이력. 보완 요청은 copyAndRecordFix를 넘긴다.
+// 메일 복사: 클립보드에만 넣는다. 이력은 아웃룩에서 실제로 보낸 뒤 '발송 완료로 기록'을 눌러야 남는다.
+// record(state, on): 발송을 기록한 새 state (요청 이력 또는 보완 이력). 복사한 시점의 내용으로 기억해 둔다.
 let drawerToastTimer;
-async function copyForDrawer(view, { itemIds, text }, record) {
-  const result = record
-    ? await record(state, currentToday(), text, copyText)
-    : await copyAndRecord(state, { itemIds, tone: view.tone, on: currentToday(), text }, copyText);
-  if (!result.ok) {
+async function copyForDrawer(view, { text }, record) {
+  const ok = await copyText(text);
+  if (!ok) {
     toast('복사하지 못했어요. 미리보기에서 직접 선택해 복사해 주세요.');
     return;
   }
-  state = result.state;
-  save(state);
   view.copied = true;
+  view.sent = false;
+  view.record = record;
   view.toast = true;
   render();
   clearTimeout(drawerToastTimer);
-  drawerToastTimer = setTimeout(() => { view.toast = false; render(); }, 2800);
+  drawerToastTimer = setTimeout(() => { view.toast = false; render(); }, 3600);
 }
 
 // ---------- 파일 첨부 ----------
@@ -7882,6 +8021,18 @@ async function seedSampleFiles() {
     if (!item) continue;
     try { await putFile(f.id, await sampleFileBlob(f, item)); } catch { return; }
   }
+}
+
+// 화면 위에 뜨는 창: 상태 변경 시트(단건 요청·보완 요청·주간 보고에서 연다) → 첨부 창 순서
+function overlays() {
+  return statusOverlay() + attachOverlay();
+}
+
+function statusOverlay() {
+  // 연 화면을 벗어나면 닫는다
+  const sheetItem = sheet && sheet.route === location.hash && state?.items.find((x) => x.id === sheet.itemId);
+  if (!sheetItem) { sheet = null; return ''; }
+  return renderStatusSheet(sheetItem, sheet, currentToday());
 }
 
 function attachOverlay() {
@@ -8029,7 +8180,7 @@ const actions = {
 
   // 자료 상태 변경 시트
   'open-status': (el) => {
-    sheet = { itemId: el.dataset.item, status: null, reason: null, basisDate: '', requiredBasisDate: '', errors: {},
+    sheet = { itemId: el.dataset.item, route: location.hash, status: null, reason: null, basisDate: '', requiredBasisDate: '', errors: {},
       check: { basisOk: null, missing: [], signOk: null } }; // 받은 자료 점검 (표준 양식 자료만 화면에 보임)
     render();
   },
@@ -8084,9 +8235,18 @@ const actions = {
   'save-status': () => {
     readSheetDates();
     const item = state.items.find((x) => x.id === sheet.itemId);
-    const change = { status: sheet.status, reason: sheet.reason, basisDate: sheet.basisDate, requiredBasisDate: sheet.requiredBasisDate };
-    sheet.errors = validateTransition(item, change);
-    if (Object.keys(sheet.errors).length) { render(); return; }
+    const change = { status: sheet.status, reason: sheet.reason, basisDate: sheet.basisDate, requiredBasisDate: sheet.requiredBasisDate,
+      note: sheet.note, by: currentUser(state) };
+    const { evidence, ...errors } = validateTransition(item, change);
+    sheet.errors = errors;
+    if (Object.keys(errors).length) { render(); return; }
+    if (evidence) {
+      // 완료는 받은 자료가 있어야 한다: 첨부 창을 열고, 파일을 첨부하면 그때 완료로 바꾼다
+      sheet = null;
+      att = { itemId: item.id, pending: [], rejected: [], justDone: false, saving: false, complete: change };
+      render();
+      return;
+    }
 
     state = updateItemStatus(state, item.id, change, currentToday());
     if (change.status === 'fix' && sheet.detail && (change.reason === 'missing' || change.reason === 'sign')) {
@@ -8097,8 +8257,11 @@ const actions = {
     const name = `‘${item.name}’${josa(item.name, '을', '를')}`;
     if (change.status === 'done') {
       closeDrawer();
-      openAttach(item.id, true);
-      toast(`${name} 완료로 처리했어요.`);
+      toast(`${name} 완료로 처리했어요. 받은 자료는 주간 보고 자료 목록에서 열 수 있어요.`);
+    } else if (change.status === 'none') {
+      location.hash = `#/compose/${encodeURIComponent(item.id)}`;
+      render();
+      toast(`${name} 미회신으로 되돌렸어요. 사유와 이전 기록은 변경 이력에 남았어요.`);
     } else if (change.status === 'fix') {
       location.hash = `#/fix/${encodeURIComponent(item.id)}`;
       render();
@@ -8110,7 +8273,18 @@ const actions = {
     }
   },
 
-  'set-tone': (el) => { compose.tone = el.dataset.tone; compose.copied = false; render(); },
+  'set-tone': (el) => { compose.tone = el.dataset.tone; compose.copied = false; compose.sent = false; render(); },
+  // 아웃룩에서 실제로 보낸 뒤: 복사해 둔 메일을 요청(보완) 이력에 기록한다
+  'mark-sent': () => {
+    const view = [compose, bundle, fix].find((v) => v?.copied && !v.sent && v.record);
+    if (!view) return;
+    state = view.record(state, currentToday());
+    save(state);
+    view.sent = true;
+    view.toast = false;
+    render();
+    toast('발송을 기록했어요. 요청 이력과 대시보드에 반영됐어요.');
+  },
   'close-compose': closeDrawer,
   'close-drawer': () => {
     // 후속 절차에서 연 자료 추가 창을 닫으면 후속 절차 화면으로 돌아간다
@@ -8124,9 +8298,10 @@ const actions = {
       item, person: state.people[item.owner], client: state.client,
       manager: state.team?.manager, today, tone: compose.tone, note: mailNote(state, item, today),
     }), currentUser(state));
-    return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
+    const tone = compose.tone;
+    return copyForDrawer(compose, { text: mailToText(mail) }, (st, on) => recordNudges(st, [item.id], tone, on));
   },
-  'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; render(); },
+  'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; fix.sent = false; render(); },
 
   // 자료 추가
   'add-tab': (el) => {
@@ -8197,8 +8372,7 @@ const actions = {
     const item = withDays(state.items.find((x) => x.id === fix.itemId), today);
     const mail = signMail(buildFixMail({ item, person: state.people[item.owner], client: state.client, today, reason: fix.reason }), currentUser(state));
     const reason = fix.reason;
-    return copyForDrawer(fix, { text: fixMailToText(mail) },
-      (s, on, text, copy) => copyAndRecordFix(s, { itemId: item.id, reason, on, text }, copy));
+    return copyForDrawer(fix, { text: fixMailToText(mail) }, (st, on) => recordFix(st, item.id, reason, on));
   },
   // 외부조회서 작성
   'conf-type': (el) => { readConfSetup(); conf.type = el.dataset.type; conf.pasteText = ''; render(); },
@@ -8308,7 +8482,12 @@ const actions = {
   },
   // 파일 첨부
   'attach-open': (el) => openAttach(el.dataset.item, false),
-  'attach-close': () => { att = null; render(); },
+  'attach-close': () => {
+    const cancelled = att?.complete;
+    att = null;
+    render();
+    if (cancelled) toast('첨부하지 않아 완료로 바꾸지 않았어요.');
+  },
   'attach-unpick': (el) => { att.pending.splice(Number(el.dataset.index), 1); att.rejected = []; render(); },
   'attach-save': async () => {
     if (!att.pending.length || att.saving) return;
@@ -8329,7 +8508,16 @@ const actions = {
       return;
     }
     setItem(att.itemId, (x) => addAttachments(x, metas));
+    const { complete, itemId } = att;
     att = null;
+    if (complete) {
+      // 상태 변경에서 '받은 자료 첨부하고 완료'로 온 경우: 첨부가 생겼으니 완료로 바꾼다
+      state = updateItemStatus(state, itemId, complete, currentToday());
+      save(state);
+      closeDrawer();
+      toast(`${metas.length}개 파일을 첨부하고 완료로 처리했어요.`);
+      return;
+    }
     render();
     toast(`${metas.length}개 파일을 첨부했어요. 주간 보고 자료 목록에서 열 수 있어요.`);
   },
@@ -8377,6 +8565,11 @@ const actions = {
   },
   'remove-attachment': async (el) => {
     const { item: itemId, file } = el.dataset;
+    const target = state.items.find((x) => x.id === itemId);
+    if (target?.status === 'done' && (target.attachments || []).length <= 1) {
+      toast('완료된 자료는 받은 자료가 하나 이상 있어야 해요. 지우려면 먼저 상태를 되돌려 주세요.');
+      return;
+    }
     const name = state.items.find((x) => x.id === itemId)?.attachments?.find((a) => a.id === file)?.name;
     try { await deleteFile(file); } catch { /* 저장소에 없어도 목록에서는 뺀다 */ }
     setItem(itemId, (x) => removeAttachment(x, file));
@@ -8389,7 +8582,9 @@ const actions = {
       sorted, person: state.people[bundle.owner], client: state.client,
       manager: state.team?.manager, tone: bundle.tone,
     }), currentUser(state));
-    return copyForDrawer(bundle, { itemIds: sorted.map((x) => x.id), text: bundleMailToText(mail) });
+    const ids = sorted.map((x) => x.id);
+    const tone = bundle.tone;
+    return copyForDrawer(bundle, { text: bundleMailToText(mail) }, (st, on) => recordNudges(st, ids, tone, on));
   },
 };
 
@@ -8423,6 +8618,7 @@ function readSheetDates() {
   if (!root || !sheet) return;
   sheet.basisDate = root.querySelector('[name="basisDate"]')?.value ?? sheet.basisDate;
   sheet.requiredBasisDate = root.querySelector('[name="requiredBasisDate"]')?.value ?? sheet.requiredBasisDate;
+  sheet.note = root.querySelector('[name="statusNote"]')?.value ?? sheet.note;
 }
 
 // 메일 속 날짜를 캘린더 일정으로 추가 (드롭·탭 공통)
