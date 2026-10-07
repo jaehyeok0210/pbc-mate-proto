@@ -11,6 +11,8 @@ test('축: 필요일은 왼쪽이 오늘, 요청 경과는 오른쪽이 오늘',
   assert.equal(axisSpan(items, 'need'), 15, '최소 15일');
   assert.equal(axisSpan([{ left: 20, elapsed: 0 }], 'need'), 21);
   assert.equal(axisSpan([{ left: 0, elapsed: 30 }], 'elapsed'), 31);
+  assert.equal(axisSpan(items, 'elapsed'), 11, '요청 경과는 가장 오래된 요청에 맞춘다 (빈 구간 없이)');
+  assert.equal(axisSpan([{ left: 0, elapsed: 1 }], 'elapsed'), 5, '최소 5일');
   assert.equal(axisPos({ left: -2 }, 'need', 15), 0, '지난 자료는 오늘에 붙는다');
   assert.equal(axisPos({ elapsed: 0 }, 'elapsed', 15), 1, '오늘 요청은 오른쪽 끝');
   assert.equal(axisPos({ elapsed: 15 }, 'elapsed', 15), 0, '가장 오래된 요청은 왼쪽 끝');
