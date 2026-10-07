@@ -62,6 +62,7 @@ export const SAMPLE_FILES = [
   { id: 'sample-f1', name: '바다저축은행_은행조회서_회신_BK-002.png', itemId: 'c2' },
   { id: 'sample-f2', name: '한결물류_재고보관_조회회신_IV-001.png', itemId: 'c7' },
   { id: 'sample-f3', name: '2025_법인세_과세표준및세액신고서_사본.png', itemId: 'i6' },
+  { id: 'sample-f4', name: '한성정밀_채권채무조회서_회신_AR-004.png', itemId: 'c8' },
 ];
 
 /**
@@ -195,6 +196,7 @@ function sampleConfirmations(d, { ME, KIM, LEE }) { // LEE: 매니저 (요청 �
         recon: { book: 842000000, confirmed: 830000000, lines: [{ cause: 'goods', amount: 9000000, note: '12/29 출고 · 1/2 거래처 입고분' }] } } }),
     conf('c8', 'arap', 'AR-004', '한성정밀㈜', { requester: ME,
       receivable: 512000000, payable: 0, bookAmount: 512000000, requestedOn: SENT, neededOn: d(7), status: 'done', received: { on: d(-5) },
+      attachments: [{ id: 'sample-f4', name: '한성정밀_채권채무조회서_회신_AR-004.png', size: 598000, type: 'image/png', addedOn: d(-5) }],
       follow: { type: 'diff', startedOn: d(-5), closedOn: d(-1), requested: [],
         recon: { book: 512000000, confirmed: 505000000, lines: [{ cause: 'cash', amount: 7000000, note: '12/31 송금 · 1/2 입금' }] },
         conclusion: '차이 7,000,000원은 시점 차이·조회처 오류로 모두 설명돼요. 왜곡표시는 없어요.',

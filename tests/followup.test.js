@@ -12,6 +12,8 @@ const both = { ...ar, id: 'c3', counterparty: '세진물산㈜', receivable: 315
 const apOnly = { ...ar, id: 'c4', counterparty: '㈜오성테크', receivable: 0, payable: 96300000, bookAmount: 96300000 };
 const legal = { id: 'c5', kind: 'confirmation', confType: 'legal', track: 'required', counterparty: '법무법인 정의', status: 'none' };
 const pbc = { id: 'i3', name: '재고실사 결과표', status: 'none' };
+const FILE = [{ id: 'f1', name: '회신서.pdf', size: 10, type: 'application/pdf', addedOn: ON }];
+const SIGN = { preparer: '장재혁', completedOn: ON, reviewer: '이서연 매니저' };
 
 test('미회수 절차: 종류별 목록, 채권채무는 금액이 있는 쪽만', () => {
   assert.deepEqual(noReplySteps(bank).map((s) => s.key), ['resend', 'call', 'visit', 'statement', 'report']);
@@ -77,12 +79,16 @@ test('완료 조건: 커버리지 조회는 대체적 절차 하나 이상', () 
   let a = startFollow(ar, 'noreply', ON);
   assert.equal(completeCheck(a).ok, false);
   a = { ...a, follow: { ...a.follow, steps: { subsequent: true }, verified: 500000000 } };
+  assert.equal(completeCheck(a).ok, false, '증빙 첨부 전');
+  assert.equal(completeCheck(a).needsEvidence, true);
+  a = { ...a, attachments: FILE };
   assert.equal(completeCheck(a).ok, true);
   const done = completeFollow(a, { preparer: ' 장재혁 ', completedOn: '2026-10-25', reviewer: '이서연 매니저' });
   assert.equal(done.status, 'done');
   assert.equal(done.follow.closedOn, '2026-10-25');
   assert.deepEqual(done.follow.signoff, { preparer: '장재혁', reviewer: '이서연 매니저' });
   assert.match(done.follow.conclusion, /500,000,000원 확인/);
+  assert.deepEqual(done.statusLog.at(-1), { on: '2026-10-25', from: 'follow', to: 'done', by: '장재혁', note: '후속 절차 완료' });
 });
 
 test('완료 조건: 금액 차이는 회신금액 입력 + 설명되지 않은 차이 없음', () => {
@@ -90,11 +96,12 @@ test('완료 조건: 금액 차이는 회신금액 입력 + 설명되지 않은 
   assert.match(completeCheck(d).reason, /회신금액/);
   d = { ...d, follow: { ...d.follow, recon: { book: 842000000, confirmed: 840000000, lines: [] } } };
   assert.equal(completeCheck(d).ok, false);
-  d = { ...d, follow: { ...d.follow, recon: { ...d.follow.recon, lines: [{ cause: 'cash', amount: 2000000 }] } } };
+  d = { ...d, attachments: FILE, follow: { ...d.follow, recon: { ...d.follow.recon, lines: [{ cause: 'cash', amount: 2000000 }] } } };
   assert.equal(completeCheck(d).ok, true);
-  assert.match(completeFollow(d, { preparer: '장재혁', completedOn: ON }).follow.conclusion, /왜곡표시는 없어요/);
-  assert.throws(() => completeFollow(startFollow(ar, 'diff', ON), { preparer: '장재혁', completedOn: ON }));
-  assert.throws(() => completeFollow(d, { preparer: '', completedOn: ON }), /수행자/);
+  assert.match(completeFollow(d, SIGN).follow.conclusion, /왜곡표시는 없어요/);
+  assert.throws(() => completeFollow(startFollow(ar, 'diff', ON), SIGN));
+  assert.throws(() => completeFollow(d, { ...SIGN, preparer: '' }), /수행자/);
+  assert.throws(() => completeFollow(d, { ...SIGN, reviewer: '' }), /검토자/);
 });
 
 test('대체적 절차 확인 금액은 0~장부금액', () => {
@@ -149,8 +156,10 @@ test('미회수 절차: 재고 조회는 실사·창고증권·입출고 대조'
   assert.deepEqual(reqs.map((r) => r.value.item.name), ['창고증권·보관증 사본 (㈜한결물류 평택센터)']);
 });
 
-test('완료 기록: 수행자·완료일 필수, 검토자는 선택', () => {
-  assert.deepEqual(validateSignoff({ preparer: '장재혁', completedOn: '2026-10-25' }), {});
+test('완료 기록: 수행자·완료일·검토자 모두 필수, 검토자는 수행자와 달라야 한다', () => {
+  assert.deepEqual(validateSignoff({ preparer: '장재혁', completedOn: '2026-10-25', reviewer: '이서연 매니저' }), {});
+  assert.equal(validateSignoff({ preparer: '장재혁', completedOn: '2026-10-25' }).reviewer, '검토자를 입력해 주세요.');
+  assert.match(validateSignoff({ preparer: '장재혁', completedOn: '2026-10-25', reviewer: '장재혁 회계사' }).reviewer, /다른 사람/);
   const e = validateSignoff({ preparer: ' ', completedOn: '' });
   assert.ok(e.preparer && e.completedOn);
   assert.equal(validateSignoff({ preparer: 'a', completedOn: '10/25' }).completedOn, '완료일을 입력해 주세요.');
@@ -182,7 +191,7 @@ test('변호사 조회는 필수 회수가 아니라 대체적 절차로 완료�
   assert.match(noReplyNotice(lg), /경영진 확인서/);
   let f = startFollow(lg, 'noreply', ON);
   assert.equal(completeCheck(f).ok, false);
-  f = { ...f, follow: { ...f.follow, steps: { mgmt: true } } };
+  f = { ...f, attachments: FILE, follow: { ...f.follow, steps: { mgmt: true } } };
   assert.equal(completeCheck(f).ok, true);
 });
 

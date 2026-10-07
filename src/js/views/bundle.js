@@ -10,13 +10,13 @@ import { sendTiming } from '../lib/timing.js';
 import { timingChip, timingBanner } from './timing.js';
 import { mailDates } from '../lib/calendar.js';
 import { mailField, mailDateDock } from './calendar.js';
-import { esc, ICON, RISK_LABEL, STATUS_LABEL } from './html.js';
+import { esc, ICON, RISK_LABEL, STATUS_LABEL, sendActions, copiedToast } from './html.js';
 
 /**
  * @param state 앱 상태
  * @param opts  { sorted: bundleItems() 결과, clock, tone, copied, toast }
  */
-export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
+export function renderBundle(state, { sorted, clock, tone, copied, sent, toast }) {
   const top = sorted[0];
   const owner = top.owner;
   const person = state.people[owner] || {};
@@ -63,9 +63,11 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
     ? `<span class="m-cc">${esc(mail.cc.name)}<span class="desktop-only">${mail.cc.dept ? ` (${esc(mail.cc.dept)})` : ''}</span></span>`
     : '<span class="muted-text">없음</span>';
 
-  const footNote = copied
-    ? `${ICON.done}${count}건 모두 요청 이력에 기록했어요`
-    : `복사하면 ${count}건 모두 요청 이력에 기록돼요. 발송은 아웃룩에서 해주세요.`;
+  const footNote = sent
+    ? `${ICON.done}발송을 기록했어요 · ${count}건 모두 요청 이력에 남았어요`
+    : copied
+      ? '아웃룩에서 보냈다면 발송을 기록해 주세요.'
+      : `복사해서 아웃룩에서 보낸 뒤 발송 완료로 기록하면 ${count}건 모두 요청 이력에 남아요.`;
 
   return `
     <div class="drawer-dim" data-action="close-drawer"></div>
@@ -122,15 +124,10 @@ export function renderBundle(state, { sorted, clock, tone, copied, toast }) {
       </div>
 
       <footer class="compose-foot">
-        <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <button type="button" class="btn btn-cta copy-btn" data-action="copy-bundle">${ICON.copy}<span>${count}건 한 통으로 복사</span></button>
+        <div class="foot-note ${sent ? 'is-done' : ''}">${footNote}</div>
+        ${sendActions({ copied, sent }, { copyAction: 'copy-bundle', copyLabel: `${count}건 한 통으로 복사` })}
       </footer>
 
-      ${toast ? `
-        <div class="compose-toast" role="status">
-          <span class="toast-check">${ICON.done}</span>
-          <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>${count}건 모두 요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
-        </div>` : ''}
+      ${toast ? copiedToast('요청 이력') : ''}
     </aside>`;
 }

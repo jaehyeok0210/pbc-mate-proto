@@ -1592,3 +1592,22 @@ a.brand:hover { color: var(--orange-dark); }
 .topbar .reset-btn svg { width: 12px; height: 12px; }
 .topbar .reset-btn:hover { color: var(--ink); border-color: #BDBDBD; background: #fff; }
 .topbar .reset-btn.is-armed { background: var(--high-bg); border-color: var(--high-line); color: var(--high-fg); }
+
+/* 상태 변경: 완료 증빙 안내 · 변경 이력 */
+.sheet-evidence { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--fill-2); font-size: 13px; color: var(--ink-2); }
+.sheet-evidence svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; }
+.status-log ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.status-log li { display: grid; grid-template-columns: 44px auto 1fr; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+.status-log li small { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fu-proof .att-list-inline { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+
+/* 커버리지 수치 해석 주의 */
+.co-caveat { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
+
+/* 주간 보고: 완료 건 되돌리기 */
+.it-revert { display: block; margin-top: 4px; padding: 0; border: 0; background: none; font: inherit; font-size: 11.5px; color: var(--ink-3); text-decoration: underline; cursor: pointer; }
+.it-revert:hover { color: var(--ink); }
+
+.fu-proof { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+.mark-sent { white-space: nowrap; }

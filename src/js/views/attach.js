@@ -7,14 +7,14 @@ import { esc, ICON } from './html.js';
  * @param item  첨부할 자료
  * @param view  { pending: File[], rejected: { name, reason }[], justDone: boolean, saving: boolean }
  */
-export function renderAttach(item, { pending, rejected, justDone, saving }) {
+export function renderAttach(item, { pending, rejected, justDone, saving, complete }) {
   const existing = item.attachments || [];
   return `
     <div class="sheet-dim" data-action="attach-close"></div>
     <div class="sheet attach" role="dialog" aria-modal="true" aria-labelledby="attach-title">
       <div class="sheet-head">
         <div>
-          <div class="eyebrow">${justDone ? '완료 처리했어요 · 받은 파일을 남겨 두세요' : '첨부자료'}</div>
+          <div class="eyebrow">${complete ? '완료하려면 받은 자료를 첨부해 주세요' : justDone ? '완료 처리했어요 · 받은 파일을 남겨 두세요' : '첨부자료'}</div>
           <h3 id="attach-title">${esc(item.name)}</h3>
           <div class="sheet-current">${esc(item.owner)}${existing.length ? ` · 이미 ${existing.length}개 첨부` : ''}</div>
         </div>
@@ -40,8 +40,8 @@ export function renderAttach(item, { pending, rejected, justDone, saving }) {
       </div>
 
       <footer class="sheet-foot">
-        <button type="button" class="btn btn-sub" data-action="attach-close">${justDone ? '나중에 첨부' : '닫기'}</button>
-        <button type="button" class="btn btn-cta" data-action="attach-save" ${pending.length && !saving ? '' : 'disabled'}>${saving ? '저장 중…' : pending.length ? `${pending.length}개 첨부하기` : '첨부하기'}</button>
+        <button type="button" class="btn btn-sub" data-action="attach-close">${complete ? '취소' : justDone ? '나중에 첨부' : '닫기'}</button>
+        <button type="button" class="btn btn-cta" data-action="attach-save" ${pending.length && !saving ? '' : 'disabled'}>${saving ? '저장 중…' : complete ? (pending.length ? `${pending.length}개 첨부하고 완료` : '첨부하고 완료') : pending.length ? `${pending.length}개 첨부하기` : '첨부하기'}</button>
       </footer>
     </div>`;
 }

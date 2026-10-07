@@ -39,3 +39,27 @@ export const ICON = {
 export const RISK_LABEL = { late: '지연', high: '2일 이내', mid: '3~7일', low: '8일 이상' };
 export const RISK_SHORT = { late: '지연', high: '2일 내', mid: '7일 내', low: '여유' };
 export const STATUS_LABEL = { none: '미회신', part: '일부 수령', fix: '보완 요청', follow: '후속 절차', done: '완료' };
+
+/**
+ * 메일 화면 아래쪽 버튼: 복사 → (아웃룩에서 발송) → 발송 완료로 기록.
+ * 복사만으로는 이력에 남기지 않는다. 복사한 뒤에만 '발송 완료로 기록'이 나타난다.
+ */
+export function sendActions({ copied, sent }, { copyAction, copyLabel, extra = '' }) {
+  const waiting = copied && !sent;
+  return `
+    <div class="foot-actions">
+      ${extra}
+      <button type="button" class="btn ${waiting ? 'btn-sub' : 'btn-cta'} copy-btn" data-action="${copyAction}">${ICON.copy}<span>${waiting ? '다시 복사' : copyLabel}</span></button>
+      ${waiting ? `<button type="button" class="btn btn-cta mark-sent" data-action="mark-sent">${ICON.done}<span class="desktop-only">발송 완료로 기록</span><span class="mobile-only">보냈어요</span></button>` : ''}
+    </div>`;
+}
+
+/** 복사 직후 뜨는 안내 */
+export function copiedToast(sentNote) {
+  return `
+    <div class="compose-toast" role="status">
+      <span class="toast-check">${ICON.copy}</span>
+      <span><b>메일을 복사했어요. 아웃룩에서 보낸 뒤 발송을 기록해 주세요.</b>
+        <small>복사만으로는 ${sentNote}에 남지 않아요</small></span>
+    </div>`;
+}

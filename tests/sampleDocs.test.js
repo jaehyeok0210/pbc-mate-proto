@@ -7,7 +7,7 @@ const s = sampleState();
 const item = (id) => s.items.find((x) => x.id === id);
 const doc = (f) => sampleDoc(f.id, item(f.itemId), { ...s.confirmSetup, contactName: item(f.itemId).requester });
 
-test('예시 첨부 3건 모두 문서 내용이 있고, 첨부 정보는 PNG 이미지', () => {
+test('예시 첨부 4건 모두 문서 내용이 있고, 첨부 정보는 PNG 이미지', () => {
   for (const f of SAMPLE_FILES) {
     assert.ok(doc(f), f.id);
     const meta = item(f.itemId).attachments.find((a) => a.id === f.id);
@@ -35,4 +35,11 @@ test('법인세: 과세표준 → 9%/19% 누진 산출세액 → 차감 납부�
   assert.equal(t.computed, 18000000 + 597550000);
   assert.equal(t.due, 615550000 - 42000000 - 280000000);
   assert.deepEqual(doc(SAMPLE_FILES[2]).tax, t);
+});
+
+test('채권채무 회신: 회신 금액은 조정표의 회신 금액, 차이는 송금 시점 차이로 적혀 있다', () => {
+  const f = SAMPLE_FILES.find((x) => x.itemId === 'c8');
+  const d = doc(f);
+  assert.equal(d.confirmed, item('c8').follow.recon.confirmed);
+  assert.match(d.remark, /7,000,000원/);
 });

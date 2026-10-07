@@ -55,6 +55,8 @@ export function renderFollow(state, { today, itemId, owner, signoff = {}, signof
 
         ${evidenceBox(item, f, owner, owners)}
 
+        ${completionEvidence(item)}
+
         ${signoffBox(signoff, signoffErrors)}
       </div>
 
@@ -67,6 +69,19 @@ export function renderFollow(state, { today, itemId, owner, signoff = {}, signof
         </div>
       </footer>
     </aside>`;
+}
+
+// ---------- 완료 증빙: 회신서나 대체적 절차 증빙이 있어야 완료할 수 있다 ----------
+
+function completionEvidence(item) {
+  const files = item.attachments || [];
+  return `
+    <section class="fu-proof">
+      <div class="section-label">완료 증빙 <small class="fu-count">${files.length ? `${files.length}개 첨부됨` : '회신서나 대체적 절차 증빙을 첨부해야 완료할 수 있어요'}</small></div>
+      ${files.length ? `<div class="att-list-inline">${files.map((a) => `
+        <button type="button" class="att-link" data-action="open-attachment" data-item="${esc(item.id)}" data-file="${esc(a.id)}">${ICON.file}<span>${esc(a.name)}</span></button>`).join('')}</div>` : ''}
+      <button type="button" class="btn btn-sub" data-action="attach-open" data-item="${esc(item.id)}">${ICON.plus}증빙 첨부</button>
+    </section>`;
 }
 
 // ---------- 완료 기록 (감사기준서 230: 수행자·완료일·검토자) ----------
@@ -84,7 +99,7 @@ function signoffBox(s, e) {
       <div class="fu-signoff-grid">
         ${field('수행자', 'preparer', s.preparer, { placeholder: '예: 장재혁' })}
         ${field('완료일', 'completedOn', s.completedOn, { type: 'date' })}
-        ${field('검토자', 'reviewer', s.reviewer, { hint: '선택 · 나중에 채워도 돼요', placeholder: '예: 이서연 매니저' })}
+        ${field('검토자', 'reviewer', s.reviewer, { hint: '필수 · 수행자와 다른 사람', placeholder: '예: 이서연 매니저' })}
       </div>
     </section>`;
 }

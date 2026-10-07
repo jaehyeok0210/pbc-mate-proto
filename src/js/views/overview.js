@@ -47,7 +47,7 @@ export function confirmOverview(o, materiality) {
 
         <div class="co-card co-wide">
           <div class="co-label">커버리지 · 채권채무 · 재고</div>
-          <div class="co-big">${pct(c.covered)}%<small> 확인 · ${eok(c.covered)} / ${eok(c.total)}</small></div>
+          <div class="co-big">${pct(c.covered)}%<small> 금액 기준 확인 · ${eok(c.covered)} / ${eok(c.total)}</small></div>
           <div class="co-bar" role="img" aria-label="회신 확인 ${pct(c.confirmed)}%, 대체적 절차 ${pct(c.alternative)}%, 미확인 ${pct(c.uncovered)}%">
             <span class="co-seg is-confirmed" style="width:${pct(c.confirmed)}%"></span>
             <span class="co-seg is-alt" style="width:${pct(c.alternative)}%"></span>
@@ -58,6 +58,7 @@ export function confirmOverview(o, materiality) {
             <span><i></i>미확인 ${eok(c.uncovered)}</span>
           </div>
           ${perf}
+          <div class="co-caveat">금액 기준 비율이에요. 회신 금액과 대체적 절차로 확인한 금액을 단순히 더한 값이라, 증거의 질이나 모집단의 완전성(총계정원장 대사 · 표본 선정 근거)을 뜻하지는 않아요.</div>
         </div>
 
         <div class="co-card">

@@ -130,7 +130,7 @@ export function itemTableBody(allRows, query) {
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
                 <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a>${r.requester ? `<small class="it-req">요청 ${esc(r.requester)}</small>` : ''}</div>
-                <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span></div>
+                <div><span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span>${r.status === 'done' ? `<button type="button" class="it-revert" data-action="open-status" data-item="${esc(r.id)}" title="잘못 완료했거나 받은 자료가 무효이면 사유를 적고 되돌려요">되돌리기</button>` : ''}</div>
                 <div>${formatMD(r.neededOn)}</div>
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>

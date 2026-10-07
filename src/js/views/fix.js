@@ -5,7 +5,7 @@ import { formatMD, formatMDW } from '../lib/dates.js';
 import { withDays, leftText } from '../lib/priority.js';
 import { FIX_REASONS, fixReasonLabel, fixDetail, buildFixMail } from '../lib/fix.js';
 import { signMail, currentUser } from '../lib/team.js';
-import { esc, ICON, STATUS_LABEL } from './html.js';
+import { esc, ICON, STATUS_LABEL, sendActions, copiedToast } from './html.js';
 import { mailDates } from '../lib/calendar.js';
 import { mailField, mailDateDock } from './calendar.js';
 
@@ -13,7 +13,7 @@ import { mailField, mailDateDock } from './calendar.js';
  * @param state 앱 상태
  * @param opts  { today, itemId, reason, copied, toast }
  */
-export function renderFix(state, { today, itemId, reason, copied, toast }) {
+export function renderFix(state, { today, itemId, reason, copied, sent, toast }) {
   const item = withDays(state.items.find((x) => x.id === itemId), today);
   const person = state.people[item.owner] || {};
   const mail = signMail(buildFixMail({ item, person, client: state.client, today, reason }), currentUser(state));
@@ -43,9 +43,11 @@ export function renderFix(state, { today, itemId, reason, copied, toast }) {
     return esc(s.text);
   }).join('');
 
-  const footNote = copied && lastFix
-    ? `${ICON.done}보완 요청 이력에 기록했어요 · ${formatMD(lastFix.on)} ${fixReasonLabel(lastFix.reason)}`
-    : `<span>복사하면 보완 요청 이력에 <b>${label}</b>(으)로 기록돼요. 상태는 보완 요청 그대로예요.</span>`;
+  const footNote = sent && lastFix
+    ? `${ICON.done}발송을 기록했어요 · ${formatMD(lastFix.on)} ${fixReasonLabel(lastFix.reason)}`
+    : copied
+      ? '아웃룩에서 보냈다면 발송을 기록해 주세요.'
+      : `<span>보낸 뒤 발송 완료로 기록하면 보완 요청 이력에 <b>${label}</b>(으)로 남아요. 상태는 보완 요청 그대로예요.</span>`;
 
   return `
     <div class="drawer-dim" data-action="close-drawer"></div>
@@ -98,19 +100,12 @@ export function renderFix(state, { today, itemId, reason, copied, toast }) {
       </div>
 
       <footer class="compose-foot">
-        <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <div class="foot-actions">
-          <button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.done}수령 처리</button>
-          <button type="button" class="btn btn-cta copy-btn" data-action="copy-fix">${ICON.copy}<span>재요청 메일 복사</span></button>
-        </div>
+        <div class="foot-note ${sent ? 'is-done' : ''}">${footNote}</div>
+        ${sendActions({ copied, sent }, { copyAction: 'copy-fix', copyLabel: '재요청 메일 복사',
+          extra: `<button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.done}수령 처리</button>` })}
       </footer>
 
-      ${toast ? `
-        <div class="compose-toast" role="status">
-          <span class="toast-check">${ICON.done}</span>
-          <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>보완 요청 이력에 기록했어요<span class="desktop-only"> · 상태는 보완 요청 그대로예요</span></small></span>
-        </div>` : ''}
+      ${toast ? copiedToast('보완 요청 이력') : ''}
     </aside>`;
 }
 

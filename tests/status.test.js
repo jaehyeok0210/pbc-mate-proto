@@ -16,14 +16,40 @@ const bank = state.items.find((x) => x.id === 'i1'); // 미회신
 const partial = state.items.find((x) => x.id === 'i4'); // 일부 수령
 const ppe = state.items.find((x) => x.id === 'i2'); // 보완 요청
 const ON = DEMO_DATE;
+const FILE = [{ id: 'f1', name: '받은자료.pdf', size: 10, type: 'application/pdf', addedOn: ON }];
+const withFile = (x) => ({ ...x, attachments: FILE });
 
-test('허용 전환: 역방향은 막는다', () => {
-  assert.deepEqual(ALLOWED_TRANSITIONS, { none: ['part', 'fix', 'done'], part: ['fix', 'done'], fix: ['part', 'done'], done: [] });
+test('허용 전환: 정정(되돌리기)도 가능하되 사유가 필요하다', () => {
+  assert.deepEqual(ALLOWED_TRANSITIONS, {
+    none: ['part', 'fix', 'done'], part: ['none', 'fix', 'done'], fix: ['none', 'part', 'done'], done: ['none', 'part', 'fix'],
+  });
   assert.deepEqual(allowedStatuses(bank), ['part', 'fix', 'done']);
-  assert.equal(canTransition(partial, 'none'), false);
-  assert.equal(canTransition({ status: 'done' }, 'none'), false);
-  assert.match(validateTransition(partial, { status: 'none' }).status, /바꿀 수 없어요/);
-  assert.throws(() => transitionItem(partial, { status: 'none' }, ON), /바꿀 수 없어요/);
+  assert.equal(canTransition(bank, 'none'), false, '같은 상태로는 못 바꾼다');
+  assert.equal(canTransition(partial, 'none'), true);
+  assert.match(validateTransition(partial, { status: 'none' }).note, /사유/);
+  assert.throws(() => transitionItem(partial, { status: 'none' }, ON), /사유/);
+  assert.equal(validateTransition(bank, { status: 'part' }).note, undefined, '앞으로 진행할 때는 사유 불필요');
+});
+
+test('완료는 받은 자료 첨부가 있어야 한다', () => {
+  assert.match(validateTransition(bank, { status: 'done' }).evidence, /첨부/);
+  assert.throws(() => transitionItem(bank, { status: 'done' }, ON), /첨부/);
+  assert.equal(validateTransition(withFile(bank), { status: 'done' }).evidence, undefined);
+});
+
+test('정정: 이전 상태·수령 기록은 이력에 남기고, 미회신으로 되돌리면 현재 수령 기록을 비운다', () => {
+  const done = transitionItem(withFile(partial), { status: 'done', by: '장재혁 회계사' }, '2026-10-02');
+  assert.deepEqual(done.statusLog.at(-1), { on: '2026-10-02', from: 'part', to: 'done', by: '장재혁 회계사' });
+  const back = transitionItem(done, { status: 'none', note: '받은 파일이 다른 회사 자료', by: '장재혁 회계사' }, '2026-10-03');
+  assert.equal(back.status, 'none');
+  assert.equal('received' in back, false);
+  const log = back.statusLog.at(-1);
+  assert.deepEqual([log.from, log.to, log.note], ['done', 'none', '받은 파일이 다른 회사 자료']);
+  assert.equal(log.received.on, '2026-10-02', '되돌리기 전 수령 기록 보존');
+  assert.equal(back.statusLog.length, 2, '이전 기록은 덮어쓰지 않는다');
+  assert.deepEqual(back.attachments, FILE, '첨부도 남는다');
+  // 완료를 다시 여는 것도 정정이라 사유 필요
+  assert.match(validateTransition(done, { status: 'part' }).note, /사유/);
 });
 
 test('미회신 → 일부 수령: 상태와 최초 수령일, 이력은 그대로', () => {
@@ -36,7 +62,7 @@ test('미회신 → 일부 수령: 상태와 최초 수령일, 이력은 그대�
 });
 
 test('미회신 → 완료', () => {
-  const next = transitionItem(bank, { status: 'done' }, ON);
+  const next = transitionItem(withFile(bank), { status: 'done' }, ON);
   assert.equal(next.status, 'done');
   assert.equal(next.received.on, ON);
   assert.equal(isOpen(next), false);
@@ -44,11 +70,11 @@ test('미회신 → 완료', () => {
 
 test('일부 수령 → 완료: 기존 received.on이 있으면 유지', () => {
   const first = transitionItem(bank, { status: 'part' }, '2026-10-01');
-  const done = transitionItem(first, { status: 'done' }, '2026-10-03');
+  const done = transitionItem(withFile(first), { status: 'done' }, '2026-10-03');
   assert.equal(done.status, 'done');
   assert.equal(done.received.on, '2026-10-01', '최초 수령일 유지');
   // 예시의 일부 수령 자료(수령일 없음) → 완료면 이번 날짜로 기록
-  assert.equal(transitionItem(partial, { status: 'done' }, ON).received.on, ON);
+  assert.equal(transitionItem(withFile(partial), { status: 'done' }, ON).received.on, ON);
 });
 
 test('미회신 → 보완 요청: 사유 필수, 저장 후 보완 화면 진입 가능', () => {
@@ -77,7 +103,7 @@ test('기준일 상이: 두 기준일을 모두 받아 저장', () => {
 });
 
 test('보완 요청 → 완료: 요약은 지우고 이력·기존 수령일은 유지', () => {
-  const done = transitionItem(ppe, { status: 'done' }, '2026-10-05');
+  const done = transitionItem(withFile(ppe), { status: 'done' }, '2026-10-05');
   assert.equal(done.status, 'done');
   assert.equal(done.received.on, '2026-09-30');
   assert.equal(done.received.basisDate, '2026-06-30');
@@ -93,7 +119,8 @@ test('일부 수령으로 바꾸면 단건 메일은 일부 수령 문구를 쓴
 });
 
 test('updateItemStatus: 새 state 반환, 대시보드·주간 현황 숫자 즉시 반영', () => {
-  const after = updateItemStatus(state, 'i1', { status: 'done' }, ON);
+  const withEvidence = { ...state, items: state.items.map((x) => (x.id === 'i1' ? withFile(x) : x)) };
+  const after = updateItemStatus(withEvidence, 'i1', { status: 'done' }, ON);
   assert.equal(state.items[0].status, 'none', '원래 state 불변');
   const before = summarize(state.items.map((x) => withDays(x, ON)));
   const now = summarize(after.items.map((x) => withDays(x, ON)));

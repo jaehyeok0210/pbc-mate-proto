@@ -21,7 +21,7 @@ import { sampleDoc } from './lib/sampleDocs.js';
 import { renderScan } from './scan.js';
 import { currentUser, switchUser, signMail, defaultRequester, isManager, calendarScope, pickRequester, requesterMembers } from './lib/team.js';
 import { searchEngagements, engagementById, validateStart, teamFromEngagement } from './lib/engagements.js';
-import { SAMPLE_FILES, upgradeSampleAttachments, load, save, clear, sampleState, baseDateOf, copyAndRecord, copyAndRecordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
+import { SAMPLE_FILES, upgradeSampleAttachments, load, save, clear, sampleState, baseDateOf, recordNudges, recordFix, addItems, updateItemStatus, createEmptyState } from './store.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderEmpty, lookupResults } from './views/empty.js';
 import { renderCompose } from './views/compose.js';
@@ -108,21 +108,21 @@ function render() {
 
   // 일정 탭: 대시보드 대신 그리는 전체 화면
   if (location.hash === '#/calendar') {
-    compose = bundle = fix = add = sheet = null;
+    compose = bundle = fix = add = null;
     if (!cal) cal = { month: monthOf(today), selected: today, form: { title: '', errors: {} }, filter: 'all' };
     // 회계사는 자기가 요청한 자료의 일정만, 매니저는 팀 전체
     const scoped = calendarScope(state);
     const scopeNote = !scoped.me ? '' : scoped.scope === 'all'
       ? (isManager(state) ? `매니저 화면 · 팀 전체 일정이 보여요` : '')
       : `${scoped.me}${josa(scoped.me, '이', '가')} 요청한 자료와 내 일정만 보여요 · 팀 공통 일정 포함`;
-    app.innerHTML = renderCalendar({ ...state, items: scoped.items, events: scoped.events }, { today, isDemo, ...cal, scopeNote }) + attachOverlay();
+    app.innerHTML = renderCalendar({ ...state, items: scoped.items, events: scoped.events }, { today, isDemo, ...cal, scopeNote }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
 
   // 외부조회서 작성: 대시보드 대신 그리는 전체 화면
   if (location.hash === '#/confirm') {
-    compose = bundle = fix = add = sheet = null;
+    compose = bundle = fix = add = null;
     if (!conf) {
       conf = {
         type: 'bank', touched: new Set(), pasteText: '', bankBlank: false,
@@ -131,15 +131,15 @@ function render() {
       // 회신처 담당자는 실무진 중 한 명. 처음 열 때는 상단바에서 고른 사람(매니저면 첫 실무진)으로 시작한다.
       conf.setup.contactName = pickRequester(state, '');
     }
-    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + attachOverlay();
+    app.innerHTML = renderConfirm(state, { today, isDemo, ...conf, setupErrors: confSetupErrors(today) }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
 
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(요청·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
-    compose = bundle = fix = add = sheet = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + attachOverlay();
+    compose = bundle = fix = add = null;
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -147,10 +147,10 @@ function render() {
   // 담당자 상세: 주간 보고에서 담당자를 누르면 여는 전체 화면
   const ownerName = routeParam('owner');
   if (ownerName) {
-    compose = bundle = fix = add = sheet = null;
+    compose = bundle = fix = add = null;
     const detail = ownerDetail(state, ownerName, today);
     if (detail) {
-      app.innerHTML = renderOwner(state, detail, { today, isDemo }) + attachOverlay();
+      app.innerHTML = renderOwner(state, detail, { today, isDemo }) + overlays();
       document.body.classList.remove('has-drawer');
       return;
     }
@@ -213,17 +213,10 @@ function render() {
     add = null;
   }
 
-  // 상태 변경 시트는 단건 요청·보완 요청 패널이 열려 있을 때만 그 위에 뜬다.
-  const sheetItem = sheet && (item || fixItem) && state.items.find((x) => x.id === sheet.itemId);
-  if (sheetItem && sheetItem.status !== 'done') {
-    html += renderStatusSheet(sheetItem, sheet, today);
-  } else {
-    sheet = null;
-  }
 
   const focusedTone = document.activeElement?.dataset?.tone;
   const focusedReason = document.activeElement?.dataset?.reason;
-  app.innerHTML = html + attachOverlay();
+  app.innerHTML = html + overlays();
   document.body.classList.toggle('has-drawer', Boolean(item || b || fix || add || fu));
   // 톤·사유를 바꾼 뒤에도 키보드 포커스가 같은 버튼에 남도록 (데스크톱·모바일 중 보이는 쪽)
   if (focusedTone) {
@@ -274,24 +267,22 @@ function closeDrawer() {
   render();
 }
 
-// 복사 성공 시에만 이력을 남기고, 화면 상태(copied·toast)를 갱신한다.
-// record: 기본은 요청 이력. 보완 요청은 copyAndRecordFix를 넘긴다.
+// 메일 복사: 클립보드에만 넣는다. 이력은 아웃룩에서 실제로 보낸 뒤 '발송 완료로 기록'을 눌러야 남는다.
+// record(state, on): 발송을 기록한 새 state (요청 이력 또는 보완 이력). 복사한 시점의 내용으로 기억해 둔다.
 let drawerToastTimer;
-async function copyForDrawer(view, { itemIds, text }, record) {
-  const result = record
-    ? await record(state, currentToday(), text, copyText)
-    : await copyAndRecord(state, { itemIds, tone: view.tone, on: currentToday(), text }, copyText);
-  if (!result.ok) {
+async function copyForDrawer(view, { text }, record) {
+  const ok = await copyText(text);
+  if (!ok) {
     toast('복사하지 못했어요. 미리보기에서 직접 선택해 복사해 주세요.');
     return;
   }
-  state = result.state;
-  save(state);
   view.copied = true;
+  view.sent = false;
+  view.record = record;
   view.toast = true;
   render();
   clearTimeout(drawerToastTimer);
-  drawerToastTimer = setTimeout(() => { view.toast = false; render(); }, 2800);
+  drawerToastTimer = setTimeout(() => { view.toast = false; render(); }, 3600);
 }
 
 // ---------- 파일 첨부 ----------
@@ -315,6 +306,18 @@ async function seedSampleFiles() {
     if (!item) continue;
     try { await putFile(f.id, await sampleFileBlob(f, item)); } catch { return; }
   }
+}
+
+// 화면 위에 뜨는 창: 상태 변경 시트(단건 요청·보완 요청·주간 보고에서 연다) → 첨부 창 순서
+function overlays() {
+  return statusOverlay() + attachOverlay();
+}
+
+function statusOverlay() {
+  // 연 화면을 벗어나면 닫는다
+  const sheetItem = sheet && sheet.route === location.hash && state?.items.find((x) => x.id === sheet.itemId);
+  if (!sheetItem) { sheet = null; return ''; }
+  return renderStatusSheet(sheetItem, sheet, currentToday());
 }
 
 function attachOverlay() {
@@ -462,7 +465,7 @@ const actions = {
 
   // 자료 상태 변경 시트
   'open-status': (el) => {
-    sheet = { itemId: el.dataset.item, status: null, reason: null, basisDate: '', requiredBasisDate: '', errors: {},
+    sheet = { itemId: el.dataset.item, route: location.hash, status: null, reason: null, basisDate: '', requiredBasisDate: '', errors: {},
       check: { basisOk: null, missing: [], signOk: null } }; // 받은 자료 점검 (표준 양식 자료만 화면에 보임)
     render();
   },
@@ -517,9 +520,18 @@ const actions = {
   'save-status': () => {
     readSheetDates();
     const item = state.items.find((x) => x.id === sheet.itemId);
-    const change = { status: sheet.status, reason: sheet.reason, basisDate: sheet.basisDate, requiredBasisDate: sheet.requiredBasisDate };
-    sheet.errors = validateTransition(item, change);
-    if (Object.keys(sheet.errors).length) { render(); return; }
+    const change = { status: sheet.status, reason: sheet.reason, basisDate: sheet.basisDate, requiredBasisDate: sheet.requiredBasisDate,
+      note: sheet.note, by: currentUser(state) };
+    const { evidence, ...errors } = validateTransition(item, change);
+    sheet.errors = errors;
+    if (Object.keys(errors).length) { render(); return; }
+    if (evidence) {
+      // 완료는 받은 자료가 있어야 한다: 첨부 창을 열고, 파일을 첨부하면 그때 완료로 바꾼다
+      sheet = null;
+      att = { itemId: item.id, pending: [], rejected: [], justDone: false, saving: false, complete: change };
+      render();
+      return;
+    }
 
     state = updateItemStatus(state, item.id, change, currentToday());
     if (change.status === 'fix' && sheet.detail && (change.reason === 'missing' || change.reason === 'sign')) {
@@ -530,8 +542,11 @@ const actions = {
     const name = `‘${item.name}’${josa(item.name, '을', '를')}`;
     if (change.status === 'done') {
       closeDrawer();
-      openAttach(item.id, true);
-      toast(`${name} 완료로 처리했어요.`);
+      toast(`${name} 완료로 처리했어요. 받은 자료는 주간 보고 자료 목록에서 열 수 있어요.`);
+    } else if (change.status === 'none') {
+      location.hash = `#/compose/${encodeURIComponent(item.id)}`;
+      render();
+      toast(`${name} 미회신으로 되돌렸어요. 사유와 이전 기록은 변경 이력에 남았어요.`);
     } else if (change.status === 'fix') {
       location.hash = `#/fix/${encodeURIComponent(item.id)}`;
       render();
@@ -543,7 +558,18 @@ const actions = {
     }
   },
 
-  'set-tone': (el) => { compose.tone = el.dataset.tone; compose.copied = false; render(); },
+  'set-tone': (el) => { compose.tone = el.dataset.tone; compose.copied = false; compose.sent = false; render(); },
+  // 아웃룩에서 실제로 보낸 뒤: 복사해 둔 메일을 요청(보완) 이력에 기록한다
+  'mark-sent': () => {
+    const view = [compose, bundle, fix].find((v) => v?.copied && !v.sent && v.record);
+    if (!view) return;
+    state = view.record(state, currentToday());
+    save(state);
+    view.sent = true;
+    view.toast = false;
+    render();
+    toast('발송을 기록했어요. 요청 이력과 대시보드에 반영됐어요.');
+  },
   'close-compose': closeDrawer,
   'close-drawer': () => {
     // 후속 절차에서 연 자료 추가 창을 닫으면 후속 절차 화면으로 돌아간다
@@ -557,9 +583,10 @@ const actions = {
       item, person: state.people[item.owner], client: state.client,
       manager: state.team?.manager, today, tone: compose.tone, note: mailNote(state, item, today),
     }), currentUser(state));
-    return copyForDrawer(compose, { itemIds: [item.id], text: mailToText(mail) });
+    const tone = compose.tone;
+    return copyForDrawer(compose, { text: mailToText(mail) }, (st, on) => recordNudges(st, [item.id], tone, on));
   },
-  'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; render(); },
+  'set-reason': (el) => { fix.reason = el.dataset.reason; fix.copied = false; fix.sent = false; render(); },
 
   // 자료 추가
   'add-tab': (el) => {
@@ -630,8 +657,7 @@ const actions = {
     const item = withDays(state.items.find((x) => x.id === fix.itemId), today);
     const mail = signMail(buildFixMail({ item, person: state.people[item.owner], client: state.client, today, reason: fix.reason }), currentUser(state));
     const reason = fix.reason;
-    return copyForDrawer(fix, { text: fixMailToText(mail) },
-      (s, on, text, copy) => copyAndRecordFix(s, { itemId: item.id, reason, on, text }, copy));
+    return copyForDrawer(fix, { text: fixMailToText(mail) }, (st, on) => recordFix(st, item.id, reason, on));
   },
   // 외부조회서 작성
   'conf-type': (el) => { readConfSetup(); conf.type = el.dataset.type; conf.pasteText = ''; render(); },
@@ -741,7 +767,12 @@ const actions = {
   },
   // 파일 첨부
   'attach-open': (el) => openAttach(el.dataset.item, false),
-  'attach-close': () => { att = null; render(); },
+  'attach-close': () => {
+    const cancelled = att?.complete;
+    att = null;
+    render();
+    if (cancelled) toast('첨부하지 않아 완료로 바꾸지 않았어요.');
+  },
   'attach-unpick': (el) => { att.pending.splice(Number(el.dataset.index), 1); att.rejected = []; render(); },
   'attach-save': async () => {
     if (!att.pending.length || att.saving) return;
@@ -762,7 +793,16 @@ const actions = {
       return;
     }
     setItem(att.itemId, (x) => addAttachments(x, metas));
+    const { complete, itemId } = att;
     att = null;
+    if (complete) {
+      // 상태 변경에서 '받은 자료 첨부하고 완료'로 온 경우: 첨부가 생겼으니 완료로 바꾼다
+      state = updateItemStatus(state, itemId, complete, currentToday());
+      save(state);
+      closeDrawer();
+      toast(`${metas.length}개 파일을 첨부하고 완료로 처리했어요.`);
+      return;
+    }
     render();
     toast(`${metas.length}개 파일을 첨부했어요. 주간 보고 자료 목록에서 열 수 있어요.`);
   },
@@ -810,6 +850,11 @@ const actions = {
   },
   'remove-attachment': async (el) => {
     const { item: itemId, file } = el.dataset;
+    const target = state.items.find((x) => x.id === itemId);
+    if (target?.status === 'done' && (target.attachments || []).length <= 1) {
+      toast('완료된 자료는 받은 자료가 하나 이상 있어야 해요. 지우려면 먼저 상태를 되돌려 주세요.');
+      return;
+    }
     const name = state.items.find((x) => x.id === itemId)?.attachments?.find((a) => a.id === file)?.name;
     try { await deleteFile(file); } catch { /* 저장소에 없어도 목록에서는 뺀다 */ }
     setItem(itemId, (x) => removeAttachment(x, file));
@@ -822,7 +867,9 @@ const actions = {
       sorted, person: state.people[bundle.owner], client: state.client,
       manager: state.team?.manager, tone: bundle.tone,
     }), currentUser(state));
-    return copyForDrawer(bundle, { itemIds: sorted.map((x) => x.id), text: bundleMailToText(mail) });
+    const ids = sorted.map((x) => x.id);
+    const tone = bundle.tone;
+    return copyForDrawer(bundle, { text: bundleMailToText(mail) }, (st, on) => recordNudges(st, ids, tone, on));
   },
 };
 
@@ -856,6 +903,7 @@ function readSheetDates() {
   if (!root || !sheet) return;
   sheet.basisDate = root.querySelector('[name="basisDate"]')?.value ?? sheet.basisDate;
   sheet.requiredBasisDate = root.querySelector('[name="requiredBasisDate"]')?.value ?? sheet.requiredBasisDate;
+  sheet.note = root.querySelector('[name="statusNote"]')?.value ?? sheet.note;
 }
 
 // 메일 속 날짜를 캘린더 일정으로 추가 (드롭·탭 공통)

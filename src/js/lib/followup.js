@@ -166,6 +166,7 @@ export function startFollow(item, type, on) {
  * 완료할 수 있는지와, 막혀 있으면 그 이유.
  * - 미회수: 필수 회수 조회(은행·변호사)는 대체적 절차로 끝낼 수 없다. 커버리지 조회는 대체적 절차를 하나 이상 마쳐야 한다.
  * - 금액 차이: 설명되지 않은 차이가 없어야 한다.
+ * - 공통: 회신서나 대체적 절차 증빙이 하나 이상 첨부돼 있어야 한다 (감사증거 없이 완료 금지).
  */
 export function completeCheck(item) {
   const f = item.follow;
@@ -175,7 +176,8 @@ export function completeCheck(item) {
       return { ok: false, reason: '필수 회수 조회라 회신을 받은 뒤 완료할 수 있어요.' };
     }
     const doneAlt = noReplySteps(item).some((s) => s.role === 'alt' && f.steps?.[s.key]);
-    return doneAlt ? { ok: true } : { ok: false, reason: '대체적 절차를 하나 이상 마쳐야 해요.' };
+    if (!doneAlt) return { ok: false, reason: '대체적 절차를 하나 이상 마쳐야 해요.' };
+    return evidenceCheck(item);
   }
   if (f.recon?.confirmed === null || f.recon?.confirmed === undefined || f.recon?.confirmed === '') {
     return { ok: false, reason: '회신금액을 입력해 주세요.' };
@@ -183,17 +185,27 @@ export function completeCheck(item) {
   const r = reconcile(f.recon);
   if (r.result === 'open') return { ok: false, reason: '설명되지 않은 차이가 남아 있어요.' };
   if (r.termsPending) return { ok: false, reason: '미착품 차이의 인도조건을 확인해 주세요.' };
-  return { ok: true };
+  return evidenceCheck(item);
+}
+
+function evidenceCheck(item) {
+  return (item.attachments || []).length
+    ? { ok: true }
+    : { ok: false, needsEvidence: true, reason: '회신서나 대체적 절차 증빙을 첨부해야 완료할 수 있어요.' };
 }
 
 /**
- * 완료 기록(감사기준서 230: 수행자·완료일·검토자) 검증. 수행자와 완료일은 필수, 검토자는 나중에 채워도 된다.
+ * 완료 기록(감사기준서 230: 수행자·완료일·검토자) 검증. 셋 다 필수이고, 검토자는 수행자와 다른 사람이어야 한다.
  * @returns {Record<string,string>} 비어 있으면 통과
  */
 export function validateSignoff({ preparer, completedOn, reviewer } = {}) {
   const errors = {};
-  if (!String(preparer ?? '').trim()) errors.preparer = '수행자를 입력해 주세요.';
+  const p = String(preparer ?? '').trim();
+  const r = String(reviewer ?? '').trim();
+  if (!p) errors.preparer = '수행자를 입력해 주세요.';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(completedOn ?? ''))) errors.completedOn = '완료일을 입력해 주세요.';
+  if (!r) errors.reviewer = '검토자를 입력해 주세요.';
+  else if (p && r.split(' ')[0] === p.split(' ')[0]) errors.reviewer = '검토자는 수행자와 다른 사람이어야 해요.';
   return errors;
 }
 
@@ -207,14 +219,16 @@ export function completeFollow(item, signoff) {
   const conclusion = f.type === 'diff'
     ? reconConclusion(reconcile(f.recon))
     : `대체적 절차로 ${won(f.verified || 0)} 확인`;
+  const preparer = signoff.preparer.trim();
   return {
     ...item,
     status: 'done',
+    statusLog: [...(item.statusLog || []), { on: signoff.completedOn, from: item.status, to: 'done', by: preparer, note: '후속 절차 완료' }],
     follow: {
       ...f,
       closedOn: signoff.completedOn,
       conclusion,
-      signoff: { preparer: signoff.preparer.trim(), reviewer: String(signoff.reviewer ?? '').trim() },
+      signoff: { preparer, reviewer: String(signoff.reviewer).trim() },
     },
   };
 }

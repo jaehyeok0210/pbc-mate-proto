@@ -69,6 +69,32 @@ function inventoryReply(item, setup) {
   };
 }
 
+/** 채권채무조회서 회신 — 한성정밀㈜ (AR-004). 장부 5.12억과 7백만원 차이: 12/31 송금분이 1/2 입금(시점 차이) */
+function arapReply(item, setup) {
+  const confirmed = item.follow?.recon?.confirmed ?? 505000000;
+  return {
+    kind: 'arap',
+    docNo: item.docNo,
+    title: '채 권 · 채 무 조 회 서 (회 신)',
+    to: `${setup.auditorName} 귀중 (담당: ${setup.contactName})`,
+    meta: [
+      ['조회 의뢰 회사', `${setup.companyName} (대표이사 ${setup.ceoName})`],
+      ['조회 기준일', '2026년 12월 31일'],
+      ['조회서 번호', item.docNo],
+    ],
+    lead: '조회 기준일 현재 당사 장부상 귀 조회 의뢰 회사와의 채권·채무 잔액을 아래와 같이 회신합니다.',
+    sections: [
+      { heading: '1. 당사의 채무 (조회 의뢰 회사의 채권)', cols: ['계정', '내용', '잔액(원)'],
+        rows: [['외상매입금', '부품 매입 대금', won(confirmed)]], total: ['합계', '', won(confirmed)] },
+      { heading: '2. 당사의 채권 (조회 의뢰 회사의 채무)', cols: ['계정', '내용', '잔액(원)'],
+        rows: [['해당 사항 없음', '', '']] },
+    ],
+    remark: `참고: 2026년 12월 31일 ${won(item.bookAmount - confirmed)}원을 귀사 계좌로 송금하였습니다.`,
+    signed: { date: '2027년 1월 9일', org: '한성정밀㈜ 재무팀', person: '팀장  배 수 현 (인)', stamp: ['한성', '정밀', '재무팀'] },
+    confirmed,
+  };
+}
+
 /** 법인세 과세표준 및 세액신고서 사본 — 2025 사업연도 (세율 2억 이하 9%, 2억 초과~200억 19%) */
 export function corporateTax(income) {
   const base = income.net + income.add - income.deduct;
@@ -120,6 +146,7 @@ export const SAMPLE_DOC_BUILDERS = {
   'sample-f1': bankReply,
   'sample-f2': inventoryReply,
   'sample-f3': taxReturn,
+  'sample-f4': arapReply,
 };
 
 /** 예시 첨부의 문서 내용. 해당 없으면 null */

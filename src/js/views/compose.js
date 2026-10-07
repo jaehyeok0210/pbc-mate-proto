@@ -11,13 +11,13 @@ import { mailDates } from '../lib/calendar.js';
 import { mailField, mailDateDock } from './calendar.js';
 import { templateOf, mailNote } from '../lib/pbcTemplate.js';
 import { signMail, currentUser } from '../lib/team.js';
-import { esc, ICON, RISK_LABEL, STATUS_LABEL } from './html.js';
+import { esc, ICON, RISK_LABEL, STATUS_LABEL, sendActions, copiedToast } from './html.js';
 
 /**
  * @param state 앱 상태
  * @param opts  { today, clock, itemId, tone, copied, toast }
  */
-export function renderCompose(state, { today, clock, itemId, tone, copied, toast }) {
+export function renderCompose(state, { today, clock, itemId, tone, copied, sent, toast }) {
   const item = withDays(state.items.find((x) => x.id === itemId), today);
   const person = state.people[item.owner] || {};
   const history = item.nudges || [];
@@ -27,9 +27,11 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
   const timing = sendTiming(clock, item.neededOn);
   const dates = mailDates([item], today);
 
-  const footNote = copied && last
-    ? `${ICON.done}요청 이력에 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계로 복사`
-    : '복사하면 요청 이력에 자동으로 기록돼요. 발송은 아웃룩에서 해주세요.';
+  const footNote = sent && last
+    ? `${ICON.done}발송을 기록했어요 · ${formatMD(last.on)} ${toneName(last.tone)} 단계`
+    : copied
+      ? '아웃룩에서 보냈다면 발송을 기록해 주세요. 그래야 요청 이력에 남아요.'
+      : '복사해서 아웃룩에서 보낸 뒤, 발송 완료로 기록해야 요청 이력에 남아요.';
 
   return `
     <div class="drawer-dim" data-action="close-compose"></div>
@@ -60,19 +62,12 @@ export function renderCompose(state, { today, clock, itemId, tone, copied, toast
       </div>
 
       <footer class="compose-foot">
-        <div class="foot-note ${copied ? 'is-done' : ''}">${footNote}</div>
-        <div class="foot-actions">
-          <button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.fix}자료 상태 변경</button>
-          <button type="button" class="btn btn-cta copy-btn" data-action="copy-mail">${ICON.copy}<span>복사하기</span></button>
-        </div>
+        <div class="foot-note ${sent ? 'is-done' : ''}">${footNote}</div>
+        ${sendActions({ copied, sent }, { copyAction: 'copy-mail', copyLabel: '복사하기',
+          extra: `<button type="button" class="btn btn-ghost" data-action="open-status" data-item="${esc(item.id)}">${ICON.fix}자료 상태 변경</button>` })}
       </footer>
 
-      ${toast ? `
-        <div class="compose-toast" role="status">
-          <span class="toast-check">${ICON.done}</span>
-          <span><b>메일을 복사했어요. 아웃룩에 붙여넣으세요.</b>
-            <small>요청 이력에 기록했어요<span class="desktop-only"> · 발송은 아웃룩에서 직접 해주세요</span></small></span>
-        </div>` : ''}
+      ${toast ? copiedToast('요청 이력') : ''}
     </aside>`;
 }
 
