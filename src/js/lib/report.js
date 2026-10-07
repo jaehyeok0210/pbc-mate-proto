@@ -5,6 +5,8 @@ import { addDays, formatMD } from './dates.js';
 import { withDays, isOpen, sortItems, groupByOwner, leftText } from './priority.js';
 import { clientShortName } from './mail.js';
 import { fixReasonLabel } from './fix.js';
+import { CONF_TYPES, TYPE_ORDER } from './confirmation.js';
+import { PBC_TEMPLATES, TEMPLATE_ORDER, templateOf } from './pbcTemplate.js';
 
 const STATUS = { none: '미회신', part: '일부 수령', fix: '보완 요청', follow: '후속 절차', done: '완료' };
 const RISK = { late: '지연', high: '2일 이내', mid: '3~7일', low: '8일 이상' };
@@ -73,6 +75,7 @@ export function buildReport(state, today) {
 
   const toRow = (x) => ({
     id: x.id,
+    doc: docTypeOf(x),
     name: x.name,
     owner: x.owner,
     status: x.status,
@@ -244,4 +247,44 @@ export function ownerDetail(state, owner, today) {
     rows,
     history,
   };
+}
+
+// ---------- 자료 목록: 문서종류별 묶기 ----------
+
+const DOC_GROUPS = [
+  { key: 'confirm', label: '외부조회서', subs: TYPE_ORDER.map((k) => ({ key: k, label: CONF_TYPES[k].label })) },
+  { key: 'pbc', label: '내부 자료 요청', subs: [...TEMPLATE_ORDER.map((k) => ({ key: k, label: PBC_TEMPLATES[k].name })), { key: 'other', label: '기타 자료' }] },
+  { key: 'evidence', label: '후속 절차 증빙', subs: [{ key: 'alt', label: '대체적 절차 증빙' }, { key: 'diff', label: '차이 소명 자료' }] },
+];
+
+/**
+ * 자료의 문서 종류: { group, sub }.
+ * 외부조회서는 조회서 종류, 후속 절차에서 만든 증빙 요청(sourceId)은 대체적 절차·차이 소명,
+ * 그 외 자료는 표준 양식(없으면 기타 자료).
+ */
+export function docTypeOf(item) {
+  if (item.kind === 'confirmation') return { group: 'confirm', sub: CONF_TYPES[item.confType] ? item.confType : 'bank' };
+  if (item.sourceId) return { group: 'evidence', sub: /차이/.test(item.procedure || '') ? 'diff' : 'alt' };
+  return { group: 'pbc', sub: templateOf(item)?.key || 'other' };
+}
+
+const summary = (rows) => ({
+  total: rows.length,
+  done: rows.filter((r) => r.status === 'done').length,
+  urgent: rows.filter((r) => r.status !== 'done' && (r.risk === 'late' || r.risk === 'high')).length,
+});
+
+/**
+ * 자료 목록 행을 문서종류별로 묶는다. 순서는 외부조회서 → 내부 자료 요청 → 후속 절차 증빙,
+ * 각 묶음 안은 정해진 순서. 자료가 없는 묶음은 뺀다. 행 순서(필요일 순, 완료는 뒤)는 그대로 둔다.
+ * @returns [{ key, label, summary, subs: [{ key, id, label, rows, summary }] }]
+ */
+export function groupRowsByDoc(rows) {
+  return DOC_GROUPS.map((g) => {
+    const subs = g.subs.map((sub) => {
+      const mine = rows.filter((r) => r.doc?.group === g.key && r.doc?.sub === sub.key);
+      return { key: sub.key, id: `${g.key}:${sub.key}`, label: sub.label, rows: mine, summary: summary(mine) };
+    }).filter((sub) => sub.rows.length);
+    return { key: g.key, label: g.label, subs, summary: summary(subs.flatMap((x) => x.rows)) };
+  }).filter((g) => g.subs.length);
 }

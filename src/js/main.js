@@ -75,6 +75,7 @@ let resetArmed = false; // 상단바 '처음으로'를 한 번 눌러 확인을 
 let resetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
 let reqOpen = new Set(); // 주간 보고 감사인별 현황에서 펼친 감사인
+let listView = { view: 'list', open: new Set() }; // 주간 보고 자료 목록: 전체 목록 / 문서종류별(펼친 묶음)
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
 let preview = null; // 첨부 미리보기: { itemId, fileId, name, size, kind, url, text, truncated, itemName, blob }
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
@@ -140,7 +141,7 @@ function render() {
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(요청·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery, openRequesters: reqOpen }) + overlays();
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery, openRequesters: reqOpen, listView }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -411,6 +412,13 @@ const actions = {
   'set-who': (el) => { who = el.dataset.who; render(); },
   // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
   // 주간 보고 감사인별 현황: 이름을 누르면 그 감사인의 요청 중인 자료를 펼치고, 다시 누르면 접는다
+  // 주간 보고 자료 목록: 전체 목록 ↔ 문서종류별, 묶음 펼치기·접기
+  'report-view': (el) => { listView.view = el.dataset.view; render(); },
+  'toggle-doc': (el) => {
+    const id = el.dataset.doc;
+    if (listView.open.has(id)) listView.open.delete(id); else listView.open.add(id);
+    render();
+  },
   'toggle-requester': (el) => {
     const key = el.dataset.who;
     if (reqOpen.has(key)) reqOpen.delete(key); else reqOpen.add(key);
@@ -1135,7 +1143,7 @@ app.addEventListener('input', (e) => {
   }
   if (e.target.dataset.actionInput === 'report-search') {
     reportQuery = e.target.value;
-    app.querySelector('.item-table').innerHTML = itemTableBody(buildReport(state, currentToday()).rows, reportQuery);
+    app.querySelector('.item-table').innerHTML = itemTableBody(buildReport(state, currentToday()).rows, reportQuery, listView);
     return;
   }
   if (e.target.dataset.actionInput === 'follow-signoff') {
@@ -1205,7 +1213,7 @@ function resetAll() {
   if (preview?.url) URL.revokeObjectURL(preview.url);
   state = null;
   compose = bundle = fix = add = sheet = cal = conf = fu = att = preview = null;
-  mode = 'need'; who = 'all'; reportQuery = ''; reqOpen = new Set(); drawerReturn = null;
+  mode = 'need'; who = 'all'; reportQuery = ''; reqOpen = new Set(); listView = { view: 'list', open: new Set() }; drawerReturn = null;
   emptyForm = { ...EMPTY_FORM };
   try { history.replaceState(null, '', location.pathname + location.search); } catch { location.hash = ''; }
   render();

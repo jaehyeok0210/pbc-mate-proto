@@ -3,7 +3,7 @@
 
 import { formatMD, formatMDW } from '../lib/dates.js';
 import { leftText } from '../lib/priority.js';
-import { weekLabel, summaryLines, filterRows } from '../lib/report.js';
+import { weekLabel, summaryLines, filterRows, groupRowsByDoc } from '../lib/report.js';
 import { esc, ICON, STATUS_LABEL } from './html.js';
 import { topbar } from './dashboard.js';
 import { confirmOverview } from './overview.js';
@@ -16,7 +16,7 @@ import { requesterSummary, requesterMembers, currentUser, requesterOpenItems } f
  * @param report buildReport() 결과
  * @param opts   { today, isDemo, query }  query: 자료 목록 검색어
  */
-export function renderReport(state, report, { today, isDemo, query = '', openRequesters = new Set() }) {
+export function renderReport(state, report, { today, isDemo, query = '', openRequesters = new Set(), listView = { view: 'list', open: new Set() } }) {
   const { counts, received, owners, rows } = report;
   const lines = summaryLines(report);
 
@@ -36,11 +36,11 @@ export function renderReport(state, report, { today, isDemo, query = '', openReq
           </div>` : ''}
       </section>
 
-      ${counts.total ? body(report, lines, state, query, openRequesters) : empty()}
+      ${counts.total ? body(report, lines, state, query, openRequesters, listView) : empty()}
     </div>`;
 }
 
-function body(report, lines, state, query, openRequesters) {
+function body(report, lines, state, query, openRequesters, listView) {
   const { counts, received, owners, rows } = report;
   return `
     <div class="report-grid">
@@ -87,12 +87,16 @@ function body(report, lines, state, query, openRequesters) {
         <div class="report-block">
           <div class="it-headline">
             <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
+            <div class="seg it-view" role="group" aria-label="자료 목록 보기">
+              <button type="button" data-action="report-view" data-view="list" aria-pressed="${listView.view !== 'doc'}">전체 목록</button>
+              <button type="button" data-action="report-view" data-view="doc" aria-pressed="${listView.view === 'doc'}">문서종류별</button>
+            </div>
             <label class="it-search">
               ${ICON.search}
               <input type="search" data-action-input="report-search" value="${esc(query)}" placeholder="자료명 검색" aria-label="자료명 검색" autocomplete="off">
             </label>
           </div>
-          <div class="item-table">${itemTableBody(rows, query)}</div>
+          <div class="item-table">${itemTableBody(rows, query, listView)}</div>
         </div>
       </section>
     </div>`;
@@ -140,14 +144,32 @@ function requesterItems(items) {
               </ul>`;
 }
 
-/** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */
-export function itemTableBody(allRows, query) {
+/**
+ * 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지).
+ * listView.view 'doc'이면 문서종류별로 묶고, 작은 묶음을 눌러 펼친다. 검색 중에는 찾은 묶음을 모두 펼친다.
+ */
+export function itemTableBody(allRows, query, listView = { view: 'list', open: new Set() }) {
   const rows = filterRows(allRows, query);
+  const head = '<div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 요청</div><div>첨부자료</div></div>';
+  const count = query ? `<div class="it-count">‘${esc(query)}’ 검색 결과 ${rows.length}건 / 전체 ${allRows.length}건</div>` : '';
+  if (!rows.length) return `${head}${count}<div class="it-empty">검색 결과가 없어요. 자료명의 일부만 입력해 보세요.</div>`;
+  if (listView.view !== 'doc') return `${head}${count}${rows.map(itemRow).join('')}`;
+
+  const sumText = (m) => `${m.total}건 · 완료 ${m.done}${m.urgent ? ` · <b class="is-urgent">긴급 ${m.urgent}</b>` : ''}`;
+  return `${head}${count}${groupRowsByDoc(rows).map((g) => `
+            <div class="doc-group"><b>${esc(g.label)}</b><small>${sumText(g.summary)}</small></div>
+            ${g.subs.map((sub) => {
+              const open = Boolean(query) || listView.open.has(sub.id);
+              return `
+            <button type="button" class="doc-sub" data-action="toggle-doc" data-doc="${esc(sub.id)}" aria-expanded="${open}">
+              ${ICON.chevron}<span>${esc(sub.label)}</span><small>${sumText(sub.summary)}</small>
+            </button>
+            ${open ? `<div class="doc-rows">${sub.rows.map(itemRow).join('')}</div>` : ''}`;
+            }).join('')}`).join('')}`;
+}
+
+function itemRow(r) {
   return `
-            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 요청</div><div>첨부자료</div></div>
-            ${query ? `<div class="it-count">‘${esc(query)}’ 검색 결과 ${rows.length}건 / 전체 ${allRows.length}건</div>` : ''}
-            ${rows.length ? '' : '<div class="it-empty">검색 결과가 없어요. 자료명의 일부만 입력해 보세요.</div>'}
-            ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
                 <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a>${r.requester ? `<small class="it-req">요청 ${esc(r.requester)}</small>` : ''}</div>
@@ -156,7 +178,7 @@ export function itemTableBody(allRows, query) {
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>
                 <div class="it-att">${attachCell(r)}</div>
-              </div>`).join('')}`;
+              </div>`;
 }
 
 function stat(label, value, sub, cls = '') {

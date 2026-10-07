@@ -167,3 +167,24 @@ test('담당자 상세: 외부조회 조회처는 조회서 종류와 장부금�
   assert.equal(d.bundlable, 0, '후속 절차 건은 묶음 요청 대상 아님');
   assert.ok(d.history.some((h) => h.kind === 'received'));
 });
+
+test('자료 목록 문서종류별 묶기: 외부조회서 → 내부 자료 요청 → 후속 절차 증빙, 빈 묶음은 빠진다', async () => {
+  const { groupRowsByDoc, docTypeOf } = await import('../src/js/lib/report.js');
+  const { sampleState: current, DEMO_DATE: D } = await import('../src/js/store.js');
+  const groups = groupRowsByDoc(buildReport(current(), D).rows);
+  assert.deepEqual(groups.map((g) => g.key), ['confirm', 'pbc', 'evidence']);
+  const confirm = groups[0];
+  assert.deepEqual(confirm.subs.map((x) => x.key), ['bank', 'arap', 'legal', 'inventory']);
+  assert.equal(confirm.summary.total, confirm.subs.reduce((n, x) => n + x.rows.length, 0));
+  const pbc = groups[1];
+  assert.equal(pbc.subs.at(-1).key, 'other', '양식 없는 자료는 기타 자료');
+  assert.deepEqual(pbc.subs.at(-1).rows.map((r) => r.name), ['법인세 신고서 사본']);
+  assert.equal(groups[2].subs[0].key, 'alt', '후속 절차에서 만든 증빙 요청');
+  // 종류 판정
+  assert.deepEqual(docTypeOf({ kind: 'confirmation', confType: 'legal' }), { group: 'confirm', sub: 'legal' });
+  assert.deepEqual(docTypeOf({ name: '차이 소명 자료 (A)', sourceId: 'c3', procedure: '외부조회 차이 조정' }), { group: 'evidence', sub: 'diff' });
+  assert.deepEqual(docTypeOf({ name: '유형자산 증감내역' }), { group: 'pbc', sub: 'ppe' });
+  // 모든 행이 한 번씩만 들어간다
+  const all = groups.flatMap((g) => g.subs.flatMap((x) => x.rows));
+  assert.equal(all.length, buildReport(current(), D).rows.length);
+});

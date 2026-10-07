@@ -1640,3 +1640,21 @@ a.brand:hover { color: var(--orange-dark); }
   .req-table .ot-row > div:nth-child(5)::before { content: '가장 가까운 필요일 '; }
   .req-items .status { justify-self: start; }
 }
+
+/* 주간 보고 자료 목록: 문서종류별 묶음 */
+.it-view { margin-left: auto; margin-right: 10px; }
+.doc-group { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px 6px; border-top: 1px solid var(--line); background: #fff; }
+.doc-group b { font-size: 14px; color: var(--ink); }
+.doc-group small, .doc-sub small { font-size: 12px; color: var(--ink-3); }
+.doc-sub { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 16px 9px 22px; border: 0; border-top: 1px solid var(--line-soft); background: var(--fill-2); font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
+.doc-sub:hover { background: var(--fill); }
+.doc-sub svg { width: 11px; height: 11px; color: var(--ink-3); transition: transform .15s ease; flex-shrink: 0; }
+.doc-sub[aria-expanded="true"] svg { transform: rotate(90deg); color: var(--orange); }
+.doc-sub small { font-weight: 500; margin-left: 4px; }
+.doc-group .is-urgent, .doc-sub .is-urgent { color: var(--high-fg); font-weight: 600; }
+.doc-rows .it-row:first-child { border-top: 1px solid var(--line-soft); }
+@media (max-width: 720px) { .it-view { margin: 0; } .doc-sub { padding-left: 14px; } }
+.it-view { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; overflow: hidden; }
+.it-view button { height: 34px; padding: 0 12px; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-3); cursor: pointer; }
+.it-view button + button { border-left: 1px solid var(--line); }
+.it-view [aria-pressed="true"] { background: var(--ink); color: #fff; }
