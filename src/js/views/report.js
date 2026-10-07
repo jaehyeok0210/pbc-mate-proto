@@ -68,13 +68,15 @@ function body(report, lines, state, query, openRequesters, listView) {
         ${confirmOverview(trackOverview(state.items, state.materiality?.performance), state.materiality)}
 
         <div class="report-block">
-          <h2>담당자별(거래처별) 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요 · <i class="urgent-swatch"></i>긴급·지연 자료가 있는 담당자</span></h2>
+          <h2>담당자별(거래처별) 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
           <div class="owner-table own-table">
-            <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>가장 가까운 필요일</div><div>최근 요청</div></div>
+            <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div class="ot-of" aria-hidden="true"></div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 요청</div></div>
             ${owners.map((o) => `
-              <div class="ot-row ${o.urgent ? 'is-urgent-row' : ''}" ${o.urgent ? `title="긴급·지연 ${o.urgent}건"` : ''}>
+              <div class="ot-row">
                 <div class="ot-owner"><a class="owner-link" href="#/owner/${encodeURIComponent(o.owner)}">${esc(o.owner)}${ICON.chevron}</a>${o.dept ? `<small>${esc(o.dept)}</small>` : ''}</div>
                 <div><b>${o.open}건</b></div>
+                <div class="ot-of" aria-label="중">中</div>
+                <div class="${o.urgent ? 'is-urgent' : ''}">${o.urgent ? `${o.urgent}건` : '—'}</div>
                 <div>${formatMDW(o.nearest)} <small>· ${leftText(o.nearestLeft)}</small></div>
                 <div>${o.lastNudgedOn ? formatMD(o.lastNudgedOn) : '—'}</div>
               </div>`).join('')}
