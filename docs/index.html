@@ -1671,6 +1671,18 @@ a.brand:hover { color: var(--orange-dark); }
 .it-view button + button { border-left: 1px solid var(--line); }
 .it-view [aria-pressed="true"] { background: var(--ink); color: #fff; }
 
+/* 주간 보고 담당자별(거래처별) 현황: 긴급·지연 칸 대신 해당 행을 옅은 붉은색으로 */
+.own-table .ot-row { grid-template-columns: minmax(0, 1.6fr) 90px minmax(0, 1.4fr) 100px; }
+.own-table .ot-row.is-urgent-row { background: var(--high-bg); }
+.urgent-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--high-bg); border: 1px solid var(--high-border); vertical-align: -1px; margin-right: 4px; }
+@media (max-width: 720px) {
+  .own-table .ot-row { grid-template-columns: 1fr 1fr; }
+  .own-table .ot-row > div:nth-child(3) { grid-column: 1 / -1; }
+  .own-table .ot-row > div:nth-child(3)::before { content: '가장 가까운 필요일 '; color: var(--ink-3); font-weight: 400; }
+  .own-table .ot-row > div:nth-child(4) { grid-column: auto; }
+  .own-table .ot-row > div:nth-child(4)::before { content: '최근 요청 '; color: var(--ink-3); }
+}
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -6968,14 +6980,13 @@ function body(report, lines, state, query, openRequesters, listView) {
         ${confirmOverview(trackOverview(state.items, state.materiality?.performance), state.materiality)}
 
         <div class="report-block">
-          <h2>담당자별(거래처별) 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요</span></h2>
-          <div class="owner-table">
-            <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>긴급·지연</div><div>가장 가까운 필요일</div><div>최근 요청</div></div>
+          <h2>담당자별(거래처별) 현황 <span>· 담당자를 누르면 상세를 볼 수 있어요 · <i class="urgent-swatch"></i>긴급·지연 자료가 있는 담당자</span></h2>
+          <div class="owner-table own-table">
+            <div class="ot-row ot-head"><div>담당자</div><div>미완료</div><div>가장 가까운 필요일</div><div>최근 요청</div></div>
             ${owners.map((o) => `
-              <div class="ot-row">
+              <div class="ot-row ${o.urgent ? 'is-urgent-row' : ''}" ${o.urgent ? `title="긴급·지연 ${o.urgent}건"` : ''}>
                 <div class="ot-owner"><a class="owner-link" href="#/owner/${encodeURIComponent(o.owner)}">${esc(o.owner)}${ICON.chevron}</a>${o.dept ? `<small>${esc(o.dept)}</small>` : ''}</div>
                 <div><b>${o.open}건</b></div>
-                <div class="${o.urgent ? 'is-urgent' : ''}">${o.urgent ? `${o.urgent}건` : '—'}</div>
                 <div>${formatMDW(o.nearest)} <small>· ${leftText(o.nearestLeft)}</small></div>
                 <div>${o.lastNudgedOn ? formatMD(o.lastNudgedOn) : '—'}</div>
               </div>`).join('')}
