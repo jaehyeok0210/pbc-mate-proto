@@ -1653,6 +1653,24 @@ a.brand:hover { color: var(--orange-dark); }
   .req-items .status { justify-self: start; }
 }
 
+/* 주간 보고 자료 목록: 문서종류별 묶음 */
+.it-view { margin-left: auto; margin-right: 10px; }
+.doc-group { display: flex; align-items: baseline; gap: 10px; padding: 12px 16px 6px; border-top: 1px solid var(--line); background: #fff; }
+.doc-group b { font-size: 14px; color: var(--ink); }
+.doc-group small, .doc-sub small { font-size: 12px; color: var(--ink-3); }
+.doc-sub { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 16px 9px 22px; border: 0; border-top: 1px solid var(--line-soft); background: var(--fill-2); font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
+.doc-sub:hover { background: var(--fill); }
+.doc-sub svg { width: 11px; height: 11px; color: var(--ink-3); transition: transform .15s ease; flex-shrink: 0; }
+.doc-sub[aria-expanded="true"] svg { transform: rotate(90deg); color: var(--orange); }
+.doc-sub small { font-weight: 500; margin-left: 4px; }
+.doc-group .is-urgent, .doc-sub .is-urgent { color: var(--high-fg); font-weight: 600; }
+.doc-rows .it-row:first-child { border-top: 1px solid var(--line-soft); }
+@media (max-width: 720px) { .it-view { margin: 0; } .doc-sub { padding-left: 14px; } }
+.it-view { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; overflow: hidden; }
+.it-view button { height: 34px; padding: 0 12px; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-3); cursor: pointer; }
+.it-view button + button { border-left: 1px solid var(--line); }
+.it-view [aria-pressed="true"] { background: var(--ink); color: #fff; }
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -3750,6 +3768,8 @@ const { addDays, formatMD } = __m_lib_dates;
 const { withDays, isOpen, sortItems, groupByOwner, leftText } = __m_lib_priority;
 const { clientShortName } = __m_lib_mail;
 const { fixReasonLabel } = __m_lib_fix;
+const { CONF_TYPES, TYPE_ORDER } = __m_lib_confirmation;
+const { PBC_TEMPLATES, TEMPLATE_ORDER, templateOf } = __m_lib_pbcTemplate;
 // 7. 주간 현황 보고: 현재 자료 현황을 요약해 내부 공유용 텍스트·CSV로 만든다.
 // 숫자는 대시보드와 같은 함수(withDays·riskOf·sortItems·groupByOwner)로 계산한다.
 
@@ -3821,6 +3841,7 @@ function buildReport(state, today) {
 
   const toRow = (x) => ({
     id: x.id,
+    doc: docTypeOf(x),
     name: x.name,
     owner: x.owner,
     status: x.status,
@@ -3994,7 +4015,47 @@ function ownerDetail(state, owner, today) {
   };
 }
 
-return { weekRange, weekLabel, buildReport, summaryLines, reportToText, reportToCsv, csvFileName, filterRows, ownerDetail };
+// ---------- 자료 목록: 문서종류별 묶기 ----------
+
+const DOC_GROUPS = [
+  { key: 'confirm', label: '외부조회서', subs: TYPE_ORDER.map((k) => ({ key: k, label: CONF_TYPES[k].label })) },
+  { key: 'pbc', label: '내부 자료 요청', subs: [...TEMPLATE_ORDER.map((k) => ({ key: k, label: PBC_TEMPLATES[k].name })), { key: 'other', label: '기타 자료' }] },
+  { key: 'evidence', label: '후속 절차 증빙', subs: [{ key: 'alt', label: '대체적 절차 증빙' }, { key: 'diff', label: '차이 소명 자료' }] },
+];
+
+/**
+ * 자료의 문서 종류: { group, sub }.
+ * 외부조회서는 조회서 종류, 후속 절차에서 만든 증빙 요청(sourceId)은 대체적 절차·차이 소명,
+ * 그 외 자료는 표준 양식(없으면 기타 자료).
+ */
+function docTypeOf(item) {
+  if (item.kind === 'confirmation') return { group: 'confirm', sub: CONF_TYPES[item.confType] ? item.confType : 'bank' };
+  if (item.sourceId) return { group: 'evidence', sub: /차이/.test(item.procedure || '') ? 'diff' : 'alt' };
+  return { group: 'pbc', sub: templateOf(item)?.key || 'other' };
+}
+
+const summary = (rows) => ({
+  total: rows.length,
+  done: rows.filter((r) => r.status === 'done').length,
+  urgent: rows.filter((r) => r.status !== 'done' && (r.risk === 'late' || r.risk === 'high')).length,
+});
+
+/**
+ * 자료 목록 행을 문서종류별로 묶는다. 순서는 외부조회서 → 내부 자료 요청 → 후속 절차 증빙,
+ * 각 묶음 안은 정해진 순서. 자료가 없는 묶음은 뺀다. 행 순서(필요일 순, 완료는 뒤)는 그대로 둔다.
+ * @returns [{ key, label, summary, subs: [{ key, id, label, rows, summary }] }]
+ */
+function groupRowsByDoc(rows) {
+  return DOC_GROUPS.map((g) => {
+    const subs = g.subs.map((sub) => {
+      const mine = rows.filter((r) => r.doc?.group === g.key && r.doc?.sub === sub.key);
+      return { key: sub.key, id: `${g.key}:${sub.key}`, label: sub.label, rows: mine, summary: summary(mine) };
+    }).filter((sub) => sub.rows.length);
+    return { key: g.key, label: g.label, subs, summary: summary(subs.flatMap((x) => x.rows)) };
+  }).filter((g) => g.subs.length);
+}
+
+return { weekRange, weekLabel, buildReport, summaryLines, reportToText, reportToCsv, csvFileName, filterRows, ownerDetail, docTypeOf, groupRowsByDoc };
 })();
 
 // ---- lib/sampleDocs.js
@@ -6839,7 +6900,7 @@ return { renderAttach, attachCell, renderPreview };
 const __m_views_report = (() => {
 const { formatMD, formatMDW } = __m_lib_dates;
 const { leftText } = __m_lib_priority;
-const { weekLabel, summaryLines, filterRows } = __m_lib_report;
+const { weekLabel, summaryLines, filterRows, groupRowsByDoc } = __m_lib_report;
 const { esc, ICON, STATUS_LABEL } = __m_views_html;
 const { topbar } = __m_views_dashboard;
 const { confirmOverview } = __m_views_overview;
@@ -6855,7 +6916,7 @@ const { requesterSummary, requesterMembers, currentUser, requesterOpenItems } = 
  * @param report buildReport() 결과
  * @param opts   { today, isDemo, query }  query: 자료 목록 검색어
  */
-function renderReport(state, report, { today, isDemo, query = '', openRequesters = new Set() }) {
+function renderReport(state, report, { today, isDemo, query = '', openRequesters = new Set(), listView = { view: 'list', open: new Set() } }) {
   const { counts, received, owners, rows } = report;
   const lines = summaryLines(report);
 
@@ -6875,11 +6936,11 @@ function renderReport(state, report, { today, isDemo, query = '', openRequesters
           </div>` : ''}
       </section>
 
-      ${counts.total ? body(report, lines, state, query, openRequesters) : empty()}
+      ${counts.total ? body(report, lines, state, query, openRequesters, listView) : empty()}
     </div>`;
 }
 
-function body(report, lines, state, query, openRequesters) {
+function body(report, lines, state, query, openRequesters, listView) {
   const { counts, received, owners, rows } = report;
   return `
     <div class="report-grid">
@@ -6926,12 +6987,16 @@ function body(report, lines, state, query, openRequesters) {
         <div class="report-block">
           <div class="it-headline">
             <h2>자료 목록 <span>· 필요일이 가까운 순 · 완료는 맨 아래</span></h2>
+            <div class="seg it-view" role="group" aria-label="자료 목록 보기">
+              <button type="button" data-action="report-view" data-view="list" aria-pressed="${listView.view !== 'doc'}">전체 목록</button>
+              <button type="button" data-action="report-view" data-view="doc" aria-pressed="${listView.view === 'doc'}">문서종류별</button>
+            </div>
             <label class="it-search">
               ${ICON.search}
               <input type="search" data-action-input="report-search" value="${esc(query)}" placeholder="자료명 검색" aria-label="자료명 검색" autocomplete="off">
             </label>
           </div>
-          <div class="item-table">${itemTableBody(rows, query)}</div>
+          <div class="item-table">${itemTableBody(rows, query, listView)}</div>
         </div>
       </section>
     </div>`;
@@ -6979,14 +7044,32 @@ function requesterItems(items) {
               </ul>`;
 }
 
-/** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */
-function itemTableBody(allRows, query) {
+/**
+ * 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지).
+ * listView.view 'doc'이면 문서종류별로 묶고, 작은 묶음을 눌러 펼친다. 검색 중에는 찾은 묶음을 모두 펼친다.
+ */
+function itemTableBody(allRows, query, listView = { view: 'list', open: new Set() }) {
   const rows = filterRows(allRows, query);
+  const head = '<div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 요청</div><div>첨부자료</div></div>';
+  const count = query ? `<div class="it-count">‘${esc(query)}’ 검색 결과 ${rows.length}건 / 전체 ${allRows.length}건</div>` : '';
+  if (!rows.length) return `${head}${count}<div class="it-empty">검색 결과가 없어요. 자료명의 일부만 입력해 보세요.</div>`;
+  if (listView.view !== 'doc') return `${head}${count}${rows.map(itemRow).join('')}`;
+
+  const sumText = (m) => `${m.total}건 · 완료 ${m.done}${m.urgent ? ` · <b class="is-urgent">긴급 ${m.urgent}</b>` : ''}`;
+  return `${head}${count}${groupRowsByDoc(rows).map((g) => `
+            <div class="doc-group"><b>${esc(g.label)}</b><small>${sumText(g.summary)}</small></div>
+            ${g.subs.map((sub) => {
+              const open = Boolean(query) || listView.open.has(sub.id);
+              return `
+            <button type="button" class="doc-sub" data-action="toggle-doc" data-doc="${esc(sub.id)}" aria-expanded="${open}">
+              ${ICON.chevron}<span>${esc(sub.label)}</span><small>${sumText(sub.summary)}</small>
+            </button>
+            ${open ? `<div class="doc-rows">${sub.rows.map(itemRow).join('')}</div>` : ''}`;
+            }).join('')}`).join('')}`;
+}
+
+function itemRow(r) {
   return `
-            <div class="it-row it-head"><div>자료명</div><div>담당자</div><div>상태</div><div>필요일</div><div>남은 날</div><div>최근 요청</div><div>첨부자료</div></div>
-            ${query ? `<div class="it-count">‘${esc(query)}’ 검색 결과 ${rows.length}건 / 전체 ${allRows.length}건</div>` : ''}
-            ${rows.length ? '' : '<div class="it-empty">검색 결과가 없어요. 자료명의 일부만 입력해 보세요.</div>'}
-            ${rows.map((r) => `
               <div class="it-row ${r.status === 'done' ? 'is-done' : ''}">
                 <div class="it-name">${esc(r.name)}${r.fixReason ? `<small>${esc(r.fixReason)}</small>` : ''}${r.signoff ? `<small>${esc(r.signoff)}</small>` : ''}</div>
                 <div><a class="owner-link is-plain" href="#/owner/${encodeURIComponent(r.owner)}">${esc(r.owner)}</a>${r.requester ? `<small class="it-req">요청 ${esc(r.requester)}</small>` : ''}</div>
@@ -6995,7 +7078,7 @@ function itemTableBody(allRows, query) {
                 <div class="it-left">${r.status === 'done' ? '—' : `<b>${leftText(r.left)}</b><span class="risk risk-${r.risk}">${ICON[r.risk]}${r.riskLabel}</span>`}</div>
                 <div>${r.lastNudgedOn ? formatMD(r.lastNudgedOn) : '—'}</div>
                 <div class="it-att">${attachCell(r)}</div>
-              </div>`).join('')}`;
+              </div>`;
 }
 
 function stat(label, value, sub, cls = '') {
@@ -7847,6 +7930,7 @@ let resetArmed = false; // 상단바 '처음으로'를 한 번 눌러 확인을 
 let resetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
 let reqOpen = new Set(); // 주간 보고 감사인별 현황에서 펼친 감사인
+let listView = { view: 'list', open: new Set() }; // 주간 보고 자료 목록: 전체 목록 / 문서종류별(펼친 묶음)
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
 let preview = null; // 첨부 미리보기: { itemId, fileId, name, size, kind, url, text, truncated, itemName, blob }
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
@@ -7912,7 +7996,7 @@ function render() {
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(요청·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery, openRequesters: reqOpen }) + overlays();
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery, openRequesters: reqOpen, listView }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -8183,6 +8267,13 @@ const actions = {
   'set-who': (el) => { who = el.dataset.who; render(); },
   // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
   // 주간 보고 감사인별 현황: 이름을 누르면 그 감사인의 요청 중인 자료를 펼치고, 다시 누르면 접는다
+  // 주간 보고 자료 목록: 전체 목록 ↔ 문서종류별, 묶음 펼치기·접기
+  'report-view': (el) => { listView.view = el.dataset.view; render(); },
+  'toggle-doc': (el) => {
+    const id = el.dataset.doc;
+    if (listView.open.has(id)) listView.open.delete(id); else listView.open.add(id);
+    render();
+  },
   'toggle-requester': (el) => {
     const key = el.dataset.who;
     if (reqOpen.has(key)) reqOpen.delete(key); else reqOpen.add(key);
@@ -8907,7 +8998,7 @@ app.addEventListener('input', (e) => {
   }
   if (e.target.dataset.actionInput === 'report-search') {
     reportQuery = e.target.value;
-    app.querySelector('.item-table').innerHTML = itemTableBody(buildReport(state, currentToday()).rows, reportQuery);
+    app.querySelector('.item-table').innerHTML = itemTableBody(buildReport(state, currentToday()).rows, reportQuery, listView);
     return;
   }
   if (e.target.dataset.actionInput === 'follow-signoff') {
@@ -8977,7 +9068,7 @@ function resetAll() {
   if (preview?.url) URL.revokeObjectURL(preview.url);
   state = null;
   compose = bundle = fix = add = sheet = cal = conf = fu = att = preview = null;
-  mode = 'need'; who = 'all'; reportQuery = ''; reqOpen = new Set(); drawerReturn = null;
+  mode = 'need'; who = 'all'; reportQuery = ''; reqOpen = new Set(); listView = { view: 'list', open: new Set() }; drawerReturn = null;
   emptyForm = { ...EMPTY_FORM };
   try { history.replaceState(null, '', location.pathname + location.search); } catch { location.hash = ''; }
   render();
