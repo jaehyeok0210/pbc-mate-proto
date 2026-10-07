@@ -1624,6 +1624,35 @@ a.brand:hover { color: var(--orange-dark); }
 
 .mark-sent { white-space: nowrap; }
 
+/* 주간 보고 감사인별 현황: 이름을 눌러 요청 중인 자료 펼치기 */
+.req-toggle svg { transition: transform .15s ease; margin-right: 2px; }
+.req-toggle[aria-expanded="true"] svg { transform: rotate(90deg); color: var(--orange); }
+.req-table .ot-row.is-open { border-bottom: 0; }
+.req-items { list-style: none; margin: 0; padding: 4px 16px 10px 34px; border-top: 0; display: flex; flex-direction: column; background: var(--fill-2); }
+.req-items.is-empty { padding: 8px 16px 12px 34px; font-size: 12.5px; color: var(--ink-3); background: var(--fill-2); }
+.req-items li { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 96px 120px; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+.req-items li:first-child { border-top: 0; }
+.req-item-name { color: var(--ink); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req-item-name:hover { color: var(--orange-dark); text-decoration: underline; text-underline-offset: 3px; }
+.req-item-owner { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req-item-due { color: var(--ink-2); white-space: nowrap; }
+.risk-text.risk-late, .risk-text.risk-high { color: var(--high-fg); }
+.risk-text.risk-mid { color: var(--mid-fg); }
+.risk-text.risk-low { color: var(--low-fg); }
+@media (max-width: 720px) {
+  .req-items { padding: 4px 14px 10px; }
+  .req-items li { grid-template-columns: 1fr auto; row-gap: 2px; }
+  .req-item-owner { grid-column: 1; }
+  .req-item-due { grid-column: 2; grid-row: 2; justify-self: end; }
+}
+@media (max-width: 720px) {
+  /* 감사인별 현황은 담당자별 현황과 칸 구성이 달라 라벨을 따로 둔다: 요청 중 · 긴급·지연 · 완료 · 가장 가까운 필요일 */
+  .req-table .ot-row > div:nth-child(2)::before { content: '요청 중 '; }
+  .req-table .ot-row > div:nth-child(4)::before { content: '완료 '; }
+  .req-table .ot-row > div:nth-child(5)::before { content: '가장 가까운 필요일 '; }
+  .req-items .status { justify-self: start; }
+}
+
 </style>
 <div id="app"></div>
 <div id="toast" class="toast" role="status" hidden></div>
@@ -4360,6 +4389,13 @@ function requesterSummary(rows, members) {
   }).filter((r) => r.total > 0 || r.key);
 }
 
+/** 감사인별 현황에서 펼쳐 볼 그 감사인의 요청 중인 자료 (필요일이 가까운 순). key ''는 요청 감사인 미지정 */
+function requesterOpenItems(rows, key) {
+  return rows
+    .filter((r) => (r.requester || '') === key && r.status !== 'done')
+    .sort((a, b) => a.left - b.left);
+}
+
 /** 메일 서명 '[이름] 드림'을 보내는 사람 이름으로. 이름이 없으면 그대로 둔다. */
 function signMail(mail, signer) {
   if (!signer) return mail;
@@ -4389,7 +4425,7 @@ function calendarScope(state) {
   return { items, events, scope: 'mine', me };
 }
 
-return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, managerName, isManager, requesterMembers, defaultRequester, pickRequester, switchUser, filterByRequester, requesterSummary, signMail, calendarScope };
+return { memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, managerName, isManager, requesterMembers, defaultRequester, pickRequester, switchUser, filterByRequester, requesterSummary, requesterOpenItems, signMail, calendarScope };
 })();
 
 // ---- lib/timeline.js
@@ -6809,7 +6845,7 @@ const { topbar } = __m_views_dashboard;
 const { confirmOverview } = __m_views_overview;
 const { trackOverview } = __m_lib_followup;
 const { attachCell } = __m_views_attach;
-const { requesterSummary, requesterMembers, currentUser } = __m_lib_team;
+const { requesterSummary, requesterMembers, currentUser, requesterOpenItems } = __m_lib_team;
 // 7. 주간 현황 보고 — 레퍼런스 7
 // 대시보드와 같은 상단바 아래에 요약 카드(왼쪽)와 담당자별 현황·자료 목록(오른쪽)을 보여준다.
 
@@ -6819,7 +6855,7 @@ const { requesterSummary, requesterMembers, currentUser } = __m_lib_team;
  * @param report buildReport() 결과
  * @param opts   { today, isDemo, query }  query: 자료 목록 검색어
  */
-function renderReport(state, report, { today, isDemo, query = '' }) {
+function renderReport(state, report, { today, isDemo, query = '', openRequesters = new Set() }) {
   const { counts, received, owners, rows } = report;
   const lines = summaryLines(report);
 
@@ -6839,11 +6875,11 @@ function renderReport(state, report, { today, isDemo, query = '' }) {
           </div>` : ''}
       </section>
 
-      ${counts.total ? body(report, lines, state, query) : empty()}
+      ${counts.total ? body(report, lines, state, query, openRequesters) : empty()}
     </div>`;
 }
 
-function body(report, lines, state, query) {
+function body(report, lines, state, query, openRequesters) {
   const { counts, received, owners, rows } = report;
   return `
     <div class="report-grid">
@@ -6885,7 +6921,7 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
-        ${requesterBlock(report.rows, requesterMembers(state), currentUser(state))}
+        ${requesterBlock(report.rows, requesterMembers(state), currentUser(state), openRequesters)}
 
         <div class="report-block">
           <div class="it-headline">
@@ -6902,24 +6938,45 @@ function body(report, lines, state, query) {
 }
 
 /** 감사인별 현황: 팀원마다 요청 중·긴급·완료. 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 연다. */
-function requesterBlock(rows, members, me) {
+function requesterBlock(rows, members, me, openKeys) {
   if (!members.length) return '';
   const list = requesterSummary(rows, members);
   return `
         <div class="report-block">
-          <h2>감사인별 현황 <span>· 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 봐요</span></h2>
+          <h2>감사인별 현황 <span>· 이름을 누르면 요청 중인 자료를 펼쳐 봐요</span></h2>
           <div class="owner-table req-table">
             <div class="ot-row ot-head"><div>요청 감사인</div><div>요청 중</div><div>긴급·지연</div><div>완료</div><div>가장 가까운 필요일</div></div>
-            ${list.map((r) => `
-              <div class="ot-row ${r.key && r.key === me ? 'is-me' : ''}">
-                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}${r.key && r.key === me ? '<span class="me-tag">나</span>' : ''}</div>
+            ${list.map((r) => {
+              const open = openKeys.has(r.key);
+              return `
+              <div class="ot-row ${r.key && r.key === me ? 'is-me' : ''} ${open ? 'is-open' : ''}">
+                <div class="ot-owner"><button type="button" class="owner-link req-toggle" data-action="toggle-requester" data-who="${esc(r.key)}" aria-expanded="${open}">${ICON.chevron}${esc(r.name)}</button>${r.key && r.key === me ? '<span class="me-tag">나</span>' : ''}</div>
                 <div><b>${r.open}건</b></div>
                 <div class="${r.urgent ? 'is-urgent' : ''}">${r.urgent ? `${r.urgent}건` : '—'}</div>
                 <div>${r.done ? `${r.done}건` : '—'}</div>
                 <div>${r.nearest ? `${formatMDW(r.nearest.neededOn)} <small>· ${leftText(r.nearest.left)}</small>` : '—'}</div>
-              </div>`).join('')}
+              </div>
+              ${open ? requesterItems(requesterOpenItems(rows, r.key)) : ''}`;
+            }).join('')}
           </div>
         </div>`;
+}
+
+// 펼친 감사인의 요청 중인 자료: 누르면 그 자료의 요청 메일(보완 요청·후속 절차) 화면을 연다. 닫으면 주간 보고로 돌아온다.
+function requesterItems(items) {
+  if (!items.length) return '<div class="req-items is-empty">요청 중인 자료가 없어요.</div>';
+  const href = (r) => (r.status === 'follow' ? `#/follow/${encodeURIComponent(r.id)}`
+    : r.status === 'fix' ? `#/fix/${encodeURIComponent(r.id)}` : `#/compose/${encodeURIComponent(r.id)}`);
+  return `
+              <ul class="req-items">
+                ${items.map((r) => `
+                <li>
+                  <a class="req-item-name" href="${href(r)}" data-return="#/report">${esc(r.name)}</a>
+                  <span class="req-item-owner">${esc(r.owner)}</span>
+                  <span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span>
+                  <span class="req-item-due">${formatMD(r.neededOn)} · <b class="risk-text risk-${r.risk}">${leftText(r.left)}</b></span>
+                </li>`).join('')}
+              </ul>`;
 }
 
 /** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */
@@ -7789,6 +7846,7 @@ let confResetTimer;
 let resetArmed = false; // 상단바 '처음으로'를 한 번 눌러 확인을 기다리는 중
 let resetTimer;
 let reportQuery = ''; // 주간 보고 자료 목록 검색어
+let reqOpen = new Set(); // 주간 보고 감사인별 현황에서 펼친 감사인
 let drawerReturn = null; // 담당자 상세에서 연 패널을 닫으면 돌아갈 주소
 let preview = null; // 첨부 미리보기: { itemId, fileId, name, size, kind, url, text, truncated, itemName, blob }
 let att = null;     // 파일 첨부 창: { itemId, pending: File[], rejected, justDone, saving }
@@ -7854,7 +7912,7 @@ function render() {
   // 주간 현황은 대시보드 대신 그리는 전체 화면. 패널(요청·보완·추가)은 대시보드 위에서만 연다.
   if (location.hash === '#/report') {
     compose = bundle = fix = add = null;
-    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery }) + overlays();
+    app.innerHTML = renderReport(state, buildReport(state, today), { today, isDemo, query: reportQuery, openRequesters: reqOpen }) + overlays();
     document.body.classList.remove('has-drawer');
     return;
   }
@@ -8124,9 +8182,10 @@ const actions = {
   },
   'set-who': (el) => { who = el.dataset.who; render(); },
   // 주간 보고 감사인별 현황 → 대시보드를 그 감사인 자료로
-  'show-requester': (el) => {
-    who = el.dataset.who === currentUser(state) ? 'me' : el.dataset.who;
-    location.hash = '';
+  // 주간 보고 감사인별 현황: 이름을 누르면 그 감사인의 요청 중인 자료를 펼치고, 다시 누르면 접는다
+  'toggle-requester': (el) => {
+    const key = el.dataset.who;
+    if (reqOpen.has(key)) reqOpen.delete(key); else reqOpen.add(key);
     render();
   },
   'load-sample': () => { state = sampleState(); save(state); who = 'all'; render(); seedSampleFiles(); },
@@ -8918,7 +8977,7 @@ function resetAll() {
   if (preview?.url) URL.revokeObjectURL(preview.url);
   state = null;
   compose = bundle = fix = add = sheet = cal = conf = fu = att = preview = null;
-  mode = 'need'; who = 'all'; reportQuery = ''; drawerReturn = null;
+  mode = 'need'; who = 'all'; reportQuery = ''; reqOpen = new Set(); drawerReturn = null;
   emptyForm = { ...EMPTY_FORM };
   try { history.replaceState(null, '', location.pathname + location.search); } catch { location.hash = ''; }
   render();
