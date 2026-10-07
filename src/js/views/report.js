@@ -9,14 +9,14 @@ import { topbar } from './dashboard.js';
 import { confirmOverview } from './overview.js';
 import { trackOverview } from '../lib/followup.js';
 import { attachCell } from './attach.js';
-import { requesterSummary, requesterMembers, currentUser } from '../lib/team.js';
+import { requesterSummary, requesterMembers, currentUser, requesterOpenItems } from '../lib/team.js';
 
 /**
  * @param state  앱 상태
  * @param report buildReport() 결과
  * @param opts   { today, isDemo, query }  query: 자료 목록 검색어
  */
-export function renderReport(state, report, { today, isDemo, query = '' }) {
+export function renderReport(state, report, { today, isDemo, query = '', openRequesters = new Set() }) {
   const { counts, received, owners, rows } = report;
   const lines = summaryLines(report);
 
@@ -36,11 +36,11 @@ export function renderReport(state, report, { today, isDemo, query = '' }) {
           </div>` : ''}
       </section>
 
-      ${counts.total ? body(report, lines, state, query) : empty()}
+      ${counts.total ? body(report, lines, state, query, openRequesters) : empty()}
     </div>`;
 }
 
-function body(report, lines, state, query) {
+function body(report, lines, state, query, openRequesters) {
   const { counts, received, owners, rows } = report;
   return `
     <div class="report-grid">
@@ -82,7 +82,7 @@ function body(report, lines, state, query) {
           </div>
         </div>
 
-        ${requesterBlock(report.rows, requesterMembers(state), currentUser(state))}
+        ${requesterBlock(report.rows, requesterMembers(state), currentUser(state), openRequesters)}
 
         <div class="report-block">
           <div class="it-headline">
@@ -99,24 +99,45 @@ function body(report, lines, state, query) {
 }
 
 /** 감사인별 현황: 팀원마다 요청 중·긴급·완료. 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 연다. */
-function requesterBlock(rows, members, me) {
+function requesterBlock(rows, members, me, openKeys) {
   if (!members.length) return '';
   const list = requesterSummary(rows, members);
   return `
         <div class="report-block">
-          <h2>감사인별 현황 <span>· 이름을 누르면 대시보드를 그 감사인 자료로 좁혀 봐요</span></h2>
+          <h2>감사인별 현황 <span>· 이름을 누르면 요청 중인 자료를 펼쳐 봐요</span></h2>
           <div class="owner-table req-table">
             <div class="ot-row ot-head"><div>요청 감사인</div><div>요청 중</div><div>긴급·지연</div><div>완료</div><div>가장 가까운 필요일</div></div>
-            ${list.map((r) => `
-              <div class="ot-row ${r.key && r.key === me ? 'is-me' : ''}">
-                <div class="ot-owner">${r.key ? `<button type="button" class="owner-link" data-action="show-requester" data-who="${esc(r.key)}">${esc(r.name)}${ICON.chevron}</button>` : `<b>${esc(r.name)}</b>`}${r.key && r.key === me ? '<span class="me-tag">나</span>' : ''}</div>
+            ${list.map((r) => {
+              const open = openKeys.has(r.key);
+              return `
+              <div class="ot-row ${r.key && r.key === me ? 'is-me' : ''} ${open ? 'is-open' : ''}">
+                <div class="ot-owner"><button type="button" class="owner-link req-toggle" data-action="toggle-requester" data-who="${esc(r.key)}" aria-expanded="${open}">${ICON.chevron}${esc(r.name)}</button>${r.key && r.key === me ? '<span class="me-tag">나</span>' : ''}</div>
                 <div><b>${r.open}건</b></div>
                 <div class="${r.urgent ? 'is-urgent' : ''}">${r.urgent ? `${r.urgent}건` : '—'}</div>
                 <div>${r.done ? `${r.done}건` : '—'}</div>
                 <div>${r.nearest ? `${formatMDW(r.nearest.neededOn)} <small>· ${leftText(r.nearest.left)}</small>` : '—'}</div>
-              </div>`).join('')}
+              </div>
+              ${open ? requesterItems(requesterOpenItems(rows, r.key)) : ''}`;
+            }).join('')}
           </div>
         </div>`;
+}
+
+// 펼친 감사인의 요청 중인 자료: 누르면 그 자료의 요청 메일(보완 요청·후속 절차) 화면을 연다. 닫으면 주간 보고로 돌아온다.
+function requesterItems(items) {
+  if (!items.length) return '<div class="req-items is-empty">요청 중인 자료가 없어요.</div>';
+  const href = (r) => (r.status === 'follow' ? `#/follow/${encodeURIComponent(r.id)}`
+    : r.status === 'fix' ? `#/fix/${encodeURIComponent(r.id)}` : `#/compose/${encodeURIComponent(r.id)}`);
+  return `
+              <ul class="req-items">
+                ${items.map((r) => `
+                <li>
+                  <a class="req-item-name" href="${href(r)}" data-return="#/report">${esc(r.name)}</a>
+                  <span class="req-item-owner">${esc(r.owner)}</span>
+                  <span class="status status-${r.status}">${ICON[r.status]}${STATUS_LABEL[r.status]}</span>
+                  <span class="req-item-due">${formatMD(r.neededOn)} · <b class="risk-text risk-${r.risk}">${leftText(r.left)}</b></span>
+                </li>`).join('')}
+              </ul>`;
 }
 
 /** 자료 목록 표 내용. 검색어를 칠 때 이 부분만 다시 그린다 (입력 포커스 유지). */

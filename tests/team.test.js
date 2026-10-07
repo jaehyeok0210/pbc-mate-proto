@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   memberLabel, parseMembers, validateTeam, buildTeam, teamMembers, currentUser, switchUser,
-  filterByRequester, requesterSummary, signMail, requesterMembers, isManager, defaultRequester, pickRequester,
+  filterByRequester, requesterSummary, signMail, requesterMembers, isManager, defaultRequester, pickRequester, requesterOpenItems,
 } from '../src/js/lib/team.js';
 import { sampleState, createEmptyState } from '../src/js/store.js';
 import { buildMail } from '../src/js/lib/mail.js';
@@ -116,4 +116,17 @@ test('실무진 후보에서 고르기: 후보에 있으면 그대로, 없으면
   const asMgr = switchUser(s, '이서연 매니저');
   assert.equal(pickRequester(asMgr, '박모르는 회계사'), requesterMembers(asMgr)[0]);
   assert.equal(pickRequester({ items: [] }, '홍길동'), '홍길동', '팀 정보 없으면 그대로');
+});
+
+test('감사인별 현황 펼치기: 그 감사인의 요청 중인 자료만, 필요일이 가까운 순', () => {
+  const rows = [
+    { id: 'a', requester: 'A', status: 'none', left: 5 },
+    { id: 'b', requester: 'A', status: 'done', left: -3 },
+    { id: 'c', requester: 'A', status: 'fix', left: -1 },
+    { id: 'd', requester: 'B', status: 'none', left: 0 },
+    { id: 'e', status: 'part', left: 2 },
+  ];
+  assert.deepEqual(requesterOpenItems(rows, 'A').map((r) => r.id), ['c', 'a']);
+  assert.deepEqual(requesterOpenItems(rows, '').map((r) => r.id), ['e'], '미지정');
+  assert.deepEqual(requesterOpenItems(rows, 'C'), []);
 });

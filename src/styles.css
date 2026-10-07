@@ -1611,3 +1611,32 @@ a.brand:hover { color: var(--orange-dark); }
 .fu-proof { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 
 .mark-sent { white-space: nowrap; }
+
+/* 주간 보고 감사인별 현황: 이름을 눌러 요청 중인 자료 펼치기 */
+.req-toggle svg { transition: transform .15s ease; margin-right: 2px; }
+.req-toggle[aria-expanded="true"] svg { transform: rotate(90deg); color: var(--orange); }
+.req-table .ot-row.is-open { border-bottom: 0; }
+.req-items { list-style: none; margin: 0; padding: 4px 16px 10px 34px; border-top: 0; display: flex; flex-direction: column; background: var(--fill-2); }
+.req-items.is-empty { padding: 8px 16px 12px 34px; font-size: 12.5px; color: var(--ink-3); background: var(--fill-2); }
+.req-items li { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 96px 120px; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+.req-items li:first-child { border-top: 0; }
+.req-item-name { color: var(--ink); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req-item-name:hover { color: var(--orange-dark); text-decoration: underline; text-underline-offset: 3px; }
+.req-item-owner { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req-item-due { color: var(--ink-2); white-space: nowrap; }
+.risk-text.risk-late, .risk-text.risk-high { color: var(--high-fg); }
+.risk-text.risk-mid { color: var(--mid-fg); }
+.risk-text.risk-low { color: var(--low-fg); }
+@media (max-width: 720px) {
+  .req-items { padding: 4px 14px 10px; }
+  .req-items li { grid-template-columns: 1fr auto; row-gap: 2px; }
+  .req-item-owner { grid-column: 1; }
+  .req-item-due { grid-column: 2; grid-row: 2; justify-self: end; }
+}
+@media (max-width: 720px) {
+  /* 감사인별 현황은 담당자별 현황과 칸 구성이 달라 라벨을 따로 둔다: 요청 중 · 긴급·지연 · 완료 · 가장 가까운 필요일 */
+  .req-table .ot-row > div:nth-child(2)::before { content: '요청 중 '; }
+  .req-table .ot-row > div:nth-child(4)::before { content: '완료 '; }
+  .req-table .ot-row > div:nth-child(5)::before { content: '가장 가까운 필요일 '; }
+  .req-items .status { justify-self: start; }
+}

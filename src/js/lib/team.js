@@ -115,6 +115,13 @@ export function requesterSummary(rows, members) {
   }).filter((r) => r.total > 0 || r.key);
 }
 
+/** 감사인별 현황에서 펼쳐 볼 그 감사인의 요청 중인 자료 (필요일이 가까운 순). key ''는 요청 감사인 미지정 */
+export function requesterOpenItems(rows, key) {
+  return rows
+    .filter((r) => (r.requester || '') === key && r.status !== 'done')
+    .sort((a, b) => a.left - b.left);
+}
+
 /** 메일 서명 '[이름] 드림'을 보내는 사람 이름으로. 이름이 없으면 그대로 둔다. */
 export function signMail(mail, signer) {
   if (!signer) return mail;
